@@ -1,0 +1,44 @@
+\section{背景与动机}
+\label{sec:background}
+
+\subsection{为什么 type denotation / logical relation 是核心难点}
+
+在 PL 与程序验证论文中，有一大类工作是在设计类型系统（例如 Rust 的 ownership / borrowing 保证内存安全）。
+对简单语言，type soundness 通常可以用 progress + preservation 证明
+\citep{WrightFelleisen1994}；但对更复杂的类型系统——Rust 的 lifetime、unsafe 抽象、并发、
+substructural resource 等——纯语法证明往往不够，通常需要 denotational semantics 或 logical relation。
+
+这类证明的核心难点，是\emph{如何定义合适的 type denotation / logical relation}。
+它本质上就是程序验证中的 inductive invariant：
+\begin{itemize}
+  \item 定义太弱，推不出安全性；
+  \item 定义太强，typing rule 无法证明 sound；
+  \item 定义方式不合适，证明会非常复杂，甚至需要引入新的 semantic domain
+        （separation logic、resource algebra、lifetime logic、step-indexed Kripke logical relation 等）。
+\end{itemize}
+
+两篇背景文献：
+\begin{itemize}
+  \item \citet{Timany2024JACM}：说明为什么 semantic / logical type soundness 比 progress + preservation
+        更强，特别适合解释 abstraction 与 unsafe / safe 交互；
+  \item \citet{Reynolds2000Meaning}：提供 intrinsic / extrinsic semantics 的经典视角——
+        把类型看成程序语义上的 property / relation，而非只看 typing derivation 本身。
+\end{itemize}
+
+\subsection{与 AI for Proof 现状的差距}
+
+目前很多 AI for Proof 工作集中在：证明单个 lemma、生成 tactic、proof repair、theorem proving benchmark。
+但在 PL / 程序验证里，真正困难的地方经常不是某一步 tactic，而是：
+
+\begin{quote}
+\emph{我们到底应该定义什么样的 invariant，才能让整个 soundness proof 成立？}
+\end{quote}
+
+这个问题目前基本只能靠人的洞察力解决。如果能被 agent 部分自动化，将直接降低 PL mechanization 的门槛，
+并让研究者更快地验证一个新的 typing rule 是否 sound、探索 alternative denotation。
+
+\subsection{一个被忽视的事实：大量 PL 语义工作没有机械化形式化}
+
+类型系统之外，还有一大类 PL 语义工作——abstract machine、definitional interpreter、staged evaluator 等——
+它们论文里的正确性声明（soundness、语义等价、语义保持）通常只有非形式化论证，没有公开的机械化形式化
+（详见 \S\ref{sec:machine-line}）。这些工作恰好是``不变量构造''任务最干净、也最有补全价值的数据来源。

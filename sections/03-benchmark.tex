@@ -1,0 +1,160 @@
+\section{\benchmark{}：``语义不变量构造''任务集（张子豪）}
+\label{sec:benchmark}
+
+这一部分是可以立即启动的工作，由张子豪同学负责执行，周喆提供设计与工具链支持。
+\benchmark{} 的目标是回答一个定量问题：\emph{给定语言定义、语义与目标定理，现有的 LLM agent
+能在多大程度上自动构造出正确、可证明的语义不变量？}
+
+\subsection{统一任务格式（问题卡片）}
+
+每个任务用一张\emph{问题卡片}（problem card）描述，尽量机器可读、可复用：
+
+\begin{quote}
+\noindent\textbf{输入：}
+\begin{itemize}
+  \item 语言语法（BNF，或已有的 Coq / Lean 定义，优先复用现有 artifact）；
+  \item 操作语义（big-step / small-step / abstract machine / definitional interpreter）；
+  \item typing rules，或待验证的目标语义对象；
+  \item 目标定理（type soundness / 抽象解释 soundness / 变换语义保持 / 机器与解释器等价）；
+  \item 可选：例子、测试、已有 proof attempt。
+\end{itemize}
+\noindent\textbf{期望输出：}
+\begin{itemize}
+  \item semantic domain（或 abstract domain + Galois connection / abstraction relation）；
+  \item type denotation / term denotation / logical relation（或 simulation relation）；
+  \item context interpretation；
+  \item 每条 typing rule（或每个语义步骤）对应的 proof obligation；
+  \item 完整证明脚本（Rocq / Lean），要求无 \texttt{Admitted}。
+\end{itemize}
+\end{quote}
+
+\subsection{三类任务（类型系统层）}
+
+类型系统层的任务分为三类，分别对应不同研究目的：
+
+\begin{enumerate}
+  \item \textbf{复现与简化}：论文本身已有 denotation / logical relation。
+        例如 RustBelt \citep{Jung2018RustBelt}、RustHornBelt \citep{Matsushita2022RustHornBelt}、
+        VerusBelt \citep{Hance2026VerusBelt}，以及 reachability types 的逻辑关系工作
+        \citep{Bao2025ReachabilityLR}——这些工作的 type denotation / logical relation 本身就是核心贡献。
+        这里的目标不是假装从零发明，而是看 agent 能否根据 typing rules 与 soundness theorem 找到类似
+        的不变量，或者发现更简单、更模块化的定义方式。
+  \item \textbf{证明结构迁移}：论文有 soundness proof，但不是 denotation / logical relation
+        （多为 progress + preservation，如 STLC、System F、Featherweight Java \citep{Igarashi2001FJ}）。
+        目标：验证 agent 能否把 syntactic proof 问题重铸成 semantic type soundness / logical relation
+        问题，而不是只会复述原论文。
+  \item \textbf{补全缺失证明}：系统没有完整证明，或只有非形式化论证。输入只有语言定义、typing rules、
+        例子与目标定理。成功则补全 soundness proof；失败也可能暴露 typing rule 本身不 sound，
+        或指出缺少必要的语义结构。这类任务最接近真实研究场景。
+\end{enumerate}
+
+\subsection{推广：超越类型系统（abstract machine 线）}
+\label{sec:machine-line}
+
+原想法只覆盖``类型系统''；本项目的关键推广是：\emph{把``构造语义不变量''任务从类型系统推广到一般的
+PL 语义工作}。理由有二：(1) 任务结构同构——都是``给定形式定义与目标定理，构造让证明成立的语义结构''；
+(2) 数据更丰富——很多这类工作没有机械化形式化，benchmark 直接产生研究价值。
+
+\begin{table}[htbp]
+\centering
+\caption{abstract machine 线候选任务（正确性声明多为非形式化论证，未见公开机械化形式化）}
+\label{tab:machine-line}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.35\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}@{}}
+\toprule
+\textbf{论文} & \textbf{正确性声明} & \textbf{要构造的语义结构} \\
+\midrule
+Van Horn \& Might, \emph{Abstracting Abstract Machines} (ICFP'10) \citep{VanHornMight2010AAM}
+  & 抽象机上的抽象解释（CFA）相对于具体机器语义是 sound 的
+  & abstract domain + abstraction / simulation relation \\
+Johnson \& Van Horn, \emph{Abstracting Definitional Interpreters} (ICFP'14) \citep{JohnsonVanHorn2014ADI}
+  & 把抽象机统一为 definitional interpreter 后，抽象版本仍 sound
+  & monadic abstract interpreter 的 soundness invariant \\
+Danvy \& Nielsen, \emph{Refocusing in Reduction Semantics} (RS-04-26, 2004) \citep{DanvyNielsen2004Refocusing}
+  & refocus 与 plug-then-decompose 计算相同结果
+  & 约简语义与抽象机之间的等价 / simulation \\
+Danvy \& Millikin, \emph{Refunctionalization at Work} (SCP'09) \citep{DanvyMillikin2009Refunctionalization}
+  & defunctionalization 的左逆在语义上保持计算
+  & 函数表示与一等函数间的语义等价 \\
+Wei, Decker \& Rompf, \emph{Refunctionalization of Abstract Abstract Machines} (ICFP'18, pearl) \citep{Wei2018RefunctionalizationAAM}
+  & AAM 与 ADI 两个框架通过 refunctionalization 相互转换
+  & 机器状态与解释器状态之间的双向转换保持 soundness \\
+Wei, Tan \& Zhong, \emph{Let It Be Optimized: Multi-Stage Evaluators with Let-Insertion} (ICFP'26, pearl) \citep{Wei2026LetItBeOptimized}
+  & staged evaluator 中 \mbox{let-insertion} 及各步优化均保持程序语义
+  & 分阶段求值 / \mbox{let-insertion} 的语义保持不变量 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+这些任务的``语义不变量''与类型系统的 logical relation 一一对应：
+类型系统对应 type denotation / logical relation；机器与解释器对应 machine state 之间的（bi-）simulation；
+变换正确性对应 refinement / equational theory。\citet{Wei2026LetItBeOptimized} 是该线最近的工作，
+其 related work 展示了完整脉络（MetaML \citep{TahaSheard2000MetaML}、LMS \citep{RompfOdersky2010LMS}、
+staged abstract interpreters \citep{Wei2019StagedAI} 等），可以作为问题卡片书写的文献地图。
+
+\begin{remark}
+  ``没有机械化形式化''这一判断需要在构建问题卡片时逐篇核实（搜索 artifact、公开 Coq/Lean 代码）。
+  如果某篇已有形式化，就把它降级为第一类（复现与简化）任务——这本身也是 benchmark 元数据的一部分。
+\end{remark}
+
+\subsection{任务优先级与难度分级}
+
+\begin{table}[htbp]
+\centering
+\caption{benchmark 优先级（P0 最先启动）}
+\label{tab:priority}
+\begin{tabular}{@{}p{0.06\textwidth}p{0.30\textwidth}p{0.36\textwidth}p{0.18\textwidth}@{}}
+\toprule
+\textbf{优先级} & \textbf{任务} & \textbf{说明} & \textbf{类别} \\
+\midrule
+P0 & STLC logical relation（call-by-value） & 校准任务：有大量现成 Coq/Lean 参考，用于验证 agent 管线与评价指标 & 一 \\
+P0 & System F parametricity & 校准任务：逻辑等价 + 自由定理，验证 agent 能否处理高阶量词 & 一 \\
+P1 & RustBelt 最小片段（$\lambda_{\mathrm{rust}}$ 子集，\texttt{own}/\texttt{shr} 模型） & 已有 Iris + Coq 形式化，测试 agent 能否恢复 \texttt{own}/\texttt{shr} split、current/future model & 一 \\
+P1 & Reachability Types 片段 & OOPSLA'25 已给出 logical relation \citep{Bao2025ReachabilityLR}，POPL'24 有 Coq 机械化 \citep{Bao2024PolyReachability}；测试简化 / 重组织 & 一 \\
+P2 & Featherweight Java 重铸 & 把 syntactic type soundness 重铸为 semantic soundness \citep{Igarashi2001FJ} & 二 \\
+P2 & region / ownership 小语言 & 测试 agent 能否发现资源敏感（resource-sensitive）语义 & 二 / 三 \\
+P3 & AAM / ADI 的 soundness 形式化 & 补全缺失证明，见 \tablename~\ref{tab:machine-line} 前两行 & 三 \\
+P3 & Refunctionalization AAM $\leftrightarrow$ ADI 等价性 & 补全缺失证明，见 \tablename~\ref{tab:machine-line} 第五行 & 三 \\
+P3 & let-insertion 语义保持（ICFP'26 pearl） & 最新、难度最高，见 \tablename~\ref{tab:machine-line} 末行 & 三 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{交付物与里程碑}
+
+每个 case 的交付物（\textbf{四件套}）：
+\begin{enumerate}
+  \item \textbf{问题卡片}：输入 / 输出 / 目标定理，机器可读（Markdown 或 JSON），附语言定义骨架（Rocq / Lean）；
+  \item \textbf{运行日志}：agent 的 candidate denotation、失败尝试与原因分析、最终结果（成功的定义与证明）；
+  \item \textbf{形式化产物}：Rocq / Lean 证明脚本（无 \texttt{Admitted}）+ 说明文档；
+  \item \textbf{元数据}：难度、是否已有公开形式化、参考文献、备注（例如发现原规则过强/过弱）。
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{建议里程碑}
+\label{tab:milestones}
+\begin{tabular}{@{}p{0.16\textwidth}p{0.30\textwidth}p{0.44\textwidth}@{}}
+\toprule
+\textbf{时间} & \textbf{里程碑} & \textbf{内容} \\
+\midrule
+第 1--2 周 & M0：跑通管线 & 完成 P0 两个校准 case 的问题卡片；用现有 LLM agent（如 Codex）+ Rocq 跑出基线；
+             确定运行记录模板与评价指标 \\
+第 3--6 周 & M1：类型系统层 & 完成 P1、P2 共 4--6 个 case；整理``复现 / 迁移 / 补全''三类结果对比 \\
+第 7--12 周 & M2：推广层 & 完成 abstract machine 线 2--3 个 case（建议先 AAM，再 refunctionalization，
+             最后 let-insertion）；产出中期报告 \\
+持续 & 元数据维护 & 每篇候选论文核实是否有公开形式化，维护 benchmark 清单 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{工具链建议}
+
+\begin{itemize}
+  \item \textbf{证明助手}：Rocq 9.1 + stdpp（团队已有成熟经验，见 \texttt{UnderLogicAndType} 项目）；
+        Lean 4 作为对照后端，方便与``证明自动化''生态对接；
+  \item \textbf{框架}：Iris / separation logic 仅在对齐原论文时使用（P1 的 RustBelt 片段）；
+        其他 case 鼓励``直接定义''的轻量路线，以便比较框架负担（\S\ref{sec:framework}）；
+  \item \textbf{自动化}：coqhammer、\texttt{lia}、\texttt{eauto}、QuickChick（反例搜索）等；
+  \item \textbf{Agent 基线}：Codex / Claude 等现成 agent，统一 prompt 模板，记录每次运行。
+\end{itemize}

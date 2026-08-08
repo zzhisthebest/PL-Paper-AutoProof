@@ -1,0 +1,58 @@
+% !TEX program = xelatex
+\documentclass[11pt]{ctexart}
+
+\usepackage[a4paper,top=2.6cm,bottom=2.6cm,left=2.8cm,right=2.8cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage[colorlinks=true,linkcolor=blue!70!black,citecolor=blue!70!black,urlcolor=blue!70!black]{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{定理}[section]
+\newtheorem{definition}[theorem]{定义}
+\newtheorem{example}[theorem]{例}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{说明}
+
+\newcommand{\benchmark}{\textsc{Benchmark}}
+\newcommand{\solution}{\textsc{Solution}}
+
+\title{\bfseries 用 AI Agent 自动构造 Type Denotation / Logical Relation\\[6pt]
+\large 研究计划：\benchmark{} 构建（与南京大学张子豪合作）与 \solution{} 探索}
+\author{周喆（Zhe Zhou）}
+\date{2026 年 8 月}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+本项目研究如何让 AI Agent 自动构造 PL / 程序验证论文中最核心的语义不变量
+（type denotation、term denotation、logical relation、semantic domain），
+把 AI for Proof 从``写 tactic''推进到``发现证明的核心不变量''。
+本文档把工作拆成两部分：
+\textbf{\benchmark{}}（近期，由南京大学张子豪同学负责）：构建``给定语言与定理、构造语义不变量''的
+任务集，从类型系统推广到 abstract machine / definitional interpreter / staged evaluation 等更广义的 PL 语义工作；
+\textbf{\solution{}}（后续，周喆负责）：agent 系统原型、证明失败反馈回路、
+以及``哪些复杂性来自问题本身、哪些来自证明框架''的比较研究。
+未来该方向天然连接 logical relation、denotational semantics、substructural logic 与 separation logic，
+可作为与北京大学数学科学学院合作的切入点。
+\end{abstract}
+
+\tableofcontents
+
+\input{sections/01-core-idea}
+\input{sections/02-background}
+\input{sections/03-benchmark}
+\input{sections/04-solution}
+\input{sections/05-roadmap}
+
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
+
+\end{document}

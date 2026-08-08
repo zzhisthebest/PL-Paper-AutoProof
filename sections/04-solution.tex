@@ -1,0 +1,84 @@
+\section{\solution{}：Agent 系统与科学问题（后续探索）}
+\label{sec:solution}
+
+\benchmark{} 为 \solution{} 提供数据与评价基准；\solution{} 反过来决定 \benchmark{} 的问题卡片该怎么出。
+两者并行推进：\benchmark{} 先跑基线，\solution{} 在此之上迭代 agent 能力。
+
+\subsection{系统工作流}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  node distance=0.9cm and 1.1cm,
+  box/.style={draw, rounded corners=2pt, align=center, minimum width=3.4cm, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick},
+]
+  \node[box] (in) {输入：语言定义\\ + typing rules + 目标定理};
+  \node[box, right=of in] (gen) {Agent 提议 candidate\\ semantic domain / denotation};
+  \node[box, right=of gen] (prove) {尝试证明每条 rule\\ 的 semantic soundness};
+  \node[box, below=of prove] (succ) {全部规则可证};
+  \node[box, below=of gen] (fail) {失败：分析原因\\ 太强 / 太弱 / 缺 resource\\ 缺 monotonicity / domain 不够};
+  \node[box, below=of in] (gen2) {修改 denotation 或 domain};
+
+  \draw[arr] (in) -- (gen);
+  \draw[arr] (gen) -- (prove);
+  \draw[arr] (prove) -- node[right] {成功} (succ);
+  \draw[arr] (prove) -- node[right] {失败} (fail);
+  \draw[arr] (fail) -- (gen2);
+  \draw[arr] (gen2) -- node[above] {迭代} (in);
+  \draw[arr] (succ) -| node[above right, font=\small] {推广检查} (gen);
+\end{tikzpicture}
+\caption{Agent 迭代工作流：构造 denotation 的过程类似程序验证中寻找 inductive invariant。}
+\label{fig:workflow}
+\end{figure}
+
+\noindent
+收敛之后，进一步检查：\emph{某个 denotation 成功证明了原 typing rules，是否还允许更强、更自由的
+typing rules？}如果是，说明原论文的规则可能过于保守。这个方向不仅能复现已有证明，
+还可能发现已有类型系统设计中的限制或改进空间。
+
+\subsection{关键技术挑战}
+
+\begin{itemize}
+  \item \textbf{候选生成}：如何让 LLM 生成``有前途''的 denotation？
+        把 denotation 的常见结构（product / sum / function / existential / step-indexing /
+        resource algebra / Kripke world）做成一个小的组合 DSL，让 agent 在此空间内搜索，
+        而不是自由文本生成；
+  \item \textbf{失败反馈回路}：把证明失败（未闭合目标、循环依赖、不可判定的子目标）转成可操作的信号；
+        用 QuickChick / small-model 搜索找反例，区分``denotation 错了''与``证明还差一步''；
+  \item \textbf{证明后端}：Rocq / Lean 双后端；证明自动化（coqhammer、\texttt{lia}、\texttt{eauto}）
+        与 denotation 生成的解耦，使失败分析聚焦于\emph{不变量设计}而非 tactic 细节；
+  \item \textbf{评价指标}：成功率之外，还要度量 denotation 的\emph{可读性 / 模块化}、
+        是否需要引入新的 semantic domain、能否发现更强的 typing rules。
+\end{itemize}
+
+\subsection{科学问题：证明框架负担与 denotation 发现}
+\label{sec:framework}
+
+很多已有证明依赖大型框架（如 Iris \citep{Jung2018Iris}、separation logic 库、step-indexed LR 库）。
+这些框架表达力强，但也可能带来额外负担：某些 denotation 必须绕着框架接口写，某些概念要通过复杂的
+resource algebra 或 proof pattern 间接表达，导致定义不直观、proof script 很重、可读性差。
+
+如果 agent 能在同一个 soundness 任务上尝试不同的 semantic domain、不同的 denotation factoring、
+不同的 proof architecture，我们就可以系统地比较：
+\begin{itemize}
+  \item 哪些复杂性来自问题本身，哪些来自当前证明框架的限制；
+  \item 是否存在更直接、更可读的 denotation；
+  \item 是否需要为这类证明设计新的 library abstraction 或新的 semantic framework。
+\end{itemize}
+因此这个项目不只是评估 agent 能否证明定理，也可以反过来帮助评估 Iris 等框架在表达某类
+type denotation / logical relation 时的工程负担，并为设计更好的 proof harness 提供指导。
+
+\subsection{为什么这个问题重要}
+
+\begin{enumerate}
+  \item \textbf{帮助设计复杂类型系统}：研究者可以更快验证 typing rule 是否 sound，探索 alternative denotation；
+  \item \textbf{降低 PL mechanization 门槛}：很多论文形式化证明的难点在 denotation / logical relation 设计；
+  \item \textbf{发现已有系统的不足}：agent 可能发现原 denotation 过于复杂、原 typing rules 过于保守，
+        甚至指出某些规则实际不 sound；
+  \item \textbf{连接数学逻辑与系统验证}：天然结合 logical relation、denotational semantics、
+        substructural logic、separation logic 与程序验证；
+  \item \textbf{RustBelt 风格 case study 有影响力}：若能在 RustBelt 风格 fragment 上展示 agent 自动发现
+        或简化 denotation，会很有说服力，也容易获得 PL 社区关注；
+  \item \textbf{改进现有证明框架}：见 \S\ref{sec:framework}。
+\end{enumerate}

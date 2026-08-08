@@ -1,0 +1,39 @@
+\section{路线图与分工}
+\label{sec:roadmap}
+
+\begin{table}[htbp]
+\centering
+\caption{阶段划分与负责人}
+\label{tab:roadmap}
+\begin{tabular}{@{}p{0.14\textwidth}p{0.30\textwidth}p{0.30\textwidth}p{0.16\textwidth}@{}}
+\toprule
+\textbf{阶段} & \textbf{时间} & \textbf{内容} & \textbf{负责人} \\
+\midrule
+阶段 0 & 2026-08 起 & \benchmark{} 构建：问题卡片、基线运行、元数据（\S\ref{sec:benchmark}） & 张子豪（周喆指导） \\
+阶段 1 & 2026 秋 & \solution{} 原型 v1：针对 P0/P1 的 denotation 候选生成 + 迭代证明 & 周喆 \\
+阶段 2 & 2027 春 & 推广到 abstract machine 线；框架负担比较实验 & 张子豪 + 周喆 \\
+阶段 3 & 2027 年 & 论文产出：benchmark 报告 / 方法论文；评估与北大数院合作 & 全体 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{与北京大学数学科学学院的合作}
+\label{sec:collab}
+
+这个方向为数学侧提供了明确的问题来源：logical relation 的模型论基础、denotational semantics 中的
+domain theory、substructural logic 与 categorical semantics、step-indexing 与 Kripke 语义。
+反过来，数院可以为 denotation 的``正确形式''提供理论指导，例如：
+\begin{itemize}
+  \item denotation 的范畴 / 类型论表述（intrinsic vs.\ extrinsic semantics \citep{Reynolds2000Meaning}）；
+  \item 不同 resource algebra 之间能否建立系统的比较与合成；
+  \item ``最优 / 最简 denotation''能否在某个数学意义下被刻画（例如作为某个 universal property）。
+\end{itemize}
+这些问题的答案，既能让 agent 的搜索更有方向，也能把``AI 自动构造不变量''做成一个有数学深度的研究方向。
+
+\subsection{立即可以开始的事情}
+
+\begin{enumerate}
+  \item 张子豪按 \S\ref{sec:benchmark} 完成 P0 两张问题卡片，并跑通一次 Codex/Rocq 基线；
+  \item 维护候选论文清单（类型层 + machine 层），逐篇核实是否有公开形式化；
+  \item 固定运行记录模板与评价指标，保证后续结果可复现、可比较。
+\end{enumerate}

@@ -1,0 +1,31 @@
+\section{核心想法与定位}
+\label{sec:idea}
+
+本项目（暂名 ``AI Denotation Agent''）的目标是：\emph{让 AI Agent 自动构造 PL / 程序验证论文中最关键的
+语义不变量}，即 type denotation、term denotation、logical relation，以及在必要时选择合适的 semantic domain。
+
+目标不是让 LLM 简单地把 proof script 补完，而是让它参与\emph{``为什么这个类型系统是 sound 的''}这一最核心的
+\emph{设计}层面：在给定语言语法、操作语义、typing rules 与目标 soundness theorem 之后，自动提出候选的
+denotation / logical relation，并迭代地对每条 typing rule 尝试语义 soundness 证明，在失败时分析原因
+（不变量太强、太弱、缺少 resource、缺少 monotonicity、semantic domain 不够）并修改设计。
+
+\paragraph{关键推广：不局限于类型系统。}
+``构造正确的不变量''这一核心任务并不只出现在类型系统里。抽象机（abstract machine）、定义式解释器
+（definitional interpreter）、程序变换（例如 staged evaluation 中的 let-insertion）等一大类 PL 语义工作，
+其正确性（soundness、语义等价、语义保持）同样依赖一个精心选择的语义结构，而且这些工作大多只有非形式化论证，
+甚至完全没有机械化形式化（详见 \S\ref{sec:benchmark}）。
+因此本项目把 \benchmark{} 从``类型系统''推广到``一般 PL 语义工作''：既扩大了数据规模，
+也使``语义不变量构造''成为一个真正通用的 AI for Proof 任务。
+
+\paragraph{近期分工。}
+\begin{itemize}
+  \item \textbf{张子豪（南京大学）}：负责 \benchmark{} 构建与基线评估（\S\ref{sec:benchmark}）。
+        这部分产出明确、可以立即启动：编写问题卡片、运行现有 LLM agent 作为基线、记录并整理结果。
+  \item \textbf{周喆}：负责整体设计与 \solution{} 探索（\S\ref{sec:solution}）：
+        agent 系统原型、失败反馈回路、证明框架负担的比较研究。
+\end{itemize}
+
+\paragraph{远期合作。}
+该项目天然连接 logical relation、denotational semantics、substructural logic、separation logic 等
+数学与逻辑内容，未来希望邀请\emph{北京大学数学科学学院}的同事加入（详见 \S\ref{sec:collab}），
+形成``数院提供数学语义基础、系统 / PL 方向提供语言与验证问题、AI agent 提供自动化''的合作闭环。
