@@ -1,1376 +1,495 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 
-From Stdlib Require Import List.
-From AutoProof Require Import Maps.
+From Stdlib Require Import Arith.PeanoNat.
+From Stdlib Require Import Lists.List.
+From Stdlib Require Import Lia.
 From AutoProof Require Import Smallstep.
 From AutoProof.STLC Require Import Syntax.
 From AutoProof.STLC Require Import StlcProp.
 
-
+Import ListNotations.
 
 Module STLCNorm.
 Import STLC.
 Import STLCProp.
 
-(* -->*表示零步或多步归约 *)
-(* 程序终止的定义 *)
-Definition halts  (t:tm) : Prop :=  exists t', t -->* t' /\  value t'.
+(* -->* 表示零步或多步归约。 *)
+(* 程序终止的定义：t 最终能归约到某个 value。 *)
+Definition halts (t : tm) : Prop :=
+  exists v, t -->* v /\ value v.
 
-Lemma value_halts : forall v, value v -> halts v.
+(* 多步归约可以传递：t -->* u 且 u -->* v，则 t -->* v。 *)
+Lemma multi_trans : forall t u v,
+  t -->* u ->
+  u -->* v ->
+  t -->* v.
 Proof.
-  intros t h1.
-  unfold halts.
-  exists t.
-  split.
+  intros t u v Htu Huv.
+  induction Htu.
+  - exact Huv.
+  - eapply multi_step; eauto.
+Qed.
+
+(* 如果函数部分多步归约，那么整个 application 的函数部分也可以同步多步归约。 *)
+Lemma multi_app1 : forall t1 t1' t2,
+  t1 -->* t1' ->
+  locally_closed t2 ->
+  tm_app t1 t2 -->* tm_app t1' t2.
+Proof.
+  intros t1 t1' t2 Hs Ht2.
+  induction Hs.
   - apply multi_refl.
-  - exact h1.
-Qed.
-
-(* R是比终止更强、由类型决定的程序性质 *)
-Fixpoint R (T:ty) (t:tm) : Prop :=
-  <{ empty |-- t \in T }> /\ halts t /\
-  (match T with
-   (* <{{ Bool }}> 是类型 notation，等价于 Ty_Bool。 *)
-   | <{{ Bool }}> => True
-   (* <{{ T1 -> T2 }}> 等价于 Ty_Arrow T1 T2。 *)
-   (* 保证好函数t使用好参数t1后（好函数和好参数本身都是好程序），结果仍然是好程序。 *)
-   | <{{ T1 -> T2 }}> => (forall t1, R T1 t1 -> R T2 <{ t t1 }>)
-   end).
-
-(* 显然，定义 *)
-Lemma R_halts : forall {T} {t}, R T t -> halts t.
-Proof.
-    intros.
-    destruct T.
-    - unfold R in H.
-      destruct H.
-      destruct H0.
-      assumption.
-    - unfold R in H.
-      destruct H.
-      destruct H0.
-      assumption.
-Qed.
-
-(* 显然，定义 *)
-Lemma R_typable_empty : forall {T} {t}, R T t -> <{ empty |-- t \in T }>.
-Proof.
-    intros.
-    destruct T; unfold R in H; destruct H as [H _]; assumption.
-Qed.
-
-(* value 不可能再进行一步归约。 *)
-Lemma value__normal : forall v,
-  value v -> ~ exists t', v --> t'.
-Proof.
-  intros v Hv [t' Hstep].
-  (* 对value各个构造器情况讨论 *)
-  inversion Hv. 
-  - subst.
-    (* 函数不能继续归约 *)
-    inversion Hstep.
-  - subst.
-    inversion Hstep.
-  - subst.
-    inversion Hstep.
-Qed.
-
-(* [appears_free_in x t] 表示变量 x 在程序 t 中自由出现，即没有被对应的 lambda 绑定。 *)
-Inductive appears_free_in : string -> tm -> Prop :=
-  | afi_var : forall (x : string),
-      appears_free_in x <{ x }>
-  | afi_app1 : forall x t1 t2,
-      appears_free_in x t1 -> appears_free_in x <{ t1 t2 }>
-  | afi_app2 : forall x t1 t2,
-      appears_free_in x t2 -> appears_free_in x <{ t1 t2 }>
-  | afi_abs : forall x y T11 t12,
-        y <> x  ->
-        appears_free_in x t12 ->
-        appears_free_in x <{ \y : T11, t12 }>
-  (* booleans *)
-  | afi_test0 : forall x t0 t1 t2,
-      appears_free_in x t0 ->
-      appears_free_in x <{ if t0 then t1 else t2 }>
-  | afi_test1 : forall x t0 t1 t2,
-      appears_free_in x t1 ->
-      appears_free_in x <{ if t0 then t1 else t2 }>
-  | afi_test2 : forall x t0 t1 t2,
-      appears_free_in x t2 ->
-      appears_free_in x <{ if t0 then t1 else t2 }>
-  (* pairs这些对于完成p0用不到 *)
-  (* | afi_pair1 : forall x t1 t2,
-      appears_free_in x t1 ->
-      appears_free_in x <{ (t1, t2) }>
-  | afi_pair2 : forall x t1 t2,
-      appears_free_in x t2 ->
-      appears_free_in x <{ (t1 , t2) }>
-  | afi_fst : forall x t,
-      appears_free_in x t ->
-      appears_free_in x <{ t.fst }>
-  | afi_snd : forall x t,
-      appears_free_in x t ->
-      appears_free_in x <{ t.snd }> *)
-.
-
-Hint Constructors appears_free_in : core.
-
-Definition closed (t:tm) :=
-  forall x, ~ appears_free_in x t.
-
-(* 环境只要在程序的自由变量上保持一致，程序的类型就不变。 *)
-(* 显然 *)
-Lemma context_invariance : forall Gamma Gamma' t T,
-     <{Gamma |-- t \in T}>  ->
-     (forall x, appears_free_in x t -> Gamma x = Gamma' x)  ->
-     <{Gamma' |-- t \in T}>.
-Proof.
-  intros.
-  generalize dependent Gamma'.
-  induction H; intros.
-  - (* T_Var *)
-    apply T_Var. 
-    rewrite <- H.
-    symmetry.
-    apply H0.
-    (* 显然 *)
-    auto.
-
-  - (* T_Abs *)
-    apply T_Abs.
-    apply IHhas_type.
-    intros.
-    destruct (eqb_spec x0 x1) as [Heq | Hneq].
-    + subst.
-      rewrite update_eq.
-      rewrite update_eq.
-      reflexivity.
-    + subst.
-      rewrite update_neq.
-      rewrite update_neq.
-      apply H0.
-      apply afi_abs.
-      auto.
-      auto.
-      auto.
-      auto.
-
-    
-  - (* T_App *)
-    apply (T_App T1 T2).
-    + apply IHhas_type1.
-      intros.
-      apply H1.
-      auto.
-    + apply IHhas_type2.
-      intros.
-      apply H1.
-      auto.
-  - auto.
-  - auto.
-  - apply T_If.
-    + apply IHhas_type1.
-      intros.
-      apply H2.
-      apply afi_test0.
-      exact H3.
-    + apply IHhas_type2.
-      intros.
-      apply H2.
-      apply afi_test1.
-      exact H3.
-    + apply IHhas_type3.
-      intros.
-      apply H2.
-      apply afi_test2.
-      exact H3.
-
-
-Qed.
-
-(* 显然 *)
-Theorem false_eqb_string : forall x y : string,
-   x <> y -> String.eqb x y = false.
-Proof.
-  intros x y. rewrite String.eqb_neq.
-  intros H. apply H. Qed.
-
-(* x要映射到一个类型，不然包含了x的t也无法映射到一个类型 *)
-Lemma free_in_context : forall x t T Gamma,
-   appears_free_in x t ->
-   <{Gamma |-- t \in T}> ->
-   exists T', Gamma x = Some T'.
-Proof.
-  intros.
-  induction H0.
-  - assert (x0=x1).
-    {
-      inversion H.
-      auto.
-    }
-    subst.
-    eauto.
-  - inversion H.
-    subst.
-    assert (exists T' : ty, <{ x1 |-> T2; Gamma }> x0 = Some T').
-    {
-      eauto.
-    }
-    destruct H1.
-    rewrite update_neq in H1.
-    eauto.
-    assumption.
-  - inversion H;subst.
-    + apply IHhas_type1.
-      exact H2.
-    + apply IHhas_type2.
-      exact H2.
-  - (*H显然不成立*)
-    inversion H.
-  - (*H显然不成立*)
-    inversion H.
-  - inversion H;subst.
-    + apply IHhas_type1.
-      exact H2.
-    + apply IHhas_type2.
-      exact H2.
-    + apply IHhas_type3.
-      exact H2.
-
-Qed.
-
-Corollary typable_empty__closed : forall t T,
-    <{empty |-- t \in T}>  ->
-    closed t.
-Proof.
-  intros.
-  unfold closed.
-  intros.
-  (* 反证法 *)
-  intro.
-  destruct (free_in_context x0 t T empty H0 H)
-    as [T' Hlookup].
-  (* 空环境对任何变量都返回none，所以Hlookup不成立 *)
-  discriminate Hlookup.
+  - eapply multi_step.
+    + apply ST_App1; eauto.
+    + exact IHHs.
 Qed.
 
 
 
-Ltac solve_by_value_nf :=
-  match goal with
-  | Hv : value ?v, Hstep : ?v --> ?v' |- _ =>
-      exfalso; apply value__normal in Hv; eauto
+(* 如果函数已经是 value，那么参数部分的多步归约可以搬到整个 application 里。 *)
+Lemma multi_app2 : forall v1 t2 t2',
+  value v1 ->
+  t2 -->* t2' ->
+  tm_app v1 t2 -->* tm_app v1 t2'.
+Proof.
+  intros v1 t2 t2' Hv Hs.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_App2; eauto.
+    + exact IHHs.
+Qed.
+
+(* if 条件部分的多步归约可以搬到整个 if 里。 *)
+Lemma multi_if : forall t1 t1' t2 t3,
+  t1 -->* t1' ->
+  locally_closed t2 ->
+  locally_closed t3 ->
+  tm_if t1 t2 t3 -->* tm_if t1' t2 t3.
+Proof.
+  intros t1 t1' t2 t3 Hs Ht2 Ht3.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_If; eauto.
+    + exact IHHs.
+Qed.
+
+
+
+Print value.
+(**
+对好值的定义。
+  value_relation T v：
+  已经算完的值 v 在类型 T 下是“好值”。
+
+  Bool 分支：好值只能是 true 或 false。
+  Arrow 分支：v 必须是一个 lambda；对任意 T1 下的好值 arg，
+     将 arg 放入函数体后得到的 open body arg 必须是 T2 下的好程序。这就是好函数的定义。
+*)
+Fixpoint value_relation (T : ty) (v : tm) : Prop :=
+  value v /\
+  match T with
+  | Ty_Bool =>
+      v = tm_true \/ v = tm_false
+  | Ty_Arrow T1 T2 =>
+      exists body,
+        v = tm_abs T1 body /\
+        forall arg,
+          value_relation T1 arg ->
+          (* 其实就是expression_relation T2 (open body arg) *)
+          locally_closed (open body arg) /\
+          exists v',
+            open body arg -->* v' /\
+            value_relation T2 v'
   end.
 
-(* 一步归约是确定的：同一个程序一步归约后的结果唯一。 *)
-Lemma step_deterministic : deterministic step.
-Proof.
-  unfold deterministic.
-  intros t t' t'' E1.
-  generalize dependent t''.
-  (* 对step进行归纳 *)
-  induction E1.
-  - intros t'' h1.
-    (* 对t''分构造器情况讨论 *)
-    inversion h1.
-    + subst.
-      reflexivity.
-    + subst.
-      inversion H3.
-    + subst.
-      (* 这里H4矛盾了，因为v是value了 *)
-      exfalso.
-      apply value__normal in H.
-      apply H.
-      exists t2'.
-      exact H4.
-  - intros t'' h1.
-    inversion h1.
-    + subst.
-      (* E1不成立，因为函数定义不能继续归约 *)
-      exfalso.
-      inversion E1.
-    + subst.
-      assert (Heq : t1' = t1'0).
-      {
-        apply IHE1.
-        exact H2.
-      }
-      rewrite Heq.
-      reflexivity.
-    + subst.
-      (* E1不成立，因为value不能继续归约 *)
-      exfalso.
-      apply value__normal in H1.
-      apply H1.
-      exists t1'.
-      exact E1.
-  - intros t'' h1.
-    inversion h1.
-    + subst.
-      (* t2 既是 value 又能继续归约，矛盾。 *)
-      solve_by_value_nf.
-    + subst.
-      (* v1 既是 value 又能继续归约，矛盾。 *)
-      solve_by_value_nf.
-    + subst.
-      f_equal.
-      apply IHE1.
-      assumption.
-  - intros t'' h1.
-    inversion h1.
-    + subst.
-      reflexivity.
-    + subst.
-      inversion H3.
-  - intros t'' h1.
-    inversion h1.
-    + subst.
-      reflexivity.
-    + subst.
-      inversion H3.
-  - intros t'' h1.
-    inversion h1.
-    + subst.
-      inversion E1.
-    + subst.
-      inversion E1.
-    + subst.
-      f_equal.
-      apply IHE1.
-      assumption.
+(**
+对好程序的定义。
+  expression_relation T t：
+  一般程序 t 在类型 T 下是“好程序”。
+*)
+Definition expression_relation (T : ty) (t : tm) : Prop :=
+  (* locally_closed t已经被value_relation T v包含，但这里加上它是为了方便 *)
+  locally_closed t /\
+  exists v,
+    t -->* v /\
+    value_relation T v.
 
+(* 替换环境：给每个自由变量指定一个要替换成的程序。 *)
+Definition term_substitution := atom -> tm.
 
+(* 恒等替换：每个自由变量仍然替换成它自己。 *)
+Definition id_substitution : term_substitution :=
+  fun x => tm_fvar x.
 
+(* rho 是希腊字母 ρ 的英文写法，PL 文献里常用它表示“环境”或“映射” *)
+(* 在替换环境 rho 里，把 x 改成映射到 v。 *)
+Definition subst_update
+    (rho : term_substitution) (x : atom) (v : tm) : term_substitution :=
+  fun y => if Nat.eqb x y then v else rho y.
 
-  (* generalize dependent t''.
-  induction E1; intros t'' E2; inversion E2; subst; clear E2;
-    try f_equal; try solve_by_value_nf; eauto.
-  - inversion H3.
-  - inversion E1.
-  - inversion H3.
-  - inversion H3.
-  - inversion E1.
-  - inversion E1. *)
-Qed.
-
-Lemma step_preserves_halting :
-  forall t t', (t --> t') -> (halts t <-> halts t').
-Proof.
- intros t t' ST.  unfold halts.
- split.
- - (* -> *)
-  intros [t'' [STM V]].
-  destruct STM as [start | start middle final Hfirst Hrest].
-  (* 零步归约： t'' 就是 t*)
-  + exfalso; apply value__normal in V; eauto.
-  (* 一步或多步归约：
-     存在中间程序 t'
-     Hstep : t --> t'
-     Hmulti : t' -->* t'' *)
-  + rewrite (step_deterministic _ _ _ ST Hfirst).
-    exists final.
-    split.
-    * exact Hrest.
-    * exact V.
- - (* <- *)
-  intros [t'0 [STM V]].
-  exists t'0.
-  split.
-  + apply multi_step with (y := t').
-    * exact ST.
-    * exact STM.
-  + exact V.
-Qed.
-
-(* 程序一步归约后仍然满足R性质 *)
-Lemma step_preserves_R : forall T t t', (t --> t') -> R T t -> R T t'.
-Proof.
-  induction T;  intros t t' E Rt; unfold R; fold R; unfold R in Rt; fold R in Rt;
-               destruct Rt as [typable_empty_t [halts_t RRt]].
-  - (* Bool *)
-    split. eapply preservation; eauto.
-    split. apply (step_preserves_halting _ _ E); eauto.
-    auto.
-  - (* Arrow *)
-    split. eapply preservation; eauto.
-    split. apply (step_preserves_halting _ _ E); eauto.
-    intros.
-    eapply IHT2.
-    apply  ST_App1. apply E.
-    apply RRt; auto.
-    
-Qed.
-
-(* 程序多步归约后仍然满足R性质 *)
-Lemma multistep_preserves_R : forall T t t',
-  (t -->* t') -> R T t -> R T t'.
-Proof.
-  intros T t t' STM.
-  induction STM;intros.
-  - assumption.
-  - apply IHSTM.
-    eapply step_preserves_R.
-    apply H.
-    exact H0.
-Qed.
-
-
-Lemma step_preserves_R' : forall T t t',
-  <{ empty |-- t \in T }> -> (t --> t') -> R T t' -> R T t.
-Proof.
-  induction T; intros t t' H H0 H1.
-  - (* Bool *)
-    split.
-    exact H.
-    split.
-    assert (H2: halts t').
-    {
-      apply R_halts in H1.
-      exact H1.
-    }
-    eapply (proj2 (step_preserves_halting t t' H0)).
-    exact H2.
-    auto.
-  - (* Arrow *)
-    split.
-    exact H.
-    split.
-    assert (H2: halts t').
-    {
-      apply R_halts in H1.
-      exact H1.
-    }
-    eapply (proj2 (step_preserves_halting t t' H0)).
-    exact H2.
-    intros.
-    eapply IHT2.
-    + eapply T_App.
-      * exact H.
-      * exact (R_typable_empty H2).
-    + apply ST_App1.
-      apply H0.
-    + 
-      (* 只需要H1和H2 *)
-      unfold R in H1.
-      fold R in H1. (*先unfold再fold是为了只展开一层R*)
-      destruct H1 as [_ [_ Hfun]].
-      apply Hfun.
-      exact H2.
-Qed.
-
-Lemma multistep_preserves_R' : forall T t t',
-  <{ empty |-- t \in T }> -> (t -->* t') -> R T t' -> R T t.
-Proof.
-  intros.
-  induction H0.
-  - exact H1.
-  - assert (R T y0).
-    {
-      apply IHmulti.
-      + apply (preservation x0 y0 T H H0).
-      + exact H1.
-    }
-    eapply step_preserves_R'.
-    exact H.
-    apply H0.
-    apply H3.
-Qed.
-
-
-(* 不是之前的类型环境Gamma *)
-Definition env := list (string * tm).
-
-Fixpoint msubst (ss:env) (t:tm) : tm :=
-match ss with
-| nil => t
-(* 按照 env 列表从头到尾依次替换 *)
-| ((x,s)::ss') => msubst ss' <{ [x:=s]t }>
-end.
-
-(** We need similar machinery to talk about repeated extension of a
-    typing context using a list of (identifier, type) pairs, which we
-    call a _type assignment_. *)
-(* tass 是 type assignment 的缩写 *)
-Definition tass := list (string * ty).
-
-Fixpoint mupdate (Gamma : context) (xts : tass) :=
-  match xts with
-  | nil => Gamma
-  (* 按照tass从尾到头依次update Gamma *)
-  | ((x,v)::xts') => update (mupdate Gamma xts') x v
+(* msubst rho t：按照 rho 同时替换 t 里的所有自由变量。 *)
+Fixpoint msubst (rho : term_substitution) (t : tm) : tm :=
+  match t with
+  | tm_bvar i => tm_bvar i
+  | tm_fvar x => rho x
+  | tm_app t1 t2 => tm_app (msubst rho t1) (msubst rho t2)
+  | tm_abs T t1 => tm_abs T (msubst rho t1)
+  | tm_true => tm_true
+  | tm_false => tm_false
+  | tm_if t1 t2 t3 => tm_if (msubst rho t1) (msubst rho t2) (msubst rho t3)
   end.
 
-(** We will need some simple operations that work uniformly on
-    environments and type assigments *)
-(* 在列表 l 中查找名字 k，返回它映射的内容。如果有多个相同的 k，返回列表中最靠前的那一个 *)
-Fixpoint lookup {X:Set} (k : string) (l : list (string * X))
-              : option X :=
-  match l with
-    | nil => None
-    | (j,x) :: l' =>
-      if String.eqb j k then Some x else lookup k l'
-  end.
-(* 从列表 l 中删除所有名字为 k 的项 *)
-Fixpoint drop {X:Set} (n:string) (nxs:list (string * X))
-            : list (string * X) :=
-  match nxs with
-    | nil => nil
-    | ((n',x)::nxs') =>
-        if String.eqb n' n then drop n nxs'
-        else (n',x)::(drop n nxs')
-  end.
+(* proper_substitution：替换进去的每个程序本身都必须是合法完整程序。 *)
+Definition proper_substitution (rho : term_substitution) : Prop :=
+  forall x, locally_closed (rho x).
 
-(** An _instantiation_ combines a type assignment and a value
-    environment with the same domains, where corresponding elements are
-    in R. *)
-(* 定义 tass 和 env 合法对应 *)
-Inductive instantiation :  tass -> env -> Prop :=
-| V_nil :
-    instantiation nil nil
-| V_cons : forall x T t c e,
-    value t -> R T t ->
-    instantiation c e ->
-    instantiation ((x,T)::c) ((x,t)::e).
+(**
+  related_substitution Gamma rho：
+  如果 Gamma 说 x : T，那么 rho x 必须是 T 下的好值。
+  一是为了保证rho与Gamma类型一致。二是提供了value_relation这个性质保证。
+*)
+Definition related_substitution
+    (Gamma : context) (rho : term_substitution) : Prop :=
+  forall x T, Gamma x = Some T -> value_relation T (rho x).
 
-(* 显然 *)
-Lemma vacuous_substitution : forall  t x,
-~ appears_free_in x t  ->
-forall t', <{ [x:=t']t }> = t.
-Proof with eauto.
-  intros.
-  generalize dependent x0.
-  induction t;intros.
-  - simpl.
-    assert (Hneq : x0 <> s).
-    {
-      intro Heq.
-      subst s.
-      apply H.
-      apply afi_var.
-    }
-    rewrite (false_eqb_string x0 s Hneq).
-    reflexivity.
-  - simpl.
-    assert (Hnot1 : ~ appears_free_in x0 t1).
-    {
-      intro Hfree1.
-      apply H.
-      apply afi_app1.
-      exact Hfree1.
-    }
 
-    assert (Hnot2 : ~ appears_free_in x0 t2).
-    {
-      intro Hfree2.
-      apply H.
-      apply afi_app2.
-      exact Hfree2.
-    }
-    clear H.
-    rewrite (IHt1 x0 Hnot1).
-    rewrite (IHt2 x0 Hnot2).
-    reflexivity.
-  - simpl.
-    destruct (eqb_spec x0 s) as [Heq | Hneq].
+Print value_relation.
+(* 从 value_relation 里取出 value 条件。 *)
+Lemma value_relation_value : forall T v,
+  value_relation T v -> value v.
+Proof.
+  intros T v H. destruct T; simpl in H; tauto.
+Qed.
+
+(* 从 value_relation 里取出 locally_closed 条件。 *)
+Lemma value_relation_term : forall T v,
+  value_relation T v -> locally_closed v.
+Proof.
+  intros T v H.
+  apply value_regular.
+  apply value_relation_value with (T := T).
+  exact H.
+Qed.
+
+(* expression_relation 比 halts 更强，所以可以推出 halts。 *)
+Lemma expression_relation_halts : forall T t,
+  expression_relation T t ->
+  halts t.
+Proof.
+  intros T t [_ [v [Hs HV]]].
+  exists v. split.
+  - exact Hs.
+  - apply value_relation_value with (T := T). exact HV.
+Qed.
+
+Print lc_at.
+
+(* 如果 t 在层数 k 下已经闭合，那么打开更外层的 index 不改变 t。 
+显然，因为 t 里没有 open_rec j 要替换的那个绑定变量。。*)
+Lemma open_rec_lc_at : forall k t j u,
+  lc_at k t ->
+  k <= j ->
+  open_rec j u t = t.
+Proof.
+  intros k t j u Hlc.
+  generalize dependent j.
+  induction Hlc; intros j Hle; simpl.
+  - destruct (Nat.eqb j i) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. lia.
     + reflexivity.
-    + rewrite IHt.
-      reflexivity.
-      intro.
-      apply H.
-      apply afi_abs.
-      auto.
-      assumption.
-  - simpl.
-    reflexivity.
-  - simpl.
-    reflexivity.
-  - simpl.
-    rewrite IHt1.
-    rewrite IHt2.
-    rewrite IHt3.
-    reflexivity.
-    + intro.
-      apply H.
-      apply afi_test2.
-      assumption.
-    + intro.
-      apply H.
-      apply afi_test1.
-      assumption.
-    + intro.
-      apply H.
-      apply afi_test0.
-      assumption.
-Qed.
-
-(* 显然，因为t没有自由变量 *)
-Lemma subst_closed: forall t,
-    closed t  ->
-    forall x t', <{ [x:=t']t }> = t.
-Proof.
-  intros.
-  unfold closed in H.
-  apply vacuous_substitution.
-  auto.
-Qed.
-
-(* 加closed v，是为了防止x作为自由变量出现在v里 *)
-Lemma subst_not_afi : forall t x v,
-   closed v ->  ~ appears_free_in x <{ [x:=v]t }>.
-Proof. 
-  intros.
-  unfold closed in H.
-  assert (~ appears_free_in x0 v).
-  {
-    auto.
-  }
-  clear H.
-  intro.
-  apply H0.
-  clear H0.
-  revert H.
-  induction t.
-  - intro.
-    destruct (eqb_spec x0 s) as [Heq | Hneq].
-    + subst.
-      simpl in H.
-      rewrite String.eqb_refl in H.
-      assumption.
-    + simpl in H.
-      rewrite (false_eqb_string x0 s Hneq) in H.
-      (* 显然H不成立，因为x0<>s *)
-      inversion H.
-      subst.
-      exfalso.
-      apply Hneq.
-      reflexivity.
-  - intro.
-    simpl in H.
-    inversion H;subst.
-    + eauto.
-    + eauto.
-  - intro.
-    apply IHt.
-    clear IHt.
-    simpl in H.
-    destruct (eqb_spec x0 s) as [Heq | Hneq].
-    + subst.
-      (* 显然H不成立 *)
-      exfalso.
-      inversion H.
-      subst.
-      contradiction.
-    + inversion H.
-      subst.
-      assumption.
-  - intro.
-    (* 显然H不成立 *)
-    inversion H.
-  - intro.
-    (* 显然H不成立 *)
-    inversion H.
-  - intro.
-    inversion H;subst.
-    + auto.
-    + auto.
-    + auto.
- 
-Qed.
-
-(* 显然，因为v里没有自由变量x0 *)
-Lemma duplicate_subst : forall t' x t v,
- closed v -> <{ [x:=t]([x:=v]t') }> = <{ [x:=v]t' }>.
-Proof.
-  intros.
-  apply vacuous_substitution.
-  apply subst_not_afi.
-  assumption.
-
-Qed.
-
-Lemma swap_subst : forall t x x1 v v1,
-   x <> x1 ->
-   closed v -> closed v1 ->
-   <{ [x1:=v1]([x:=v]t) }> = <{ [x:=v]([x1:=v1]t) }>.
-Proof.
-  intros.
-  induction t;intros;subst.
-  - 
-    (* 分4种情况 *)
-    destruct (eqb_spec x0 s) as [Hx0 | Hx0];
-    destruct (eqb_spec x1 s) as [Hx1 | Hx1].
-    + subst.
-      (* H不成立 *)
-      contradiction.
-    + subst.
-      simpl.
-      rewrite String.eqb_refl.
-      rewrite (false_eqb_string x1 s Hx1).
-      simpl.
-      rewrite String.eqb_refl.
-      apply subst_closed.
-      assumption.
-    + subst.
-      simpl.
-      rewrite (false_eqb_string x0 s H).
-      rewrite String.eqb_refl.
-      simpl.
-      rewrite String.eqb_refl.
-      symmetry.
-      apply subst_closed.
-      assumption.
-    + simpl.
-      rewrite (false_eqb_string x0 s Hx0).
-      rewrite (false_eqb_string x1 s Hx1).
-      simpl.
-      rewrite (false_eqb_string x1 s Hx1).
-      rewrite (false_eqb_string x0 s Hx0).
-      reflexivity.
-
-  - simpl.
-    rewrite IHt1.
-    rewrite IHt2.
-    reflexivity.
-  - simpl.
-    (* 分4种情况 *)
-    destruct (eqb_spec x0 s) as [Hx0 | Hx0];
-    destruct (eqb_spec x1 s) as [Hx1 | Hx1];subst.
-    + 
-      (* H不成立 *)
-      contradiction.
-    + simpl.
-      rewrite (false_eqb_string x1 s Hx1).
-      rewrite String.eqb_refl.
-      reflexivity.
-    + simpl.
-      rewrite String.eqb_refl.
-      rewrite (false_eqb_string x0 s Hx0).
-      reflexivity.
-    + simpl.
-      rewrite (false_eqb_string x0 s Hx0).
-      rewrite (false_eqb_string x1 s Hx1).
-      rewrite IHt.
-      reflexivity.
-  - simpl.
-    auto.
-  - simpl.
-    auto.
-  - simpl.
-    rewrite IHt1.
-    rewrite IHt2.
-    rewrite IHt3.
-    reflexivity.
-
-Qed.
-
-(** *** Properties of Multi-Substitutions *)
-(* 显然 *)
-Lemma msubst_closed: forall t, closed t -> forall ss, msubst ss t = t.
-Proof.
-  intros.
-  induction ss.
-  - auto.
-  - destruct a as [x0 s].
-    simpl.
-    rewrite (subst_closed t H x0 s).
-    apply IHss.
-
-Qed.
-
-(** Closed environments are those that contain only closed terms. *)
-(* closed env *)
-Fixpoint closed_env (env:env) :=
-  match env with
-  | nil => True
-  | (x,t)::env' => closed t /\ closed_env env'
-  end.
-
-(* 一次普通替换 [x:=v] 和一组多重替换 msubst env，在替换程序都封闭时，可以交换执行顺序。 *)
-Lemma subst_msubst: forall env x v t, closed v -> closed_env env ->
-  msubst env <{ [x:=v]t }> = <{ [x:=v] $(msubst (drop x env) t) }> .
-Proof.
-  intros env0.
-  induction env0.
   - reflexivity.
-  - destruct a as [x1 t1].
-    intros.
-    simpl in H0.
-    destruct H0.
-    simpl.
-    (* 分x1=x0和x1<>x0讨论 *)
-    destruct (eqb_spec x1 x0) as [Heq | Hneq].
-    + subst.
-      rewrite (duplicate_subst t x0 t1 v H).
-      apply IHenv0.
-      assumption.
-      assumption.
-    + assert (Hrev : x0 <> x1).
-      {
-        auto.
-      }
-      rewrite (swap_subst t x0 x1 v t1 Hrev H H0).
-      simpl.
-      apply IHenv0.
-      assumption.
-      assumption.
-      
-Qed.
-(* 对一个变量 x 执行多重替换，等价于就是在替换表 ss 中查找 x返回的结果 *)
-Lemma msubst_var:  forall ss x, closed_env ss ->
-  msubst ss (tm_var x) =
-  match lookup x ss with
-  | Some t => t
-  | None => tm_var x
-end.
-Proof.
-  intros ss x0.
-  induction ss.
-  - intros.
-    auto.
-  - intros.
-    destruct a as [x1 t1].
-    simpl.
-    (* 分x1=x0和x1<>x0讨论 *)
-    destruct (eqb_spec x1 x0) as [Heq | Hneq].
-    + subst.
-      simpl in H.
-      destruct H as [Ht1 Hss].
-      apply msubst_closed.
-      assumption.
-    + apply IHss.
-      simpl in H.
-      destruct H as [Ht1 Hss].
-      assumption.
-Qed.
-(* x是非自由变量，所以ss msubst不了它。所以等价于(drop x ss)直接替换t *)
-Lemma msubst_abs: forall ss x T t,
-msubst ss <{ \ x : T, t }> = <{ \x : T, $(msubst (drop x ss) t) }>.
-Proof.
-  intros ss x0.
-  induction ss.
-  - intros.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
     reflexivity.
-  - intros.
-    destruct a as [x1 t1].
-    simpl.
-    (* 分x1=x0和x1<>x0讨论 *)
-    destruct (eqb_spec x1 x0) as [Heq | Hneq].
-    + subst.
-      apply IHss.
-    + rewrite (IHss T <{ [x1 := t1] t }>).
-      simpl.
-      reflexivity.
-
+  - rewrite IHHlc by lia. reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
+    rewrite IHHlc3 by assumption.
+    reflexivity.
 Qed.
 
-(* subst的定义中<{ t1 t2 }> => <{ [x:=s] t1 [x:=s] t2 }>分支的多步版本 *)
-Lemma msubst_app : forall ss t1 t2,
-  msubst ss <{ t1 t2 }> = <{ $(msubst ss t1) $(msubst ss t2) }>.
+(* 完整程序不含任何裸 bvar，所以 open_rec 不改变它。 *)
+Lemma open_rec_term : forall t j u,
+  locally_closed t ->
+  open_rec j u t = t.
 Proof.
-induction ss; intros.
-  reflexivity.
-  destruct a.
-  simpl.
-  apply IHss.
+  unfold locally_closed. intros.
+  eapply open_rec_lc_at; eauto. lia.
 Qed.
 
+(* 合法替换保持 lc_at。 *)
+Lemma msubst_preserves_lc_at : forall rho k t,
+  proper_substitution rho ->
+  lc_at k t ->
+  lc_at k (msubst rho t).
+Proof.
+  intros rho k t Hproper Hlc.
+  (* 对lc_at的各个分支进行数学归纳法，其实挺长 *)
+  induction Hlc; simpl; eauto using lc_at.
+  - apply term_lc_at. apply Hproper.
+Qed.
+
+(* 合法替换保持完整程序。上一个定理的推论。 *)
+Lemma msubst_preserves_term : forall rho t,
+  proper_substitution rho ->
+  locally_closed t ->
+  locally_closed (msubst rho t).
+Proof.
+  unfold locally_closed. intros.
+  eapply msubst_preserves_lc_at; eauto.
+Qed.
+
+(* 如果 rho 合法，且 v 是完整程序，那么更新 rho 后仍然合法。 *)
 (* 显然 *)
-Lemma msubst_if : forall ss t1 t2 t3,
-msubst ss <{ if t1 then t2 else t3 }> =
-<{ if $(msubst ss t1)
-   then $(msubst ss t2)
-   else $(msubst ss t3) }>.
+Lemma proper_update : forall rho x v,
+  proper_substitution rho ->
+  locally_closed v ->
+  proper_substitution (subst_update rho x v).
 Proof.
-  induction ss; intros.
-  - auto.
-  - destruct a.
-    simpl.
-    apply IHss.
+  unfold proper_substitution, subst_update.
+  intros rho x v Hproper Hv y.
+  destruct (Nat.eqb x y); auto.
 Qed.
 
-(* 显然 *)
-Lemma mupdate_lookup : forall (c : tass) (x:string),
-    lookup x c = (mupdate empty c) x.
+(* 如果 rho 和 Gamma 对应，那么同时扩展 x:T 和 x->v 后仍然对应。
+显然 *)
+Lemma related_update : forall Gamma rho x T v,
+  related_substitution Gamma rho ->
+  value_relation T v ->
+  related_substitution (update Gamma x T) (subst_update rho x v).
 Proof.
-  intros.
-  induction c.
-  - auto.
-  - destruct a as [x1 T1].
-    simpl.
-    destruct (eqb_spec x1 x0) as [Heq | Hneq].
-    + subst.
-      symmetry.
-      apply update_eq.
-    + rewrite update_neq.
-      apply IHc.
-      apply Hneq.
-
+  unfold related_substitution, subst_update, update.
+  intros Gamma rho x T v Hrel HV y U Hy.
+  destruct (Nat.eqb x y) eqn:Heq.
+  - apply Nat.eqb_eq in Heq. subst y.
+    injection Hy as ->. exact HV.
+  - apply Hrel. exact Hy.
 Qed.
 
-(* 显然 *)
-Lemma mupdate_drop : forall (c: tass) Gamma x x',
-      mupdate Gamma (drop x c) x'
-    = if String.eqb x x' then Gamma x' else mupdate Gamma c x'.
+(* 辅助引理：不在 L1 ++ L2 里，等价于既不在 L1 里也不在 L2 里。
+显然 *)
+Lemma notin_app_split : forall (x : atom) L1 L2,
+  ~ In x (L1 ++ L2) ->
+  ~ In x L1 /\ ~ In x L2.
 Proof.
-  intros.
-  induction c.
-  - destruct (eqb_spec x0 x') as [Heq | Hneq].
-    + subst. reflexivity.
+  intros x L1 L2 H.
+  split; intro Hin; apply H; apply in_app_iff; auto.
+Qed.
+
+(**
+  LN 的关键替换/open 交换性质：
+  先用新自由变量 x 打开函数体，再把 x 替换成 v，
+  等价于直接用 v 打开函数体。
+*)
+Lemma msubst_open_update_rec : forall t rho x v k,
+  ~ In x (free_vars t) ->
+  proper_substitution rho ->
+  locally_closed v ->
+  (* musust rho (open_rec k v t)就不等于，因为v可能含有rho里的自由变量。
+  如果v不含rho里的自由变量，那就等于*)
+  msubst (subst_update rho x v) (open_rec k (tm_fvar x) t) =
+  open_rec k v (msubst rho t).
+Proof.
+  induction t; intros rho x v k Hfresh Hproper Hv; simpl in *.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + unfold subst_update. simpl.
+      destruct (Nat.eqb x x) eqn:Hxx.
+      * reflexivity.
+      * apply Nat.eqb_neq in Hxx. contradiction.
     + reflexivity.
-  - destruct (eqb_spec x0 x') as [Heq | Hneq].
-    + subst.
-      destruct a as [x1 T1].
-      simpl.
-      destruct (eqb_spec x1 x') as [Heq | Hneq].
-      * subst.
-        assumption.
-      * simpl.
-        rewrite update_neq.
-        assumption.
-        assumption.
-    + destruct a as [x1 T1].
-      simpl.
-      destruct (eqb_spec x1 x0).
-      * subst.
-        rewrite update_neq.
-        assumption.
-        assumption.
-      * simpl.
-        destruct (eqb_spec x1 x').
-        --subst.
-          rewrite update_eq.
-          rewrite update_eq.
-          reflexivity.
-        --rewrite update_neq.
-          rewrite update_neq.
-          assumption.
-          assumption.
-          assumption. 
-           
-Qed.
-
-(** *** Properties of Instantiations *)
-
-(** These are strightforward. *)
-
-Lemma instantiation_domains_match: forall {c} {e},
-    instantiation c e ->
-    forall {x} {T},
-      lookup x c = Some T -> exists t, lookup x e = Some t.
-Proof.
-  intros c e H.
-  induction H; intros.
-  - 
-    (* H不成立 *)
-    simpl in H.
-    discriminate H.
-  - simpl.
-    destruct (eqb_spec x0 x1).
-    + subst.
-      eauto.
-    + eapply IHinstantiation.
-      apply String.eqb_neq in n.
-      simpl in H2.
-      rewrite n in H2.
-      exact H2.
-
-Qed.
-
-(* 这个有点意思 *)
-Lemma instantiation_env_closed : forall c e,
-  instantiation c e -> closed_env e.
-Proof.
-  intros.
-  induction H.
-  - simpl.
-    auto.
-  - simpl.
-    split.
-    + apply typable_empty__closed with (T := T).
-      apply R_typable_empty.
-      assumption.
-    + assumption.
-Qed.
-(*  如果类型表 c 和替换表 e 是合法对应的，那么同一个变量 x 在 c 中对应类型 T、在 e 中对应程序 t 时，就有 R T t。 *)
-Lemma instantiation_R : forall c e,
-    instantiation c e ->
-    forall x t T,
-      lookup x c = Some T ->
-      lookup x e = Some t -> R T t.
-Proof.
-  intros c e H.
-  induction H;intros.
-  - 
-    (* H不成立 *)
-    simpl in H.
-    discriminate H.
-  - simpl in H2.
-    simpl in H3.
-    destruct (String.eqb_spec x0 x1).
-    + subst.
-      injection H2 as H4.
-      injection H3 as H5.
-      subst.
-      exact H0.
-    + apply (IHinstantiation x1 t0 T0).
-      exact H2.
-      exact H3.
-
-
-Qed.
-(* 如果类型表 c 和程序替换表 env 合法对应，那么从两张表中同时删除变量 x 后，它们仍然合法对应。 *)
-Lemma instantiation_drop : forall c env,
-    instantiation c env ->
-    forall x, instantiation (drop x c) (drop x env).
-Proof.
-  intros c e H.
-  induction H; intros.
-  - simpl.
-    exact V_nil.
-  - simpl.
-    destruct (eqb_spec x0 x1).
-    + subst.
-      eauto.
-    + apply V_cons.
-      assumption.
-      assumption.
-      eauto.
-Qed.
-
-(** *** Congruence Lemmas on Multistep *)
-
-(** We'll need just a few of these; add them as the demand arises. *)
-
-Lemma multistep_App2 : forall v t t',
-  value v -> (t -->* t') -> <{ v t }> -->* <{ v t' }>.
-Proof.
-  intros v t t' Hv Hsteps.
-  induction Hsteps.
-  - apply multi_refl.
-  - eapply multi_step.
-    + apply ST_App2.
-      exact Hv.
-      exact H.
-    + exact IHHsteps.
-Qed.
-
-Lemma multistep_If : forall t t' t2 t3,
-  t -->* t' ->
-  <{ if t then t2 else t3 }> -->* <{ if t' then t2 else t3 }>.
-Proof.
-  intros t t' t2 t3 Hsteps.
-  induction Hsteps.
-  - apply multi_refl.
-  - eapply multi_step.
-    + apply ST_If.
-      exact H.
-    + exact IHHsteps.
-Qed.
-
-(* 条件和两个分支都满足 R 时，整个 if 也满足 R。 *)
-Lemma R_if : forall T t1 t2 t3,
-  R <{{ Bool }}> t1 ->
-  R T t2 ->
-  R T t3 ->
-  R T <{ if t1 then t2 else t3 }>.
-Proof.
-  intros T t1 t2 t3 HRcond HRthen HRelse.
-
-  assert (HTif : <{ empty |-- if t1 then t2 else t3 \in T }>).
-  {
-    apply T_If.
-    - apply R_typable_empty.
-      exact HRcond.
-    - apply R_typable_empty.
-      exact HRthen.
-    - apply R_typable_empty.
-      exact HRelse.
-  }
-
-  destruct (R_halts HRcond) as [v [Hsteps Hv]].
-  assert (HRv : R <{{ Bool }}> v).
-  {
-    apply (multistep_preserves_R <{{ Bool }}> t1 v).
-    - exact Hsteps.
-    - exact HRcond.
-  }
-
-  destruct (canonical_forms_bool v (R_typable_empty HRv) Hv)
-    as [Heq | Heq].
-  - subst v.
-    assert (HRtrue : R T <{ if true then t2 else t3 }>).
-    {
-      eapply step_preserves_R'.
-      - apply T_If.
-        + apply T_True.
-        + apply R_typable_empty.
-          exact HRthen.
-        + apply R_typable_empty.
-          exact HRelse.
-      - apply ST_IfTrue.
-      - exact HRthen.
-    }
-    apply (multistep_preserves_R'
-             T
-             <{ if t1 then t2 else t3 }>
-             <{ if true then t2 else t3 }>).
-    + exact HTif.
-    + apply multistep_If.
-      exact Hsteps.
-    + exact HRtrue.
-  - subst v.
-    assert (HRfalse : R T <{ if false then t2 else t3 }>).
-    {
-      eapply step_preserves_R'.
-      - apply T_If.
-        + apply T_False.
-        + apply R_typable_empty.
-          exact HRthen.
-        + apply R_typable_empty.
-          exact HRelse.
-      - apply ST_IfFalse.
-      - exact HRelse.
-    }
-    apply (multistep_preserves_R'
-             T
-             <{ if t1 then t2 else t3 }>
-             <{ if false then t2 else t3 }>).
-    + exact HTif.
-    + apply multistep_If.
-      exact Hsteps.
-    + exact HRfalse.
-Qed.
-
-(* 原来程序 t 依赖 Gamma 和 c。用 e 把 c 中的变量全部替换成具体程序后，新程序不再依赖 c，只依赖 Gamma，并且类型仍然是 S。 *)
-Lemma msubst_preserves_typing : forall c e,
-     instantiation c e ->
-     forall Gamma t S, <{$(mupdate Gamma c) |-- t \in S}> ->
-     <{Gamma |-- $(msubst e t) \in S}>.
-Proof.
-    intros c e H.
-    induction H;intros.
-    - simpl.
-      simpl in H.
-      assumption.
-    - simpl.
-      simpl in H2.
-      apply IHinstantiation.
-      eapply substitution_preserves_typing.
-      exact H2.
-      apply R_typable_empty.
-      assumption.
-Qed.
-
-Lemma msubst_R : forall c env t T,
-  <{$(mupdate empty c) |-- t \in T}> ->
-  instantiation c env ->
-  R T (msubst env t).
-Proof.
-  intros.
-  generalize dependent env0.
-  remember (mupdate empty c) as Gamma eqn:HGamma.
-  assert (Hlookup : forall x, Gamma x = lookup x c).
-  {
-    intro x.
-    rewrite HGamma.
-    symmetry.
-    apply mupdate_lookup.
-  }
-  clear HGamma.
-  generalize dependent c.
-  induction H; intros.
-  - assert (lookup x0 c =Some T1).
-    {
-      rewrite <-(Hlookup x0).
-      exact H.
-    }
-    eapply instantiation_R.
-    exact H0.
-    exact H1.
-    destruct (instantiation_domains_match H0 H1).
-    rewrite H2.
-    rewrite msubst_var.
-    (* 显然左右相同 *)
-    rewrite H2.
+  - destruct (Nat.eqb x a) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. subst a. contradiction Hfresh. simpl. auto.
+    + unfold subst_update. rewrite Heq.
+      symmetry. apply open_rec_term. apply Hproper.
+  - apply notin_app_split in Hfresh as [Hfresh1 Hfresh2].
+    rewrite IHt1 by assumption.
+    rewrite IHt2 by assumption.
     reflexivity.
-    (* 证明一下这个条件 *)
-    apply (instantiation_env_closed c env0).
-    exact H0.
-  - 
-    (* 最难的一个分支 *)
-    unfold R.
-    fold R.
-    repeat split.
-    + 
-      eapply msubst_preserves_typing.
-      exact H0.
-      apply T_Abs.
-      eapply context_invariance.
-      exact H.
-      intros.
-      unfold update, t_update.
-      destruct (String.eqb x0 x1).
-      reflexivity.
-      rewrite (Hlookup x1).
-      apply mupdate_lookup.
-    + rewrite msubst_abs.
-      apply value_halts.
-      apply v_abs.
-    + intros.
-      destruct (R_halts H1) as [v [Hsteps Hv]].
-      assert (HRv : R T2 v).
-      {
-        eapply multistep_preserves_R.
-        - exact Hsteps.
-        - exact H1.
-      }
-      assert (Hbody :
-      R T1 (msubst ((x0, v) :: env0) t1)).
-      {
-        apply (IHhas_type ((x0, T2) :: c)).
-        - intro y.
-          unfold update, t_update.
-          simpl.
-          destruct (String.eqb x0 y).
-          + reflexivity.
-          + apply Hlookup.
-        - apply V_cons.
-          + exact Hv.
-          + exact HRv.
-          + exact H0.
-      }
-      assert (Hclosedv : closed v).
-      {
-        apply typable_empty__closed with (T := T2).
-        apply R_typable_empty.
-        exact HRv.
-      }
-      assert (Hclosedenv : closed_env env0).
-      {
-        apply (instantiation_env_closed c env0).
-        exact H0.
-      }
-      assert (Hbeta :
-      <{ $(msubst env0 <{ \ x0 : T2, t1 }>) v }>
-        --> msubst ((x0, v) :: env0) t1).
-      {
-        rewrite msubst_abs.
-        simpl.
-        rewrite (subst_msubst env0 x0 v t1 Hclosedv Hclosedenv).
-        apply ST_AppAbs.
-        exact Hv.
-      }
-      assert (HtypedFun :
-      <{ empty |-- $(msubst env0 <{ \ x0 : T2, t1 }>)
-         \in T2 -> T1 }>).
-      {
-        eapply msubst_preserves_typing.
-        - exact H0.
-        - apply T_Abs.
-          eapply context_invariance.
-          + exact H.
-          + intros y _.
-            unfold update, t_update.
-            destruct (String.eqb x0 y).
-            * reflexivity.
-            * rewrite (Hlookup y).
-              apply mupdate_lookup.
-      }
-      assert (HRappv :
-      R T1 <{ $(msubst env0 <{ \ x0 : T2, t1 }>) v }>).
-      {
-        eapply step_preserves_R'.
-        - apply T_App with (T2 := T2).
-          + exact HtypedFun.
-          + apply R_typable_empty.
-            exact HRv.
-        - exact Hbeta.
-        - exact Hbody.
-      }
-      eapply multistep_preserves_R'.
-      * apply T_App with (T2 := T2).
-        -- exact HtypedFun.
-        -- apply R_typable_empty.
-          exact H1.
-    
-      * apply
-          (multistep_App2
-            (msubst env0 <{ \ x0 : T2, t1 }>)
-            t0
-            v).
-        -- rewrite msubst_abs.
-          apply v_abs.
-        -- exact Hsteps.
-    
-      * exact HRappv.
-  - rewrite msubst_app.
-    pose proof
-      (IHhas_type1 c Hlookup env0 H1)
-      as HRfun.
-    pose proof
-      (IHhas_type2 c Hlookup env0 H1)
-      as HRarg.
-    unfold R in HRfun.
-    fold R in HRfun.
-    destruct HRfun as [_ [_ Happly]].
-    apply Happly.
-    exact HRarg.
-  - assert (HclosedTrue : closed <{ true }>).
-    {
-      unfold closed.
-      intros x Hfree.
-      inversion Hfree.
-    }
-    rewrite (msubst_closed <{ true }> HclosedTrue env0).
-    unfold R.
-    repeat split.
-    + apply T_True.
-    + apply value_halts. apply v_true.
-  - assert (HclosedFalse : closed <{ false }>).
-    {
-      unfold closed.
-      intros x Hfree.
-      inversion Hfree.
-    }
-    rewrite (msubst_closed <{ false }> HclosedFalse env0).
-    repeat split.
-    + apply T_False.
-    + apply value_halts. apply v_false.
-  - assert (R <{{ Bool }}> (msubst env0 t1)).
-    {
-      eapply IHhas_type1.
-      exact Hlookup.
-      exact H2.
-    }
-    assert (R T1 (msubst env0 t2)).
-    {
-      eapply IHhas_type2.
-      exact Hlookup.
-      exact H2.
-    }
-    assert (R T1 (msubst env0 t3)).
-    {
-      eapply IHhas_type3.
-      exact Hlookup.
-      exact H2.
-    }
-    rewrite msubst_if.
-    apply R_if.
-    assumption.
-    assumption.
-    assumption.
-    
+  - rewrite IHt by assumption. reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - apply notin_app_split in Hfresh as [Hfresh1 Hfresh23].
+    apply notin_app_split in Hfresh23 as [Hfresh2 Hfresh3].
+    rewrite IHt1 by assumption.
+    rewrite IHt2 by assumption.
+    rewrite IHt3 by assumption.
+    reflexivity.
 Qed.
 
-Theorem normalization : forall t T, <{empty |-- t \in T}> -> halts t.
+(* 上面引理在最外层 lambda 的版本。 *)
+Lemma msubst_open_update : forall t rho x v,
+  ~ In x (free_vars t) ->
+  proper_substitution rho ->
+  locally_closed v ->
+  msubst (subst_update rho x v) (open t (tm_fvar x)) =
+  open (msubst rho t) v.
 Proof.
-  intros.
-  (* 把停机加强为R *)
-  apply (@R_halts T t).
-  eapply (msubst_R nil nil).
-  - auto.
-  - apply V_nil.
+  unfold open. intros.
+  apply msubst_open_update_rec; assumption.
+Qed.
 
+(* 恒等替换不改变程序。显然 *)
+Lemma msubst_id : forall t,
+  msubst id_substitution t = t.
+Proof.
+  induction t; simpl; try rewrite IHt; try rewrite IHt1; try rewrite IHt2;
+    try rewrite IHt3; reflexivity.
+Qed.
+
+(* 恒等替换是合法替换。 *)
+Lemma id_substitution_proper :
+  proper_substitution id_substitution.
+Proof.
+  unfold proper_substitution, id_substitution, locally_closed.
+  intros. apply lc_fvar.
+Qed.
+
+Print related_substitution.
+(* 空环境下没有变量需要检查，所以恒等替换自动满足 related_substitution。 *)
+Lemma empty_related :
+  related_substitution empty id_substitution.
+Proof.
+  unfold related_substitution, empty.
+  intros. discriminate H.
+Qed.
+
+(**
+  Fundamental theorem:
+  如果 t 在 Gamma 下类型正确，并且 rho 给 Gamma 中变量都配了好值，
+  那么替换后的程序 msubst rho t 是 T 下的好程序。
+*)
+Theorem fundamental : forall Gamma t T,
+  <{ Gamma |-- t \in T }> ->
+  forall rho,
+    proper_substitution rho ->
+    related_substitution Gamma rho ->
+    expression_relation T (msubst rho t).
+Proof.
+  intros Gamma t T Htyping.
+  induction Htyping; intros rho Hproper Hrel.
+  - split.
+    + apply Hproper.
+    + exists (rho x). split.
+      * apply multi_refl.
+      * apply Hrel with (x := x). exact H.
+  - split.
+    + change (locally_closed (msubst rho (tm_abs T1 t1))).
+      apply msubst_preserves_term.
+      * exact Hproper.
+      * apply typing_regular with (Gamma := Gamma) (T := Ty_Arrow T1 T2).
+        apply T_Abs with (L := L). exact H.
+    + exists (tm_abs T1 (msubst rho t1)).
+      split.
+      * apply multi_refl.
+      * simpl. repeat split.
+        -- apply v_abs.
+           change (locally_closed (msubst rho (tm_abs T1 t1))).
+           apply msubst_preserves_term.
+           ++ exact Hproper.
+           ++ apply typing_regular with (Gamma := Gamma) (T := Ty_Arrow T1 T2).
+              apply T_Abs with (L := L). exact H.
+        -- exists (msubst rho t1). split.
+           ++ reflexivity.
+           ++ intros arg HVarg.
+              pose (x := fresh (L ++ free_vars t1)).
+              assert (HxL : ~ In x L).
+              {
+                intro Hin. unfold x in Hin.
+                apply (fresh_notin (L ++ free_vars t1)).
+                apply in_or_app. left. exact Hin.
+              }
+              assert (Hxfv : ~ In x (free_vars t1)).
+              {
+                intro Hin. unfold x in Hin.
+                apply (fresh_notin (L ++ free_vars t1)).
+                apply in_or_app. right. exact Hin.
+              }
+              specialize (H0 x HxL (subst_update rho x arg)).
+              assert (Harg_term : locally_closed arg).
+              {
+                apply value_relation_term with (T := T1). exact HVarg.
+              }
+              specialize (H0 (proper_update rho x arg Hproper Harg_term)).
+              specialize (H0 (related_update Gamma rho x T1 arg Hrel HVarg)).
+              rewrite (msubst_open_update t1 rho x arg Hxfv Hproper Harg_term) in H0.
+              exact H0.
+  - destruct (IHHtyping1 rho Hproper Hrel) as [Ht1 [vf [Hs1 HVf]]].
+    destruct (IHHtyping2 rho Hproper Hrel) as [Ht2 [va [Hs2 HVa]]].
+    destruct HVf as [HVf_value [body [Heq Hbody]]].
+    subst vf.
+    assert (HVf_term : locally_closed (tm_abs T1 body)).
+    {
+      apply value_regular. exact HVf_value.
+    }
+    specialize (Hbody va HVa).
+    destruct Hbody as [Hbody_term [vr [Hsbody HVr]]].
+    split.
+    + simpl. apply lc_app; assumption.
+    + exists vr. split.
+      * eapply multi_trans.
+        -- apply multi_app1; eauto.
+        -- eapply multi_trans.
+           ++ apply multi_app2.
+              ** apply v_abs. exact HVf_term.
+              ** exact Hs2.
+           ++ eapply multi_step.
+              ** apply ST_AppAbs.
+                 --- exact HVf_term.
+                 --- apply value_relation_value with (T := T1). exact HVa.
+              ** exact Hsbody.
+      * exact HVr.
+  - split.
+    + unfold locally_closed. apply lc_true.
+    + exists tm_true. split.
+      * apply multi_refl.
+      * simpl. split.
+        -- apply v_true.
+        -- left. reflexivity.
+  - split.
+    + unfold locally_closed. apply lc_false.
+    + exists tm_false. split.
+      * apply multi_refl.
+      * simpl. split.
+        -- apply v_false.
+        -- right. reflexivity.
+  - destruct (IHHtyping1 rho Hproper Hrel) as [Ht1 [vb [Hsb HVb]]].
+    destruct (IHHtyping2 rho Hproper Hrel) as [Ht2 [v2 [Hs2 HV2]]].
+    destruct (IHHtyping3 rho Hproper Hrel) as [Ht3 [v3 [Hs3 HV3]]].
+    destruct HVb as [_ [Hb | Hb]]; subst vb.
+    + split.
+      * simpl. apply lc_if; assumption.
+      * exists v2. split.
+        -- eapply multi_trans.
+           ++ apply multi_if; eauto.
+           ++ eapply multi_step.
+              ** apply ST_IfTrue; assumption.
+              ** exact Hs2.
+        -- exact HV2.
+    + split.
+      * simpl. apply lc_if; assumption.
+      * exists v3. split.
+        -- eapply multi_trans.
+           ++ apply multi_if; eauto.
+           ++ eapply multi_step.
+              ** apply ST_IfFalse; assumption.
+              ** exact Hs3.
+        -- exact HV3.
+Qed.
+
+(* Normalization：闭合且类型正确的 STLC 程序一定终止。 *)
+Theorem normalization : forall t T,
+  <{ empty |-- t \in T }> ->
+  halts t.
+Proof.
+  intros t T Htyping.
+  pose proof (fundamental empty t T Htyping id_substitution
+    id_substitution_proper empty_related) as Hrel.
+  rewrite msubst_id in Hrel.
+  apply expression_relation_halts with (T := T). exact Hrel.
 Qed.
 
 End STLCNorm.

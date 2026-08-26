@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../data1/zzh"
+		},
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}
