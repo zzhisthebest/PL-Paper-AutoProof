@@ -1,0 +1,15 @@
+-R theories AutoProof
+
+theories/SmokeTest.v
+theories/Maps.v
+theories/Smallstep.v
+theories/STLC/Syntax.v
+theories/STLC/StlcProp.v
+theories/STLC/Norm.v
+theories/SystemF/Syntax.v
+theories/SystemF/Infrastructure.v
+theories/SystemF/Typing.v
+theories/SystemF/LogicalRelation.v
+theories/SystemF/Parametricity.v
+theories/SystemF/TheoremForFree.v
+benchmarks/stlc/input/Task.v

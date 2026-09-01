@@ -12,3 +12,13 @@
 *.fls
 *.xdv
 *.synctex.gz
+
+# Rocq build artifacts
+*.vo
+*.vos
+*.vok
+*.glob
+*.v.d
+.coq-native/
+.Makefile.d
+Makefile.conf
