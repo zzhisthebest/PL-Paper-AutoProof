@@ -42,3 +42,18 @@ latexmk -xelatex main.tex
 - **Benchmark（§3）**：统一问题卡片格式；三类类型系统任务（复现 / 迁移 / 补全）；推广到 abstract machine 线（AAM、ADI、refocusing、refunctionalization、ICFP'26 staged evaluator pearl）；P0–P3 优先级；交付物四件套；里程碑。
 - **Solution（§4）**：Agent 迭代工作流（candidate denotation → 逐条证明 → 失败分析 → 修改）；关键技术挑战；证明框架负担比较的科学问题。
 - **路线图（§5）**：阶段 0–3 分工，以及与北京大学数学科学学院的远期合作。
+
+## Benchmark Cases表
+
+`N` = Normalization，`P` = Parametricity；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
+
+| Feature | STLC-N-Hard | STLC-N-Medium | STLC-N-Easy | SystemF-N-Hard | SystemF-N-Medium | SystemF-N-Easy | SystemF-P-Hard | SystemF-P-Medium | SystemF-P-Easy |
+|---|---|---|---|---|---|---|---|---|---|
+| None |  |  |  |  |  |  | [✔](benchmarks/systemf) |  |  |
+| If-then-else | [✔](benchmarks/stlc) |  |  |  |  |  |  |  |  |
+| Non-determinism |  |  |  |  |  |  |  |  |  |
+| Recursion |  |  |  |  |  |  |  |  |  |
+| If-then-else + Non-determinism |  |  |  |  |  |  |  |  |  |
+| If-then-else + Recursion |  |  |  |  |  |  |  |  |  |
+| Non-determinism + Recursion |  |  |  |  |  |  |  |  |  |
+| If-then-else + Non-determinism + Recursion |  |  |  |  |  |  |  |  |  |
