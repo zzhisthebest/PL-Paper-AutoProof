@@ -8,7 +8,7 @@ The base language is locally nameless STLC with `Bool`, function types, variable
 
 Additional features: `if`-then-`else` over the existing Boolean terms; `Nat` and System T-style primitive recursion (`tm_natrec`), not an unrestricted fixpoint.
 
-The file additionally supplies the unary logical relation, its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
+The file additionally supplies the unary logical relation formed by `strong_value_relation` and `strong_expression_relation`, together with its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
 
 ## Target Theorem
 

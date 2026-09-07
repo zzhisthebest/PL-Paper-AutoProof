@@ -8,7 +8,7 @@ The base language is locally nameless STLC with `Bool`, function types, variable
 
 Additional features: `if`-then-`else` over the existing Boolean terms; binary non-deterministic choice (`tm_choice`).
 
-The file additionally supplies the logical relation, its direct dependencies, and a proved fundamental theorem. Only the target theorem remains unproved.
+The file additionally supplies the logical relation formed by `strong_value_relation` and `strong_expression_relation`, together with its direct dependencies, and a proved fundamental theorem. Only the target theorem remains unproved.
 
 ## Target Theorem
 

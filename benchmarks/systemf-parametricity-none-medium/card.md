@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 No additional language feature is included.
 
-The file additionally supplies the binary logical relation and its direct dependencies. It does not supply a fundamental theorem or its proof.
+The file additionally supplies the binary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies. It does not supply a fundamental theorem or its proof.
 
 ## Target Theorem
 

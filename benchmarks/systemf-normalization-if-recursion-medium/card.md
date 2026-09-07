@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: native `Bool`, `true`, `false`, and `if`-then-`else`; `Nat` and System T-style primitive recursion (`tm_natrec`), not an unrestricted fixpoint.
 
-The file additionally supplies the unary logical relation, its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
+The file additionally supplies the unary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
 
 ## Target Theorem
 
