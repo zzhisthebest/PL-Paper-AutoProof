@@ -8,7 +8,7 @@ The base language is locally nameless STLC with `Bool`, function types, variable
 
 Additional features: `if`-then-`else` over the existing Boolean terms.
 
-The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem. It does not supply a logical relation or fundamental theorem.
+The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem.
 
 ## Target Theorem
 

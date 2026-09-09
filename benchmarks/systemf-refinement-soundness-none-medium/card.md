@@ -6,9 +6,9 @@
 
 The base language is locally nameless System F with function and universal types, term abstraction/application, and type abstraction/application.
 
-The refinement-type layer adds predicates, refinement function, existential, and polymorphic types, erasure, subtyping, and refinement typing rules. No additional language feature is included.
+The refinement-type layer adds predicates, refinement function, existential, and polymorphic types, erasure, subtyping, and refinement typing rules. The feature configuration is the base language.
 
-The file additionally supplies the unary logical relation formed by `denotes` and `evals_denotes`, together with its direct dependencies. It does not supply a fundamental theorem or its proof.
+The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, the underlying System F normalization metatheory, and the target theorem. It supplies the refinement logical relation: `denotes R v` relates values to refinement types, and `evals_denotes R t` lifts it to all reachable values of a term.
 
 ## Target Theorem
 
@@ -20,8 +20,8 @@ Theorem refinement_soundness : forall t T ps v,
   predicates_hold (open_preds_tm ps v).
 ```
 
-If a closed term has refinement type `{result : T | ps}` and evaluates to a value `v`, then `v` satisfies `ps`.
+If a closed term has refinement type `{result : T | ps}`, then every reachable value `v` satisfies `ps`.
 
 ## Expected Output
 
-Complete `Task.v`: use the supplied logical relation to define the refinement-context/substitution interpretation; prove the typing-rule and subtyping obligations and a fundamental theorem; and prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+Complete `Task.v`: use the supplied logical relation to prove the typing-rule and subtyping obligations and a fundamental theorem, then prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.

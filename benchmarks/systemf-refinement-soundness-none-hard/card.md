@@ -6,9 +6,9 @@
 
 The base language is locally nameless System F with function and universal types, term abstraction/application, and type abstraction/application.
 
-The refinement-type layer adds predicates, refinement function, existential, and polymorphic types, erasure, subtyping, and refinement typing rules. No additional language feature is included.
+The refinement-type layer adds predicates, refinement function, existential, and polymorphic types, erasure, subtyping, and refinement typing rules. The feature configuration is the base language.
 
-The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, the underlying System F normalization metatheory, and the target theorem. It does not supply a refinement-type logical relation or fundamental theorem.
+The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, the underlying System F normalization metatheory, and the target theorem.
 
 ## Target Theorem
 
@@ -20,7 +20,7 @@ Theorem refinement_soundness : forall t T ps v,
   predicates_hold (open_preds_tm ps v).
 ```
 
-If a closed term has refinement type `{result : T | ps}` and evaluates to a value `v`, then `v` satisfies `ps`.
+If a closed term has refinement type `{result : T | ps}`, then every reachable value `v` satisfies `ps`.
 
 ## Expected Output
 

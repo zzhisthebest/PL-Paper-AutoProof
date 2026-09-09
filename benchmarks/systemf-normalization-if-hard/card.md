@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: native `Bool`, `true`, `false`, and `if`-then-`else`.
 
-The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem. It does not supply a logical relation or fundamental theorem.
+The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem.
 
 ## Target Theorem
 

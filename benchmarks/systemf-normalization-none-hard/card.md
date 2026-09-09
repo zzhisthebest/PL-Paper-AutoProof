@@ -6,9 +6,9 @@
 
 The base language is locally nameless System F with function and universal types, term abstraction/application, and type abstraction/application.
 
-No additional language feature is included.
+The feature configuration is the base language.
 
-The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem. It does not supply a logical relation or fundamental theorem.
+The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem.
 
 ## Target Theorem
 

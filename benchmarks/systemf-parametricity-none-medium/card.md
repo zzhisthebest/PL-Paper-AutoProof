@@ -6,9 +6,9 @@
 
 The base language is locally nameless System F with function and universal types, term abstraction/application, and type abstraction/application.
 
-No additional language feature is included.
+The feature configuration is the base language.
 
-The file additionally supplies the binary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies. It does not supply a fundamental theorem or its proof.
+The file additionally supplies the binary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies.
 
 ## Target Theorem
 

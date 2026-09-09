@@ -63,3 +63,10 @@ latexmk -xelatex main.tex
 | Feature | SystemF Refinement Soundness Hard | SystemF Refinement Soundness Medium | SystemF Refinement Soundness Easy |
 |---|---|---|---|
 | None | [✔](benchmarks/systemf-refinement-soundness-none-hard) | [✔](benchmarks/systemf-refinement-soundness-none-medium) | [✔](benchmarks/systemf-refinement-soundness-none-easy) |
+| If-then-else | [✔](benchmarks/systemf-refinement-soundness-if-hard) | [✔](benchmarks/systemf-refinement-soundness-if-medium) | [✔](benchmarks/systemf-refinement-soundness-if-easy) |
+| Non-determinism | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-hard) | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-medium) | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-easy) |
+| Natural-number recursion | [✔](benchmarks/systemf-refinement-soundness-recursion-hard) | [✔](benchmarks/systemf-refinement-soundness-recursion-medium) | [✔](benchmarks/systemf-refinement-soundness-recursion-easy) |
+| If-then-else + Non-determinism | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-hard) | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-medium) | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-easy) |
+| If-then-else + Natural-number recursion | [✔](benchmarks/systemf-refinement-soundness-if-recursion-hard) | [✔](benchmarks/systemf-refinement-soundness-if-recursion-medium) | [✔](benchmarks/systemf-refinement-soundness-if-recursion-easy) |
+| Non-determinism + Natural-number recursion | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-recursion-hard) | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-recursion-medium) | [✔](benchmarks/systemf-refinement-soundness-nondeterminism-recursion-easy) |
+| If-then-else + Non-determinism + Natural-number recursion | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-recursion-hard) | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-recursion-medium) | [✔](benchmarks/systemf-refinement-soundness-if-nondeterminism-recursion-easy) |

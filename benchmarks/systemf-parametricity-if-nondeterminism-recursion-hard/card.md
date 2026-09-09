@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: native `Bool`, `true`, `false`, and `if`-then-`else`; binary non-deterministic choice (`tm_choice`); `Nat` and System T-style primitive recursion (`tm_natrec`), not an unrestricted fixpoint.
 
-The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem. It does not supply a logical relation or fundamental theorem.
+The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem.
 
 ## Target Theorem
 

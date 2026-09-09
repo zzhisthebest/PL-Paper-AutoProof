@@ -6,7 +6,7 @@
 
 The base language is locally nameless STLC with `Bool`, function types, variables, abstractions, applications, `true`, and `false`.
 
-No additional language feature is included.
+The feature configuration is the base language.
 
 The file additionally supplies the unary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
 

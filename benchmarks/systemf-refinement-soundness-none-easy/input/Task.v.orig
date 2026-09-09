@@ -1,5 +1,3 @@
-(** The syntax and static/dynamic semantics of System F. *)
-
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
@@ -17,11 +15,12 @@ Open Scope systemf_scope.
 Declare Custom Entry systemf_ty.
 Declare Custom Entry systemf_tm.
 
-(** System F types, using locally nameless type variables. *)
 Inductive ty : Type :=
   | Ty_BVar : nat -> ty
   | Ty_FVar : atom -> ty
+
   | Ty_Arrow : ty -> ty -> ty
+
   | Ty_All : ty -> ty.
 
 Notation "T" := T
@@ -41,13 +40,14 @@ Notation "'forall' ',' T" := (Ty_All T)
    T custom systemf_ty at level 200,
    right associativity) : systemf_scope.
 
-(** System F terms, using separate locally nameless term binders. *)
 Inductive tm : Type :=
   | tm_bvar : nat -> tm
   | tm_fvar : atom -> tm
   | tm_abs : ty -> tm -> tm
   | tm_app : tm -> tm -> tm
+
   | tm_tabs : tm -> tm
+
   | tm_tapp : tm -> ty -> tm.
 
 Notation "t" := t
@@ -185,7 +185,6 @@ Inductive lc_tm_at : nat -> nat -> tm -> Prop :=
 
 Definition locally_closed_tm (t : tm) : Prop := lc_tm_at 0 0 t.
 
-(** Values in the call-by-value semantics. *)
 Inductive value : tm -> Prop :=
   | v_abs : forall T t,
       locally_closed_tm (tm_abs T t) ->
@@ -196,23 +195,23 @@ Inductive value : tm -> Prop :=
 
 Reserved Notation "t1 '-->' t2" (at level 40).
 
-
-
-(** One-step call-by-value evaluation. *)
 Inductive step : tm -> tm -> Prop :=
   | ST_AppAbs : forall T t v,
       locally_closed_tm (tm_abs T t) ->
       value v ->
+
       tm_app (tm_abs T t) v --> open_tm t v
   | ST_App1 : forall t1 t1' t2,
       t1 --> t1' ->
       locally_closed_tm t2 ->
       tm_app t1 t2 --> tm_app t1' t2
+
   | ST_App2 : forall v1 t2 t2',
       value v1 ->
       t2 --> t2' ->
       tm_app v1 t2 --> tm_app v1 t2'
   | ST_TAppTabs :
+
       forall t T,
       locally_closed_tm (tm_tabs t) ->
       locally_closed_ty T ->
@@ -260,11 +259,7 @@ Inductive wf_ty : ty_context -> ty -> Prop :=
       wf_ty Delta T2 ->
       wf_ty Delta (Ty_Arrow T1 T2)
   | WF_All :
-      (*
-        wf_ty (X :: Delta) T
-        -------------------------
-        wf_ty Delta (forall X, T)
-      *)
+
       forall (L : list atom) Delta T,
       (forall X, ~ In X L ->
         wf_ty (X :: Delta) (open_ty T (Ty_FVar X))) ->
@@ -277,6 +272,7 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma (tm_fvar x) T
   | T_Abs : forall (L : list atom) Delta Gamma T1 t2 T2,
       wf_ty Delta T1 ->
+
       (forall x, ~ In x L ->
         has_type Delta <{ x |-> $(T1); Gamma }>
           (open_tm t2 (tm_fvar x)) T2) ->
@@ -322,7 +318,6 @@ Proof.
 Qed.
 
 End SystemFRefinement.
-(** Locally nameless infrastructure for System F. *)
 
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
@@ -532,6 +527,7 @@ Proof.
     apply (lc_ty_at_open_inv T 0 X).
     apply H0. subst X. apply fresh_notin.
 Qed.
+
 Lemma typing_lc : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   locally_closed_tm t.
@@ -577,7 +573,9 @@ Proof.
     + assumption.
     + apply wf_ty_lc with Delta. assumption.
 Qed.
+
 Definition type_substitution := atom -> ty.
+
 Definition term_substitution := atom -> tm.
 
 Definition type_subst_update
@@ -587,6 +585,7 @@ Definition type_subst_update
 Definition term_subst_update
     (gamma : term_substitution) (x : atom) (u : tm) : term_substitution :=
   fun y => if Nat.eqb x y then u else gamma y.
+
 Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
   match T with
   | Ty_BVar i => Ty_BVar i
@@ -595,6 +594,7 @@ Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
       Ty_Arrow (instantiate_ty theta T1) (instantiate_ty theta T2)
   | Ty_All T1 => Ty_All (instantiate_ty theta T1)
   end.
+
 Fixpoint instantiate
     (theta : type_substitution) (gamma : term_substitution) (t : tm) : tm :=
   match t with
@@ -605,6 +605,7 @@ Fixpoint instantiate
   | tm_tabs t1 => tm_tabs (instantiate theta gamma t1)
   | tm_tapp t1 T => tm_tapp (instantiate theta gamma t1) (instantiate_ty theta T)
   end.
+
 Definition type_substitution_closed (theta : type_substitution) : Prop :=
   forall X : atom, locally_closed_ty (theta X).
 
@@ -824,8 +825,10 @@ Proof.
   intros. unfold open_tm_ty.
   apply instantiate_open_ty_rec; assumption.
 Qed.
+
 Definition identity_type_substitution : type_substitution :=
   fun X : atom => Ty_FVar X.
+
 Definition identity_term_substitution : term_substitution :=
   fun x : atom => tm_fvar x.
 
@@ -855,6 +858,7 @@ Proof.
 Qed.
 
 End SystemFRefinementInfrastructure.
+
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
@@ -1282,6 +1286,7 @@ Proof.
 Qed.
 
 End SystemFRefinementCoreTyping.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 
 Module SystemFRefinementTyping.
@@ -1290,9 +1295,6 @@ Import SystemFRefinement.
 Import SystemFRefinementInfrastructure.
 Import SystemFRefinementCoreTyping.
 
-(** Object-language refinement predicates.  [Pred_Eq t1 t2] is the formula
-    saying that the two System F programs denote the same result.  Bound term
-    variables inside the programs are represented locally namelessly. *)
 Inductive predicate : Type :=
   | Pred_True : predicate
   | Pred_False : predicate
@@ -1303,8 +1305,6 @@ Inductive predicates : Type :=
   | PEmpty : predicates
   | PCons : predicate -> predicates -> predicates.
 
-(** Refinement types follow the SystemRF shape.  [R_Func R1 R2] and
-    [R_Exists R1 R2] bind one term variable in [R2]. *)
 Inductive rty : Type :=
   | R_Refine : ty -> predicates -> rty
   | R_Func : rty -> rty -> rty
@@ -1515,6 +1515,7 @@ Inductive predicates_wf : ty_context -> context -> predicates -> Prop :=
       predicates_wf Delta Gamma (PCons p ps).
 
 Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
+
   | RWF_Refine : forall (L : list atom) Delta RGamma T ps,
       wf_ty Delta T ->
       (forall x, ~ In x L ->
@@ -1522,6 +1523,7 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
           (update (erase_context RGamma) x T)
           (open_preds_tm ps (tm_fvar x))) ->
       wf_rty Delta RGamma (R_Refine T ps)
+
   | RWF_Func : forall (L : list atom) Delta RGamma R1 R2,
       wf_rty Delta RGamma R1 ->
       (forall x, ~ In x L ->
@@ -1539,6 +1541,7 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
       (forall X, ~ In X L ->
         wf_rty (X :: Delta) RGamma (open_rty_ty R (Ty_FVar X))) ->
       wf_rty Delta RGamma (R_Poly R).
+
 Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :=
   | Entails_Refl : forall Delta RGamma ps,
       entails Delta RGamma ps ps
@@ -1556,6 +1559,7 @@ Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :
       entails Delta RGamma ps (PCons p PEmpty) ->
       entails Delta RGamma ps qs ->
       entails Delta RGamma ps (PCons p qs)
+
   | Entails_False : forall Delta RGamma ps qs,
       entails Delta RGamma (PCons Pred_False ps) qs.
 
@@ -1578,6 +1582,7 @@ Inductive predicate_holds : predicate -> Prop :=
       predicate_holds p1 ->
       predicate_holds p2 ->
       predicate_holds (Pred_And p1 p2).
+
 Inductive predicates_hold : predicates -> Prop :=
   | PHS_Empty : predicates_hold PEmpty
   | PHS_Cons : forall p ps,
@@ -1590,6 +1595,7 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       lookup_rcontext x RGamma = Some R ->
       wf_rty Delta RGamma R ->
       has_rtype Delta RGamma (tm_fvar x) R
+
   | RT_Abs : forall (L : list atom) Delta RGamma R1 body R2,
       wf_rty Delta RGamma R1 ->
       (forall x, ~ In x L ->
@@ -1611,21 +1617,23 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       has_rtype Delta RGamma t (R_Poly R) ->
       wf_ty Delta U ->
       has_rtype Delta RGamma (tm_tapp t U) (open_rty_ty R U)
+
   | RT_Core : forall Delta RGamma t T,
       has_type Delta (erase_context RGamma) t T ->
       has_rtype Delta RGamma t (R_Refine T PEmpty)
+
   | RT_RefineValue : forall Delta RGamma v T ps,
       has_type Delta (erase_context RGamma) v T ->
       value v ->
       wf_rty Delta RGamma (R_Refine T ps) ->
       predicates_hold (open_preds_tm ps v) ->
       has_rtype Delta RGamma v (R_Refine T ps)
+
   | RT_Sub : forall Delta RGamma t R S,
       has_rtype Delta RGamma t R ->
       wf_rty Delta RGamma S ->
       subtype Delta RGamma R S ->
       has_rtype Delta RGamma t S
-
 
 with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
   | S_Refl : forall Delta RGamma R,
@@ -1650,7 +1658,7 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
       subtype Delta RGamma S (open_rty_tm R2 v) ->
       subtype Delta RGamma S (R_Exists R1 R2)
   | S_Bind : forall (L : list atom) Delta RGamma R1 R2 S,
-      (* R1 is added to the context in the premise, so it must be well formed. *)
+
       wf_rty Delta RGamma R1 ->
       locally_closed_rty S ->
       (forall x, ~ In x L ->
@@ -1844,6 +1852,7 @@ Proof.
 Qed.
 
 End SystemFRefinementTyping.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 
 Module SystemFRefinementNormalization.
@@ -1860,8 +1869,6 @@ Inductive multi : tm -> tm -> Prop :=
 
 Notation "t '-->*' u" := (multi t u) (at level 40).
 
-(** [strongly_normalizing t] means that no infinite reduction sequence starts
-    from [t]. *)
 Inductive strongly_normalizing : tm -> Prop :=
   | SN_intro : forall t,
       (forall t', t --> t' -> strongly_normalizing t') ->
@@ -1894,9 +1901,6 @@ Proof.
       eapply lc_ty_at_monotone; [exact HU|lia].
 Qed.
 
-(** Background logical relation used only to establish normalization of the
-    erased core System F. It is not the refinement-type logical relation
-    varied across the Hard, Medium, and Easy cases. *)
 Definition relation := tm -> Prop.
 Record value_candidate := {
   candidate_relation : relation;
@@ -2298,7 +2302,7 @@ Proof.
   apply Hrel. exact Hlookup.
 Qed.
 
-Theorem core_normalization_fundamental : forall Delta Gamma t T,
+Theorem fundamental : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   forall theta rho gamma,
     type_substitution_closed theta -> term_substitution_closed gamma ->
@@ -2376,8 +2380,6 @@ Proof.
 
 Qed.
 
-(** Operational type-safety lemmas used only to turn strong normalization into
-    termination at a value. *)
 Lemma canonical_arrow : forall v T1 T2,
   value v ->
   has_type [] empty v (Ty_Arrow T1 T2) ->
@@ -2541,11 +2543,8 @@ Proof.
   - eapply T_TApp; eauto.
 Qed.
 
-
 Definition empty_relation_env : relation_env := fun _ => None.
 
-(** Every closed, well-typed term of the underlying System F is strongly
-    normalizing. *)
 Theorem strong_normalization : forall t T,
   has_type [] empty t T ->
   strongly_normalizing t.
@@ -2554,7 +2553,7 @@ Proof.
   assert (Hempty :
     related_substitution empty_relation_env empty identity_term_substitution).
   { intros x U Hlookup. discriminate Hlookup. }
-  pose proof (core_normalization_fundamental [] empty t T Htyped
+  pose proof (fundamental [] empty t T Htyped
     identity_type_substitution empty_relation_env identity_term_substitution
     identity_type_substitution_closed identity_term_substitution_closed Hempty)
     as Hrelated.
@@ -2562,7 +2561,6 @@ Proof.
   exact (proj1 (proj2 Hrelated)).
 Qed.
 
-(** [halts t] means that [t] reduces in finitely many steps to a value. *)
 Definition halts (t : tm) : Prop :=
   exists v, t -->* v /\ value v.
 
@@ -2582,7 +2580,6 @@ Proof.
     + exact Hv.
 Qed.
 
-(** Every closed, well-typed System F term weakly normalizes to a value. *)
 Theorem weak_normalization : forall t T,
   has_type [] empty t T ->
   halts t.
@@ -2593,8 +2590,8 @@ Proof.
   - exact Htyped.
 Qed.
 
-
 End SystemFRefinementNormalization.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia Program.Wf.
 From Equations Require Import Equations.
 
@@ -3199,21 +3196,23 @@ Proof.
   - apply IHps; assumption.
 Qed.
 
-(** [denotes R v] means that the value [v] semantically belongs to the
-    refinement type [R]. *)
 Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
   denotes (R_Refine T ps) v :=
+
       value v /\
       has_type [] empty v T /\
       predicates_hold (open_preds_tm ps v);
   denotes (R_Func R1 R2) v :=
+
       value v /\
       has_type [] empty v (erase (R_Func R1 R2)) /\
       forall arg,
         denotes R1 arg ->
-        exists result,
-          value result /\
-          multi (tm_app v arg) result /\
+        locally_closed_tm (tm_app v arg) /\
+        strongly_normalizing (tm_app v arg) /\
+        forall result,
+          multi (tm_app v arg) result ->
+          value result ->
           denotes (open_rty_tm R2 arg) result;
   denotes (R_Exists R1 R2) v :=
       value v /\
@@ -3226,9 +3225,11 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       has_type [] empty v (erase (R_Poly R1)) /\
       forall U,
         wf_ty [] U ->
-        exists result,
-          value result /\
-          multi (tm_tapp v U) result /\
+        locally_closed_tm (tm_tapp v U) /\
+        strongly_normalizing (tm_tapp v U) /\
+        forall result,
+          multi (tm_tapp v U) result ->
+          value result ->
           denotes (open_rty_ty R1 U) result.
 Next Obligation.
   simpl. lia.
@@ -3246,12 +3247,12 @@ Next Obligation.
   rewrite rty_size_open_ty. simpl. lia.
 Qed.
 
-(** [evals_denotes R t] means that [t] evaluates to a value belonging to
-    the refinement type [R]. *)
 Definition evals_denotes (R : rty) (t : tm) : Prop :=
-  exists v,
-    value v /\
-    multi t v /\
+  locally_closed_tm t /\
+  strongly_normalizing t /\
+  forall v,
+    multi t v ->
+    value v ->
     denotes R v.
 
 Lemma denotes_refine_iff : forall T ps v,
@@ -3267,8 +3268,11 @@ Lemma denotes_func_iff : forall R1 R2 v,
   value v /\ has_type [] empty v (erase (R_Func R1 R2)) /\
   forall arg,
     denotes R1 arg ->
-    exists result,
-      value result /\ multi (tm_app v arg) result /\
+    locally_closed_tm (tm_app v arg) /\
+    strongly_normalizing (tm_app v arg) /\
+    forall result,
+      multi (tm_app v arg) result ->
+      value result ->
       denotes (open_rty_tm R2 arg) result.
 Proof.
   intros. simp denotes. reflexivity.
@@ -3288,8 +3292,11 @@ Lemma denotes_poly_iff : forall R v,
   value v /\ has_type [] empty v (erase (R_Poly R)) /\
   forall U,
     wf_ty [] U ->
-    exists result,
-      value result /\ multi (tm_tapp v U) result /\
+    locally_closed_tm (tm_tapp v U) /\
+    strongly_normalizing (tm_tapp v U) /\
+    forall result,
+      multi (tm_tapp v U) result ->
+      value result ->
       denotes (open_rty_ty R U) result.
 Proof.
   intros. simp denotes. reflexivity.
@@ -3337,6 +3344,7 @@ Proof.
 Qed.
 
 End SystemFRefinementDenotations.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 
 Module SystemFRefinementSoundness.
@@ -3364,18 +3372,23 @@ Qed.
 Lemma evals_denotes_of_denotes : forall R v,
   denotes R v -> evals_denotes R v.
 Proof.
-  intros R v H. exists v. repeat split.
-  - apply denotes_value with R. exact H.
-  - apply multi_refl.
-  - exact H.
+  intros R v Hden. split.
+  - apply value_regular. eapply denotes_value. exact Hden.
+  - split.
+    + apply SN_intro. intros u Hstep.
+      exfalso. eapply value_no_step; eauto using denotes_value.
+    + intros result Hsteps Hvalue.
+      assert (Hv : value v) by (eapply denotes_value; exact Hden).
+      assert (result = v).
+      { exact (value_multi_eq v result Hv Hsteps). }
+      subst result. exact Hden.
 Qed.
 
 Lemma evals_denotes_from_value : forall R v,
   value v -> evals_denotes R v -> denotes R v.
 Proof.
-  intros R v Hv [v' [Hv' [Hsteps Hden]]].
-  assert (v' = v) by (eapply value_multi_eq; eauto).
-  subst v'. exact Hden.
+  intros R v Hv [_ [_ Hall]].
+  apply (Hall v (multi_refl v) Hv).
 Qed.
 
 Lemma core_multi_preservation : forall t v T,
@@ -3512,16 +3525,14 @@ Proof.
   pose proof (has_type_instantiate Delta (erase_context RGamma) t T Htyped Hctx
     [] empty theta gamma Htheta Hgamma HthetaWf
     (related_substitution_typed theta gamma RGamma Hrelated)) as Hinst.
-  destruct (weak_normalization _ _ Hinst) as [v [Hsteps Hv]].
-  exists v. split; [exact Hv |].
-  split; [exact Hsteps |].
-  cbn [denotes].
-  split; [exact Hv |].
   split.
-  - assert (Hvalue_type : has_type [] empty v (instantiate_ty theta T)).
-    { eapply core_multi_preservation; eauto. }
-    exact Hvalue_type.
-  - apply PHS_Empty.
+  - eapply typing_lc. exact Hinst.
+  - split.
+    + eapply strong_normalization. exact Hinst.
+    + intros v Hsteps Hv. cbn [denotes].
+      split; [exact Hv |]. split.
+      * eapply core_multi_preservation; eauto.
+      * apply PHS_Empty.
 Qed.
 
 Scheme has_rtype_mut_ind := Induction for has_rtype Sort Prop
@@ -3569,6 +3580,108 @@ Proof.
   intros t1 t2 t3 H12 H23. induction H12.
   - exact H23.
   - eapply multi_step; eauto.
+Qed.
+
+Lemma evals_denotes_intro : forall R t,
+  locally_closed_tm t ->
+  (value t -> denotes R t) ->
+  (forall u, t --> u -> evals_denotes R u) ->
+  evals_denotes R t.
+Proof.
+  intros R t Hlc Hvalue Hnext. split; [exact Hlc |]. split.
+  - apply SN_intro. intros u Hstep.
+    destruct (Hnext u Hstep) as [_ [Hsn _]]. exact Hsn.
+  - intros v Hsteps Hv. inversion Hsteps; subst.
+    + apply Hvalue. exact Hv.
+    + match goal with
+      | Hfirst : t --> ?u, Hrest : multi ?u v |- _ =>
+          destruct (Hnext u Hfirst) as [_ [_ Hall]];
+          exact (Hall v Hrest Hv)
+      end.
+Qed.
+
+Lemma evals_denotes_map : forall R S t,
+  (forall v, denotes R v -> denotes S v) ->
+  evals_denotes R t ->
+  evals_denotes S t.
+Proof.
+  intros R S t Hmap [Hlc [Hsn Hall]].
+  split; [exact Hlc |]. split; [exact Hsn |].
+  intros v Hsteps Hv. apply Hmap. eapply Hall; eauto.
+Qed.
+
+Lemma evals_denotes_reduct : forall R t u,
+  evals_denotes R t ->
+  t --> u ->
+  evals_denotes R u.
+Proof.
+  intros R t u [Hlc [Hsn Hall]] Hstep. split.
+  - eapply step_preserves_lc; eauto.
+  - split.
+    + inversion Hsn; subst. eauto.
+    + intros v Hsteps Hv. apply Hall; [|exact Hv].
+      eapply multi_step; eauto.
+Qed.
+
+Lemma evals_denotes_app_exists : forall R1 R2 t1 t2,
+  evals_denotes (R_Func R1 R2) t1 ->
+  evals_denotes R1 t2 ->
+  evals_denotes (R_Exists R1 R2) (tm_app t1 t2).
+Proof.
+  intros R1 R2 t1 t2 [Hlc1 [Hsn1 Hall1]] Harg.
+  revert R1 R2 Hlc1 Hall1 t2 Harg.
+  induction Hsn1 as [t1 Hnext1 IH1].
+  intros R1 R2 Hlc1 Hall1 t2 [Hlc2 [Hsn2 Hall2]].
+  revert Hlc2 Hall2. induction Hsn2 as [t2 Hnext2 IH2].
+  intros Hlc2 Hall2.
+  apply evals_denotes_intro.
+  - apply lc_tm_app; assumption.
+  - intros Hv. inversion Hv.
+  - intros u Hstep. inversion Hstep; subst.
+    + pose proof (Hall1 _ (multi_refl _) (v_abs T t H1)) as HfunDen.
+      pose proof (Hall2 _ (multi_refl _) H3) as HargDen.
+      apply (proj1 (denotes_func_iff _ _ _)) in HfunDen.
+      destruct HfunDen as [_ [_ Happly]].
+      pose proof (Happly t2 HargDen) as Hbody.
+      eapply evals_denotes_map; [|eapply evals_denotes_reduct; eauto].
+      intros result HresultDen.
+      apply (proj2 (denotes_exists_iff _ _ _)).
+      split; [eapply denotes_value; exact HresultDen |]. split.
+      * pose proof (denotes_typing _ _ HresultDen) as Htyped.
+        rewrite erase_open_rty_tm in Htyped. exact Htyped.
+      * exists t2. split; assumption.
+    + apply (IH1 t1' H1 R1 R2).
+      * eapply step_preserves_lc; eauto.
+      * intros v Hsteps Hv. apply Hall1; auto. eapply multi_step; eauto.
+      * split; [exact Hlc2 |]. split; [apply SN_intro; exact Hnext2 | exact Hall2].
+    + apply (IH2 t2' H3).
+      * eapply step_preserves_lc; eauto.
+      * intros v Hsteps Hv. apply Hall2; auto. eapply multi_step; eauto.
+Qed.
+
+Lemma evals_denotes_tapp : forall R t U,
+  evals_denotes (R_Poly R) t ->
+  wf_ty [] U ->
+  evals_denotes (open_rty_ty R U) (tm_tapp t U).
+Proof.
+  intros R t U [Hlc [Hsn Hall]] HU.
+  revert Hlc Hall. induction Hsn as [t Hnext IH]. intros Hlc Hall.
+  apply evals_denotes_intro.
+  - apply lc_tm_tapp; [exact Hlc | eapply wf_ty_lc; exact HU].
+  - intros Hv. inversion Hv.
+  - intros u Hstep. inversion Hstep; subst.
+    + match goal with
+      | Htabs : locally_closed_tm (tm_tabs ?body) |- _ =>
+          pose proof (Hall (tm_tabs body) (multi_refl _)
+            (v_tabs body Htabs)) as HpolyDen
+      end.
+      apply (proj1 (denotes_poly_iff _ _)) in HpolyDen.
+      destruct HpolyDen as [_ [_ Happly]].
+      eapply evals_denotes_reduct; [apply Happly; exact HU | exact Hstep].
+    + eapply IH.
+      * eassumption.
+      * eapply step_preserves_lc; eauto.
+      * intros v Hsteps Hv. apply Hall; auto. eapply multi_step; eauto.
 Qed.
 
 Lemma instantiated_refinement_typing_erases : forall Delta RGamma t R theta gamma,
@@ -3658,38 +3771,22 @@ Proof.
       try tauto.
     rewrite (instantiate_rty_open_tm R2 theta gamma x arg) in Hresult;
       try tauto.
-    destruct Hresult as [result [Hresult_value [Hsteps Hresult_denotes]]].
-    exists result. split; [exact Hresult_value |].
-    split.
-    + eapply multi_step.
-      * simpl. apply ST_AppAbs.
-        -- inversion Hvalue; assumption.
+    apply evals_denotes_intro.
+    + apply lc_tm_app.
+      * apply value_regular. exact Hvalue.
+      * exact Harglc.
+    + intros HappValue. inversion HappValue.
+    + intros u Hstep. inversion Hstep; subst.
+      * exact Hresult.
+      * match goal with Hs : tm_abs _ _ --> _ |- _ => inversion Hs end.
+      * exfalso. eapply value_no_step.
         -- eapply denotes_value. exact Harg.
-      * exact Hsteps.
-    + exact Hresult_denotes.
+        -- eassumption.
   - intros Delta RGamma t1 t2 R1 R2 Ht1 IHt1 Ht2 IHt2 Hctx
       theta gamma Htheta Hgamma HthetaWf Hrelated.
     pose proof (IHt1 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated) as Hfun.
     pose proof (IHt2 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated) as Harg.
-    destruct Hfun as [vf [Hvf [Hstepsf Hdenf]]].
-    destruct Harg as [va [Hva [Hstepsa Hdena]]].
-    apply (proj1 (denotes_func_iff _ _ _)) in Hdenf.
-    destruct Hdenf as [_ [_ Hmap]].
-    destruct (Hmap va Hdena) as [result [Hresult [Hbeta Hdenresult]]].
-    pose proof (instantiated_refinement_typing_erases _ _ _ _ _ _ Ht2
-      Hctx Htheta Hgamma HthetaWf Hrelated) as Htyped_arg.
-    exists result. split; [exact Hresult |]. split.
-    + eapply multi_trans.
-      * apply multi_app_left; [exact Hstepsf |].
-        eapply typing_lc. exact Htyped_arg.
-      * eapply multi_trans.
-        -- apply multi_app_right; eauto.
-        -- exact Hbeta.
-    + apply (proj2 (denotes_exists_iff _ _ _)).
-      split; [exact Hresult |]. split.
-      * pose proof (denotes_typing _ _ Hdenresult) as Htype.
-        rewrite erase_open_rty_tm in Htype. exact Htype.
-      * exists va. split; assumption.
+    eapply evals_denotes_app_exists; eauto.
   - intros L Delta RGamma body R Hbody IHbody Hctx theta gamma
       Htheta Hgamma HthetaWf Hrelated.
     assert (Hwhole : has_rtype Delta RGamma (tm_tabs body) (R_Poly R)).
@@ -3730,34 +3827,26 @@ Proof.
       try tauto; try (eapply wf_ty_lc; exact HU).
     rewrite (instantiate_rty_open_ty R theta gamma X U) in Hresult;
       try tauto; try (eapply wf_ty_lc; exact HU).
-    destruct Hresult as [result [Hresult_value [Hsteps Hresult_denotes]]].
-    exists result. split; [exact Hresult_value |]. split.
-    + eapply multi_step.
-      * simpl. apply ST_TAppTabs.
-        -- inversion Hvalue; assumption.
-        -- eapply wf_ty_lc. exact HU.
-      * exact Hsteps.
-    + exact Hresult_denotes.
+    apply evals_denotes_intro.
+    + apply lc_tm_tapp.
+      * apply value_regular. exact Hvalue.
+      * eapply wf_ty_lc. exact HU.
+    + intros HtappValue. inversion HtappValue.
+    + intros u Hstep. inversion Hstep; subst.
+      * exact Hresult.
+      * match goal with Hs : tm_tabs _ --> _ |- _ => inversion Hs end.
   - intros Delta RGamma t R U Ht IHt HU Hctx theta gamma Htheta Hgamma
       HthetaWf Hrelated.
     pose proof (IHt Hctx theta gamma Htheta Hgamma HthetaWf Hrelated) as Hpoly.
-    destruct Hpoly as [vf [Hvf [Hsteps Hdenf]]].
-    apply (proj1 (denotes_poly_iff _ _)) in Hdenf.
-    destruct Hdenf as [_ [_ Hmap]].
     assert (HUinst : wf_ty [] (instantiate_ty theta U)).
     { eapply wf_ty_instantiate; eauto. }
-    destruct (Hmap (instantiate_ty theta U) HUinst)
-      as [result [Hresult [Htapp Hdenresult]]].
-    exists result. split; [exact Hresult |]. split.
-    + simpl. eapply multi_trans.
-      * apply multi_tapp; [exact Hsteps |]. eapply wf_ty_lc. exact HUinst.
-      * exact Htapp.
-    + assert (Heq :
-        instantiate_rty theta gamma (open_rty_ty R U) =
-        open_rty_ty (instantiate_rty theta gamma R) (instantiate_ty theta U)).
-      { apply instantiate_rty_open_ty_commute_top; try assumption.
-        eapply wf_ty_lc. exact HU. }
-      rewrite Heq. exact Hdenresult.
+    pose proof (evals_denotes_tapp _ _ _ Hpoly HUinst) as Hresult.
+    assert (Heq :
+      instantiate_rty theta gamma (open_rty_ty R U) =
+      open_rty_ty (instantiate_rty theta gamma R) (instantiate_ty theta U)).
+    { apply instantiate_rty_open_ty_commute_top; try assumption.
+      eapply wf_ty_lc. exact HU. }
+    rewrite Heq. exact Hresult.
   - intros Delta RGamma t T Htyped Hctx theta gamma Htheta Hgamma
       HthetaWf Hrelated.
     eapply core_evals_denotes; eauto.
@@ -3782,8 +3871,8 @@ Proof.
   - intros Delta RGamma t R S Ht IHt Hwf Hsub IHsub Hctx theta gamma
       Htheta Hgamma HthetaWf Hrelated.
     pose proof (IHt Hctx theta gamma Htheta Hgamma HthetaWf Hrelated) as Hresult.
-    destruct Hresult as [v [Hv [Hsteps Hden]]].
-    exists v. split; [exact Hv |]. split; [exact Hsteps |].
+    eapply evals_denotes_map; [|exact Hresult].
+    intros v Hden.
     apply (IHsub (wf_rty_erases _ _ _ Hwf) Hctx theta gamma Htheta Hgamma
       HthetaWf Hrelated v Hden).
   - intros Delta RGamma R Hwf Hctx theta gamma Htheta Hgamma HthetaWf
@@ -3836,8 +3925,7 @@ Proof.
         rewrite <- E. exact HwfS1. }
       pose proof (IHdomain HwfR1 Hctx theta gamma Htheta Hgamma HthetaWf
         Hrelated arg HargS1) as HargR1.
-      destruct (Hmap arg HargR1)
-        as [result [Hresult_value [Hsteps Hresult_denotes]]].
+      pose proof (Hmap arg HargR1) as Hresult.
       set (x := fresh (L ++ fv_rty R1 ++ fv_rty R2 ++ fv_rty S1 ++
         fv_rty S2 ++ fv_rcontext RGamma)).
       assert (Hxall : ~ In x
@@ -3852,11 +3940,6 @@ Proof.
       assert (HwfOpenS2 : wf_ty Delta
         (erase (open_rty_tm S2 (tm_fvar x)))).
       { rewrite erase_open_rty_tm. exact HwfS2. }
-      pose proof (IHcodomain x ltac:(tauto) HwfOpenS2 Hctx' theta
-        (term_subst_update gamma x arg) Htheta
-        (term_subst_update_closed gamma x arg Hgamma Harglc) HthetaWf
-        (related_substitution_update theta gamma RGamma x S1 arg Hrelated
-          HargS1 ltac:(tauto) ltac:(tauto)) result) as Hconvert.
       assert (HR2eq :
         instantiate_rty theta (term_subst_update gamma x arg)
           (open_rty_tm R2 (tm_fvar x)) =
@@ -3867,9 +3950,15 @@ Proof.
           (open_rty_tm S2 (tm_fvar x)) =
         open_rty_tm (instantiate_rty theta gamma S2) arg).
       { apply instantiate_rty_open_tm; tauto. }
+      eapply evals_denotes_map; [|exact Hresult].
+      intros result Hresult_denotes.
+      pose proof (IHcodomain x ltac:(tauto) HwfOpenS2 Hctx' theta
+        (term_subst_update gamma x arg) Htheta
+        (term_subst_update_closed gamma x arg Hgamma Harglc) HthetaWf
+        (related_substitution_update theta gamma RGamma x S1 arg Hrelated
+          HargS1 ltac:(tauto) ltac:(tauto)) result) as Hconvert.
       rewrite HR2eq, HS2eq in Hconvert.
-      exists result. split; [exact Hresult_value |].
-      split; [exact Hsteps |]. apply Hconvert. exact Hresult_denotes.
+      apply Hconvert. exact Hresult_denotes.
   - intros Delta RGamma witness R1 R2 S Hwitness Htyping IHtyping Hsub IHsub
       Hwf Hctx theta gamma Htheta Hgamma HthetaWf Hrelated v HdenS.
     pose proof (IHtyping Hctx theta gamma Htheta Hgamma HthetaWf Hrelated)
@@ -3948,7 +4037,7 @@ Proof.
       simpl in Herase. injection Herase as E.
       rewrite <- E. exact Htyped.
     + intros U HU.
-      destruct (Hmap U HU) as [result [Hresult [Hsteps Hresult_denotes]]].
+      pose proof (Hmap U HU) as Hresult.
       set (X := fresh (L ++ ftv_rty R ++ ftv_rty S ++ ftv_rcontext RGamma)).
       assert (HXall : ~ In X
         (L ++ ftv_rty R ++ ftv_rty S ++ ftv_rcontext RGamma))
@@ -3973,10 +4062,6 @@ Proof.
         - eapply wf_ty_weaken; [exact Hwf |].
           unfold ty_context_included. simpl. auto.
         - apply WF_Var. simpl. auto. }
-      pose proof (IHsub X ltac:(tauto) HwfOpenS Hctx'
-        (type_subst_update theta X U) gamma Htheta' Hgamma HthetaWf'
-        (related_substitution_type_update theta gamma RGamma X U Hrelated
-          ltac:(tauto)) result) as Hconvert.
       assert (HR_eq :
         instantiate_rty (type_subst_update theta X U) gamma
           (open_rty_ty R (Ty_FVar X)) =
@@ -3989,8 +4074,13 @@ Proof.
         open_rty_ty (instantiate_rty theta gamma S) U).
       { apply instantiate_rty_open_ty; try tauto.
         eapply wf_ty_lc. exact HU. }
+      eapply evals_denotes_map; [|exact Hresult].
+      intros result Hresult_denotes.
+      pose proof (IHsub X ltac:(tauto) HwfOpenS Hctx'
+        (type_subst_update theta X U) gamma Htheta' Hgamma HthetaWf'
+        (related_substitution_type_update theta gamma RGamma X U Hrelated
+          ltac:(tauto)) result) as Hconvert.
       rewrite HR_eq, HS_eq in Hconvert.
-      exists result. split; [exact Hresult |]. split; [exact Hsteps |].
       apply Hconvert. exact Hresult_denotes.
   - intros Delta RGamma R S U HRS IHRS HSU IHSU HwfU Hctx theta gamma
       Htheta Hgamma HthetaWf Hrelated v HdenR.
@@ -4022,17 +4112,13 @@ Import SystemFRefinementNormalization.
 Import SystemFRefinementDenotations.
 Import SystemFRefinementSoundness.
 
-(* The supplied refinement-type logical relation is [denotes], with
-   [evals_denotes] as its expression lifting. Its [fundamental] theorem is
-   proved above. *)
-
 Theorem refinement_soundness : forall t T ps v,
   has_rtype [] empty_rcontext t (R_Refine T ps) ->
   multi t v ->
   value v ->
   predicates_hold (open_preds_tm ps v).
 Proof.
-  (* Complete the proof. *)
+
 Qed.
 
 End SystemFRefinementSoundnessNoneEasyTask.

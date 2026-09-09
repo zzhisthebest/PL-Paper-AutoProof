@@ -1,5 +1,3 @@
-(** The syntax and static/dynamic semantics of System F. *)
-
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
@@ -17,11 +15,12 @@ Open Scope systemf_scope.
 Declare Custom Entry systemf_ty.
 Declare Custom Entry systemf_tm.
 
-(** System F types, using locally nameless type variables. *)
 Inductive ty : Type :=
   | Ty_BVar : nat -> ty
   | Ty_FVar : atom -> ty
+
   | Ty_Arrow : ty -> ty -> ty
+
   | Ty_All : ty -> ty.
 
 Notation "T" := T
@@ -41,13 +40,14 @@ Notation "'forall' ',' T" := (Ty_All T)
    T custom systemf_ty at level 200,
    right associativity) : systemf_scope.
 
-(** System F terms, using separate locally nameless term binders. *)
 Inductive tm : Type :=
   | tm_bvar : nat -> tm
   | tm_fvar : atom -> tm
   | tm_abs : ty -> tm -> tm
   | tm_app : tm -> tm -> tm
+
   | tm_tabs : tm -> tm
+
   | tm_tapp : tm -> ty -> tm.
 
 Notation "t" := t
@@ -185,7 +185,6 @@ Inductive lc_tm_at : nat -> nat -> tm -> Prop :=
 
 Definition locally_closed_tm (t : tm) : Prop := lc_tm_at 0 0 t.
 
-(** Values in the call-by-value semantics. *)
 Inductive value : tm -> Prop :=
   | v_abs : forall T t,
       locally_closed_tm (tm_abs T t) ->
@@ -196,23 +195,23 @@ Inductive value : tm -> Prop :=
 
 Reserved Notation "t1 '-->' t2" (at level 40).
 
-
-
-(** One-step call-by-value evaluation. *)
 Inductive step : tm -> tm -> Prop :=
   | ST_AppAbs : forall T t v,
       locally_closed_tm (tm_abs T t) ->
       value v ->
+
       tm_app (tm_abs T t) v --> open_tm t v
   | ST_App1 : forall t1 t1' t2,
       t1 --> t1' ->
       locally_closed_tm t2 ->
       tm_app t1 t2 --> tm_app t1' t2
+
   | ST_App2 : forall v1 t2 t2',
       value v1 ->
       t2 --> t2' ->
       tm_app v1 t2 --> tm_app v1 t2'
   | ST_TAppTabs :
+
       forall t T,
       locally_closed_tm (tm_tabs t) ->
       locally_closed_ty T ->
@@ -260,11 +259,7 @@ Inductive wf_ty : ty_context -> ty -> Prop :=
       wf_ty Delta T2 ->
       wf_ty Delta (Ty_Arrow T1 T2)
   | WF_All :
-      (*
-        wf_ty (X :: Delta) T
-        -------------------------
-        wf_ty Delta (forall X, T)
-      *)
+
       forall (L : list atom) Delta T,
       (forall X, ~ In X L ->
         wf_ty (X :: Delta) (open_ty T (Ty_FVar X))) ->
@@ -277,6 +272,7 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma (tm_fvar x) T
   | T_Abs : forall (L : list atom) Delta Gamma T1 t2 T2,
       wf_ty Delta T1 ->
+
       (forall x, ~ In x L ->
         has_type Delta <{ x |-> $(T1); Gamma }>
           (open_tm t2 (tm_fvar x)) T2) ->
@@ -322,7 +318,6 @@ Proof.
 Qed.
 
 End SystemFRefinement.
-(** Locally nameless infrastructure for System F. *)
 
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
@@ -532,6 +527,7 @@ Proof.
     apply (lc_ty_at_open_inv T 0 X).
     apply H0. subst X. apply fresh_notin.
 Qed.
+
 Lemma typing_lc : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   locally_closed_tm t.
@@ -577,7 +573,9 @@ Proof.
     + assumption.
     + apply wf_ty_lc with Delta. assumption.
 Qed.
+
 Definition type_substitution := atom -> ty.
+
 Definition term_substitution := atom -> tm.
 
 Definition type_subst_update
@@ -587,6 +585,7 @@ Definition type_subst_update
 Definition term_subst_update
     (gamma : term_substitution) (x : atom) (u : tm) : term_substitution :=
   fun y => if Nat.eqb x y then u else gamma y.
+
 Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
   match T with
   | Ty_BVar i => Ty_BVar i
@@ -595,6 +594,7 @@ Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
       Ty_Arrow (instantiate_ty theta T1) (instantiate_ty theta T2)
   | Ty_All T1 => Ty_All (instantiate_ty theta T1)
   end.
+
 Fixpoint instantiate
     (theta : type_substitution) (gamma : term_substitution) (t : tm) : tm :=
   match t with
@@ -605,6 +605,7 @@ Fixpoint instantiate
   | tm_tabs t1 => tm_tabs (instantiate theta gamma t1)
   | tm_tapp t1 T => tm_tapp (instantiate theta gamma t1) (instantiate_ty theta T)
   end.
+
 Definition type_substitution_closed (theta : type_substitution) : Prop :=
   forall X : atom, locally_closed_ty (theta X).
 
@@ -824,8 +825,10 @@ Proof.
   intros. unfold open_tm_ty.
   apply instantiate_open_ty_rec; assumption.
 Qed.
+
 Definition identity_type_substitution : type_substitution :=
   fun X : atom => Ty_FVar X.
+
 Definition identity_term_substitution : term_substitution :=
   fun x : atom => tm_fvar x.
 
@@ -855,6 +858,7 @@ Proof.
 Qed.
 
 End SystemFRefinementInfrastructure.
+
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
@@ -1282,6 +1286,7 @@ Proof.
 Qed.
 
 End SystemFRefinementCoreTyping.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 
 Module SystemFRefinementTyping.
@@ -1290,9 +1295,6 @@ Import SystemFRefinement.
 Import SystemFRefinementInfrastructure.
 Import SystemFRefinementCoreTyping.
 
-(** Object-language refinement predicates.  [Pred_Eq t1 t2] is the formula
-    saying that the two System F programs denote the same result.  Bound term
-    variables inside the programs are represented locally namelessly. *)
 Inductive predicate : Type :=
   | Pred_True : predicate
   | Pred_False : predicate
@@ -1303,8 +1305,6 @@ Inductive predicates : Type :=
   | PEmpty : predicates
   | PCons : predicate -> predicates -> predicates.
 
-(** Refinement types follow the SystemRF shape.  [R_Func R1 R2] and
-    [R_Exists R1 R2] bind one term variable in [R2]. *)
 Inductive rty : Type :=
   | R_Refine : ty -> predicates -> rty
   | R_Func : rty -> rty -> rty
@@ -1515,6 +1515,7 @@ Inductive predicates_wf : ty_context -> context -> predicates -> Prop :=
       predicates_wf Delta Gamma (PCons p ps).
 
 Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
+
   | RWF_Refine : forall (L : list atom) Delta RGamma T ps,
       wf_ty Delta T ->
       (forall x, ~ In x L ->
@@ -1522,6 +1523,7 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
           (update (erase_context RGamma) x T)
           (open_preds_tm ps (tm_fvar x))) ->
       wf_rty Delta RGamma (R_Refine T ps)
+
   | RWF_Func : forall (L : list atom) Delta RGamma R1 R2,
       wf_rty Delta RGamma R1 ->
       (forall x, ~ In x L ->
@@ -1539,6 +1541,7 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
       (forall X, ~ In X L ->
         wf_rty (X :: Delta) RGamma (open_rty_ty R (Ty_FVar X))) ->
       wf_rty Delta RGamma (R_Poly R).
+
 Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :=
   | Entails_Refl : forall Delta RGamma ps,
       entails Delta RGamma ps ps
@@ -1556,6 +1559,7 @@ Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :
       entails Delta RGamma ps (PCons p PEmpty) ->
       entails Delta RGamma ps qs ->
       entails Delta RGamma ps (PCons p qs)
+
   | Entails_False : forall Delta RGamma ps qs,
       entails Delta RGamma (PCons Pred_False ps) qs.
 
@@ -1578,6 +1582,7 @@ Inductive predicate_holds : predicate -> Prop :=
       predicate_holds p1 ->
       predicate_holds p2 ->
       predicate_holds (Pred_And p1 p2).
+
 Inductive predicates_hold : predicates -> Prop :=
   | PHS_Empty : predicates_hold PEmpty
   | PHS_Cons : forall p ps,
@@ -1590,6 +1595,7 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       lookup_rcontext x RGamma = Some R ->
       wf_rty Delta RGamma R ->
       has_rtype Delta RGamma (tm_fvar x) R
+
   | RT_Abs : forall (L : list atom) Delta RGamma R1 body R2,
       wf_rty Delta RGamma R1 ->
       (forall x, ~ In x L ->
@@ -1611,21 +1617,23 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       has_rtype Delta RGamma t (R_Poly R) ->
       wf_ty Delta U ->
       has_rtype Delta RGamma (tm_tapp t U) (open_rty_ty R U)
+
   | RT_Core : forall Delta RGamma t T,
       has_type Delta (erase_context RGamma) t T ->
       has_rtype Delta RGamma t (R_Refine T PEmpty)
+
   | RT_RefineValue : forall Delta RGamma v T ps,
       has_type Delta (erase_context RGamma) v T ->
       value v ->
       wf_rty Delta RGamma (R_Refine T ps) ->
       predicates_hold (open_preds_tm ps v) ->
       has_rtype Delta RGamma v (R_Refine T ps)
+
   | RT_Sub : forall Delta RGamma t R S,
       has_rtype Delta RGamma t R ->
       wf_rty Delta RGamma S ->
       subtype Delta RGamma R S ->
       has_rtype Delta RGamma t S
-
 
 with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
   | S_Refl : forall Delta RGamma R,
@@ -1650,7 +1658,7 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
       subtype Delta RGamma S (open_rty_tm R2 v) ->
       subtype Delta RGamma S (R_Exists R1 R2)
   | S_Bind : forall (L : list atom) Delta RGamma R1 R2 S,
-      (* R1 is added to the context in the premise, so it must be well formed. *)
+
       wf_rty Delta RGamma R1 ->
       locally_closed_rty S ->
       (forall x, ~ In x L ->
@@ -1844,6 +1852,7 @@ Proof.
 Qed.
 
 End SystemFRefinementTyping.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 
 Module SystemFRefinementNormalization.
@@ -1860,8 +1869,6 @@ Inductive multi : tm -> tm -> Prop :=
 
 Notation "t '-->*' u" := (multi t u) (at level 40).
 
-(** [strongly_normalizing t] means that no infinite reduction sequence starts
-    from [t]. *)
 Inductive strongly_normalizing : tm -> Prop :=
   | SN_intro : forall t,
       (forall t', t --> t' -> strongly_normalizing t') ->
@@ -1894,9 +1901,6 @@ Proof.
       eapply lc_ty_at_monotone; [exact HU|lia].
 Qed.
 
-(** Background logical relation used only to establish normalization of the
-    erased core System F. It is not the refinement-type logical relation
-    varied across the Hard, Medium, and Easy cases. *)
 Definition relation := tm -> Prop.
 Record value_candidate := {
   candidate_relation : relation;
@@ -2298,7 +2302,7 @@ Proof.
   apply Hrel. exact Hlookup.
 Qed.
 
-Theorem core_normalization_fundamental : forall Delta Gamma t T,
+Theorem fundamental : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   forall theta rho gamma,
     type_substitution_closed theta -> term_substitution_closed gamma ->
@@ -2376,8 +2380,6 @@ Proof.
 
 Qed.
 
-(** Operational type-safety lemmas used only to turn strong normalization into
-    termination at a value. *)
 Lemma canonical_arrow : forall v T1 T2,
   value v ->
   has_type [] empty v (Ty_Arrow T1 T2) ->
@@ -2541,11 +2543,8 @@ Proof.
   - eapply T_TApp; eauto.
 Qed.
 
-
 Definition empty_relation_env : relation_env := fun _ => None.
 
-(** Every closed, well-typed term of the underlying System F is strongly
-    normalizing. *)
 Theorem strong_normalization : forall t T,
   has_type [] empty t T ->
   strongly_normalizing t.
@@ -2554,7 +2553,7 @@ Proof.
   assert (Hempty :
     related_substitution empty_relation_env empty identity_term_substitution).
   { intros x U Hlookup. discriminate Hlookup. }
-  pose proof (core_normalization_fundamental [] empty t T Htyped
+  pose proof (fundamental [] empty t T Htyped
     identity_type_substitution empty_relation_env identity_term_substitution
     identity_type_substitution_closed identity_term_substitution_closed Hempty)
     as Hrelated.
@@ -2562,7 +2561,6 @@ Proof.
   exact (proj1 (proj2 Hrelated)).
 Qed.
 
-(** [halts t] means that [t] reduces in finitely many steps to a value. *)
 Definition halts (t : tm) : Prop :=
   exists v, t -->* v /\ value v.
 
@@ -2582,7 +2580,6 @@ Proof.
     + exact Hv.
 Qed.
 
-(** Every closed, well-typed System F term weakly normalizes to a value. *)
 Theorem weak_normalization : forall t T,
   has_type [] empty t T ->
   halts t.
@@ -2593,8 +2590,8 @@ Proof.
   - exact Htyped.
 Qed.
 
-
 End SystemFRefinementNormalization.
+
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia Program.Wf.
 From Equations Require Import Equations.
 
@@ -3199,21 +3196,23 @@ Proof.
   - apply IHps; assumption.
 Qed.
 
-(** [denotes R v] means that the value [v] semantically belongs to the
-    refinement type [R]. *)
 Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
   denotes (R_Refine T ps) v :=
+
       value v /\
       has_type [] empty v T /\
       predicates_hold (open_preds_tm ps v);
   denotes (R_Func R1 R2) v :=
+
       value v /\
       has_type [] empty v (erase (R_Func R1 R2)) /\
       forall arg,
         denotes R1 arg ->
-        exists result,
-          value result /\
-          multi (tm_app v arg) result /\
+        locally_closed_tm (tm_app v arg) /\
+        strongly_normalizing (tm_app v arg) /\
+        forall result,
+          multi (tm_app v arg) result ->
+          value result ->
           denotes (open_rty_tm R2 arg) result;
   denotes (R_Exists R1 R2) v :=
       value v /\
@@ -3226,9 +3225,11 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       has_type [] empty v (erase (R_Poly R1)) /\
       forall U,
         wf_ty [] U ->
-        exists result,
-          value result /\
-          multi (tm_tapp v U) result /\
+        locally_closed_tm (tm_tapp v U) /\
+        strongly_normalizing (tm_tapp v U) /\
+        forall result,
+          multi (tm_tapp v U) result ->
+          value result ->
           denotes (open_rty_ty R1 U) result.
 Next Obligation.
   simpl. lia.
@@ -3246,12 +3247,12 @@ Next Obligation.
   rewrite rty_size_open_ty. simpl. lia.
 Qed.
 
-(** [evals_denotes R t] means that [t] evaluates to a value belonging to
-    the refinement type [R]. *)
 Definition evals_denotes (R : rty) (t : tm) : Prop :=
-  exists v,
-    value v /\
-    multi t v /\
+  locally_closed_tm t /\
+  strongly_normalizing t /\
+  forall v,
+    multi t v ->
+    value v ->
     denotes R v.
 
 End SystemFRefinementDenotations.
@@ -3265,16 +3266,13 @@ Import SystemFRefinementTyping.
 Import SystemFRefinementNormalization.
 Import SystemFRefinementDenotations.
 
-(* The supplied refinement-type logical relation is [denotes], with
-   [evals_denotes] as its expression lifting. Prove its fundamental theorem. *)
-
 Theorem refinement_soundness : forall t T ps v,
   has_rtype [] empty_rcontext t (R_Refine T ps) ->
   multi t v ->
   value v ->
   predicates_hold (open_preds_tm ps v).
 Proof.
-  (* Complete the proof. *)
+
 Qed.
 
 End SystemFRefinementSoundnessNoneMediumTask.
