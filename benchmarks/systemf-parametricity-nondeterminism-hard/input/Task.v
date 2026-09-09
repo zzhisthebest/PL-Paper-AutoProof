@@ -313,31 +313,6 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma t1 T -> has_type Delta Gamma t2 T ->
       has_type Delta Gamma (tm_choice t1 t2) T.
 
-Fixpoint max_atom (L : list atom) : atom :=
-  match L with
-  | [] => 0
-  | x :: L' => Nat.max x (max_atom L')
-  end.
-
-Definition fresh (L : list atom) : atom := S (max_atom L).
-
-Lemma in_le_max_atom : forall x L,
-  In x L -> x <= max_atom L.
-Proof.
-  induction L; simpl; intros.
-  - contradiction.
-  - destruct H as [H | H].
-    + subst. lia.
-    + specialize (IHL H). lia.
-Qed.
-
-Lemma fresh_notin : forall L,
-  ~ In (fresh L) L.
-Proof.
-  unfold fresh. intros L H.
-  pose proof (in_le_max_atom _ _ H). lia.
-Qed.
-
 Inductive multi : tm -> tm -> Prop :=
   | multi_refl : forall x, multi x x
   | multi_step : forall x y z, x --> y -> multi y z -> multi x z.

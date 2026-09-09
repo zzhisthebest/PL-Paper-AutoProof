@@ -258,6 +258,11 @@ Qed.
 
 (** Provided logical relation. *)
 
+Inductive strongly_normalizing : tm -> Prop :=
+  | SN_intro : forall t,
+      (forall t', t --> t' -> strongly_normalizing t') ->
+      strongly_normalizing t.
+
 Fixpoint value_relation (T : ty) (v : tm) : Prop :=
   value v /\
   match T with
@@ -717,13 +722,6 @@ Proof.
               ** exact Hs3.
         -- exact HV3.
 Qed.
-
-(** Target theorem: strong normalization for the supplied CBV relation. *)
-
-Inductive strongly_normalizing : tm -> Prop :=
-  | SN_intro : forall t,
-      (forall t', t --> t' -> strongly_normalizing t') ->
-      strongly_normalizing t.
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->

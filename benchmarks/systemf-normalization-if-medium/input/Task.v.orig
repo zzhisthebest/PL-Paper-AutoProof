@@ -343,31 +343,6 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma t2 T -> has_type Delta Gamma t3 T ->
       has_type Delta Gamma (tm_if t1 t2 t3) T.
 
-Fixpoint max_atom (L : list atom) : atom :=
-  match L with
-  | [] => 0
-  | x :: L' => Nat.max x (max_atom L')
-  end.
-
-Definition fresh (L : list atom) : atom := S (max_atom L).
-
-Lemma in_le_max_atom : forall x L,
-  In x L -> x <= max_atom L.
-Proof.
-  induction L; simpl; intros.
-  - contradiction.
-  - destruct H as [H | H].
-    + subst. lia.
-    + specialize (IHL H). lia.
-Qed.
-
-Lemma fresh_notin : forall L,
-  ~ In (fresh L) L.
-Proof.
-  unfold fresh. intros L H.
-  pose proof (in_le_max_atom _ _ H). lia.
-Qed.
-
 Inductive multi : tm -> tm -> Prop :=
   | multi_refl : forall x, multi x x
   | multi_step : forall x y z, x --> y -> multi y z -> multi x z.
@@ -450,20 +425,6 @@ Definition expression_relation eta rho T t :=
 Definition related_substitution (rho : relation_env) (Gamma : context)
     (gamma : term_substitution) : Prop :=
   forall x T, lookup_context x Gamma = Some T -> value_relation [] rho T (gamma x).
-
-(* Add supporting lemmas here. *)
-
-Theorem fundamental : forall Delta Gamma t T,
-  has_type Delta Gamma t T ->
-  forall theta rho gamma,
-    type_substitution_closed theta -> term_substitution_closed gamma ->
-    related_substitution rho Gamma gamma ->
-    expression_relation [] rho T (instantiate theta gamma t).
-Proof.
-  (* Prove the fundamental theorem for the supplied logical relation. *)
-Qed.
-
-Definition empty_relation_env : relation_env := fun _ => None.
 
 Theorem normalization : forall t T,
   has_type [] empty t T -> strongly_normalizing t.

@@ -305,16 +305,6 @@ Definition related_substitution
     (Gamma : context) (rho : term_substitution) : Prop :=
   forall x T, Gamma x = Some T -> value_relation T (rho x).
 
-Theorem fundamental : forall Gamma t T,
-  <{ Gamma |-- t \in T }> ->
-  forall rho,
-    proper_substitution rho ->
-    related_substitution Gamma rho ->
-    expression_relation T (msubst rho t).
-Proof.
-  (* Prove the fundamental theorem for the supplied logical relation. *)
-Qed.
-
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> -> strongly_normalizing t.
 Proof.

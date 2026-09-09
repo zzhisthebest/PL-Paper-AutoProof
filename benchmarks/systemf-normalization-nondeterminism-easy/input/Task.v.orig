@@ -1422,9 +1422,6 @@ Proof.
   - apply strong_expression_choice; [apply IHt1|apply IHt2]; assumption.
 Qed.
 
-Definition empty_relation_env : relation_env := fun _ => None.
-
-
 Theorem normalization : forall t T,
   has_type [] empty t T -> strongly_normalizing t.
 Proof.

@@ -1701,8 +1701,6 @@ Proof.
   - apply expression_choice; [apply IHt1|apply IHt2]; assumption.
 Qed.
 
-Definition empty_binary_env : binary_env := fun _ => None.
-
 Theorem polymorphic_identity_theorem_for_free : forall t,
   has_type [] empty t
     (Ty_All (Ty_Arrow (Ty_BVar 0) (Ty_BVar 0))) ->

@@ -337,16 +337,6 @@ Definition strong_related_substitution
     Gamma x = Some T ->
     strong_value_relation T (rho x).
 
-Theorem strong_fundamental : forall Gamma t T,
-  <{ Gamma |-- t \in T }> ->
-  forall rho,
-    proper_substitution rho ->
-    strong_related_substitution Gamma rho ->
-    strong_expression_relation T (msubst rho t).
-Proof.
-  (* Prove the fundamental theorem for the supplied logical relation. *)
-Qed.
-
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->
   strongly_normalizing t.

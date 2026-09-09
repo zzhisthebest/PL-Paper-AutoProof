@@ -219,6 +219,11 @@ where "<{ Gamma '|--' t '\in' T }>" := (has_type Gamma t T)
 
 (** Provided logical relation. *)
 
+Inductive strongly_normalizing : tm -> Prop :=
+  | SN_intro : forall t,
+      (forall t', t --> t' -> strongly_normalizing t') ->
+      strongly_normalizing t.
+
 Fixpoint value_relation (T : ty) (v : tm) : Prop :=
   value v /\
   match T with
@@ -270,25 +275,6 @@ Definition related_substitution
   forall x T,
     Gamma x = Some T ->
     value_relation T (rho x).
-
-(** Fundamental theorem to prove. *)
-
-Theorem fundamental : forall Gamma t T,
-  <{ Gamma |-- t \in T }> ->
-  forall rho,
-    proper_substitution rho ->
-    related_substitution Gamma rho ->
-    expression_relation T (msubst rho t).
-Proof.
-  (* Prove the fundamental theorem for the supplied logical relation. *)
-Qed.
-
-(** Target theorem: strong normalization for the supplied CBV relation. *)
-
-Inductive strongly_normalizing : tm -> Prop :=
-  | SN_intro : forall t,
-      (forall t', t --> t' -> strongly_normalizing t') ->
-      strongly_normalizing t.
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->

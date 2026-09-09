@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: binary non-deterministic choice (`tm_choice`); `Nat` and System T-style primitive recursion (`tm_natrec`), not an unrestricted fixpoint.
 
-The file additionally supplies the unary logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and the statement of the fundamental theorem. The fundamental theorem and target theorem remain unproved.
+The file additionally supplies the unary logical relation formed by `value_relation` and `expression_relation`, together with its direct definitional dependencies.
 
 ## Target Theorem
 
@@ -22,4 +22,4 @@ Every closed, well-typed term is strongly normalizing for the supplied call-by-v
 
 ## Expected Output
 
-Complete `Task.v`: prove the stated fundamental theorem for the supplied logical relation, then prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+Complete `Task.v`: formulate and prove a fundamental theorem for the supplied logical relation, then prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.

@@ -1380,9 +1380,6 @@ Proof.
 
 Qed.
 
-Definition empty_relation_env : relation_env := fun _ => None.
-
-
 Theorem normalization : forall t T,
   has_type [] empty t T -> strongly_normalizing t.
 Proof.

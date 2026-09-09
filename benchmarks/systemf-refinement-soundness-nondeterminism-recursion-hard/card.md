@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 The refinement-type layer adds predicates, refinement function, existential, and polymorphic types, erasure, subtyping, and refinement typing rules. The additional language feature set is: Non-determinism + Natural-number recursion.
 
-The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, the underlying System F normalization metatheory, and the target theorem.
+The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, and the target theorem.
 
 ## Target Theorem
 
