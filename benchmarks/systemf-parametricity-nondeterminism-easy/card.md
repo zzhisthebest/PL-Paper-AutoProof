@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: binary non-deterministic choice (`tm_choice`).
 
-The file additionally supplies the logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and a proved fundamental theorem. Only the target theorem remains unproved.
+The file additionally supplies the logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and a proved fundamental theorem `binary_fundamental`. Only the target theorem remains unproved.
 
 ## Target Theorem
 
