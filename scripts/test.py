@@ -7,15 +7,13 @@ Usage:
         --model MODEL --reasoning-effort high
 """
 
-import argparse, json, subprocess, sys, time, shutil, os, signal, atexit
+import argparse, atexit, json, signal, subprocess, time, shutil, tempfile
 from pathlib import Path
 
 ROOT = Path("/data0/zzh/PL-Paper-AutoProof")
 OUTPUT_ROOT = Path("/data0/zzh/benchmarkResults")
-PERMISSION_SNAPSHOT_FILE = ROOT / ".test_permission_snapshot.json"
-
-_PERMISSION_SNAPSHOT = {}
-_EXITING_AFTER_SIGNAL = False
+WORKSPACE_ROOT = OUTPUT_ROOT / ".workspaces"
+_ACTIVE_WORKSPACES = set()
 
 def _save_trace(trace_dir, problem, raw_stdout):
     trace_dir.mkdir(parents=True, exist_ok=True)
@@ -59,91 +57,108 @@ def load_results(results_file):
 def save_results(results, results_file):
     results_file.write_text(json.dumps(results, indent=2) + "\n")
 
-def ensure_orig(task_path):
-    orig_path = task_path.with_suffix(".v.orig")
-    if not orig_path.exists():
-        shutil.copy2(task_path, orig_path)
+def private_codex_home(workspace):
+    return workspace.parent / f".{workspace.name}.codex-home"
 
-def restore_from_orig(task_path):
-    orig_path = task_path.with_suffix(".v.orig")
-    if orig_path.exists():
-        shutil.copy2(orig_path, task_path)
+def cleanup_workspace(workspace):
+    shutil.rmtree(private_codex_home(workspace), ignore_errors=True)
+    shutil.rmtree(workspace, ignore_errors=True)
+    _ACTIVE_WORKSPACES.discard(workspace)
 
-def remove_build_artifacts(task_path):
-    """Remove stale Rocq outputs that could reveal an earlier solution."""
-    artifacts = [
-        task_path.with_suffix(".vo"),
-        task_path.with_suffix(".vos"),
-        task_path.with_suffix(".vok"),
-        task_path.with_suffix(".glob"),
-        task_path.parent / f".{task_path.stem}.aux",
+def cleanup_active_workspaces():
+    for workspace in list(_ACTIVE_WORKSPACES):
+        cleanup_workspace(workspace)
+
+def terminate_with_cleanup(signum, _frame):
+    cleanup_active_workspaces()
+    raise SystemExit(128 + signum)
+
+def install_cleanup_handlers():
+    atexit.register(cleanup_active_workspaces)
+    signal.signal(signal.SIGTERM, terminate_with_cleanup)
+    signal.signal(signal.SIGHUP, terminate_with_cleanup)
+
+def isolated_command(workspace, command):
+    """Run a command where only this case is visible below /workspace.
+
+    The host filesystem is read-only.  The repository, sibling benchmark
+    workspaces, and host /tmp are over-mounted with private empty filesystems.
+    Codex receives a fresh private home containing authentication but no user
+    configuration, plugins, histories, sessions, or previous traces.
+    """
+    bwrap = shutil.which("bwrap")
+    if not bwrap:
+        raise RuntimeError("bubblewrap (bwrap) is required for isolated runs")
+    codex_home = private_codex_home(workspace)
+    codex_home_mount = str(Path.home() / ".codex")
+    rocq_root = Path.home() / ".opam" / "rocq-dev"
+    node_root = Path("/data1/zzh/node")
+    args = [
+        bwrap,
+        "--die-with-parent", "--new-session",
+        "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup",
+        "--ro-bind", "/", "/",
+        "--tmpfs", str(Path.home()),
+        "--dir", codex_home_mount,
+        "--bind", str(codex_home), codex_home_mount,
+        "--setenv", "CODEX_HOME", codex_home_mount,
     ]
-    for artifact in artifacts:
-        artifact.unlink(missing_ok=True)
+    if rocq_root.is_dir():
+        args += [
+            "--dir", str(rocq_root.parent),
+            "--dir", str(rocq_root),
+            "--ro-bind", str(rocq_root), str(rocq_root),
+        ]
+    args += ["--tmpfs", str(node_root.parent)]
+    if node_root.is_dir():
+        args += [
+            "--dir", str(node_root),
+            "--ro-bind", str(node_root), str(node_root),
+        ]
+    args += [
+        "--tmpfs", str(ROOT.parent),
+        "--tmpfs", "/tmp",
+        "--bind", str(workspace), "/workspace",
+        "--proc", "/proc", "--dev", "/dev",
+        "--chdir", "/workspace",
+    ]
+    return args + command
 
-def _remember_mode(path):
-    if path not in _PERMISSION_SNAPSHOT:
-        _PERMISSION_SNAPSHOT[path] = path.stat().st_mode & 0o777
-        PERMISSION_SNAPSHOT_FILE.parent.mkdir(parents=True, exist_ok=True)
-        PERMISSION_SNAPSHOT_FILE.write_text(json.dumps(
-            {str(p): mode for p, mode in _PERMISSION_SNAPSHOT.items()},
-            indent=2
-        ) + "\n")
-
-def _chmod_recorded(path, mode):
-    if not path.exists():
-        return
+def prepare_workspace(benchmark, problem):
+    """Copy exactly one problem into a private disposable workspace."""
+    WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+    workspace = Path(tempfile.mkdtemp(prefix=f"{problem}.", dir=WORKSPACE_ROOT))
+    _ACTIVE_WORKSPACES.add(workspace)
     try:
-        _remember_mode(path)
-        path.chmod(mode)
-    except FileNotFoundError:
-        pass
+        shutil.copy2(benchmark / "input" / "Task.v.orig", workspace / "Task.v")
+        shutil.copy2(benchmark / "input" / "Task.v.orig", workspace / "Task.v.orig")
+        shutil.copy2(benchmark / "card.md", workspace / "card.md")
+        codex_home = private_codex_home(workspace)
+        codex_home.mkdir(mode=0o700)
+        auth_file = Path.home() / ".codex" / "auth.json"
+        if auth_file.is_file():
+            shutil.copy2(auth_file, codex_home / "auth.json")
+            (codex_home / "auth.json").chmod(0o600)
+    except BaseException:
+        cleanup_workspace(workspace)
+        raise
+    return workspace
 
-def _hide_path(path):
-    """Make a path unreadable during evaluation."""
-    if not path.exists() or path.is_symlink():
-        return
-    _chmod_recorded(path, 0o000)
-
-def restore_hidden_path_permissions():
-    """Restore permissions changed by _hide_path."""
-    snapshot = dict(_PERMISSION_SNAPSHOT)
-    if PERMISSION_SNAPSHOT_FILE.exists():
-        try:
-            snapshot.update({
-                Path(path): mode
-                for path, mode in json.loads(PERMISSION_SNAPSHOT_FILE.read_text()).items()
-            })
-        except json.JSONDecodeError:
-            pass
-    for path, mode in sorted(snapshot.items(), key=lambda item: len(item[0].parts)):
-        try:
-            path.chmod(mode)
-        except FileNotFoundError:
-            pass
-    _PERMISSION_SNAPSHOT.clear()
-    try:
-        PERMISSION_SNAPSHOT_FILE.unlink(missing_ok=True)
-    except PermissionError:
-        pass
-
-def _restore_and_exit_on_signal(signum, frame):
-    """Restore permissions immediately on Ctrl+C/SIGTERM."""
-    global _EXITING_AFTER_SIGNAL
-    if _EXITING_AFTER_SIGNAL:
-        os._exit(128 + signum)
-    _EXITING_AFTER_SIGNAL = True
-    print("\nInterrupted; restoring file permissions...", file=sys.stderr, flush=True)
-    try:
-        restore_hidden_path_permissions()
-    except Exception as exc:
-        print(f"Warning: failed to restore permissions: {exc}", file=sys.stderr, flush=True)
-    os._exit(128 + signum)
-
-def install_exit_handlers():
-    atexit.register(restore_hidden_path_permissions)
-    signal.signal(signal.SIGINT, _restore_and_exit_on_signal)
-    signal.signal(signal.SIGTERM, _restore_and_exit_on_signal)
+def verify_isolation(workspace):
+    """Fail closed if the private namespace exposes repository data."""
+    probe = isolated_command(workspace, [
+        "/bin/bash", "-c",
+        "test -f /workspace/Task.v && "
+        "test -f /workspace/card.md && "
+        f"test ! -e {ROOT} && "
+        f"test ! -e {WORKSPACE_ROOT} && "
+        "test ! -e /home/zzh/.codex/history.jsonl && "
+        "test ! -e /home/zzh/.codex/sessions && "
+        "touch /workspace/.isolation-write-test"
+    ])
+    subprocess.run(probe, check=True, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.PIPE, text=True)
+    (workspace / ".isolation-write-test").unlink()
 
 def build_prompt(task_path, card_path, lr_first=False, given_r=False):
     card = card_path.read_text()
@@ -182,31 +197,37 @@ Fixpoint R (T : ty) (t : tm) : Prop :=
 """
     return prompt
 
-def run_agent(task_path, card_path, timeout, trace_dir,
+def run_agent(problem, workspace, timeout, trace_dir,
               model=None, reasoning_effort=None, lr_first=False,
               given_r=False):
     """Run the agent and return the raw result. No formal check."""
-    problem = task_path.parent.parent.name
-    prompt = build_prompt(task_path, card_path, lr_first, given_r)
-    cmd = [
-        "codex", "exec", "--json", "--ephemeral", "--ignore-rules",
+    prompt = build_prompt(Path("/workspace/Task.v"), workspace / "card.md",
+                          lr_first, given_r)
+    codex = shutil.which("codex")
+    if not codex:
+        raise RuntimeError("codex binary not found")
+    codex_cmd = [
+        codex, "exec", "--json", "--ephemeral", "--ignore-user-config",
+        "--ignore-rules",
         "--skip-git-repo-check", "--sandbox", "workspace-write",
-        "--cd", str(task_path.parent),
+        "--cd", "/workspace",
     ]
     if model:
-        cmd += ["--model", model]
+        codex_cmd += ["--model", model]
     if reasoning_effort:
-        cmd += ["--config", f"model_reasoning_effort={reasoning_effort}"]
-    cmd.append("-")
+        codex_cmd += ["--config", f"model_reasoning_effort={reasoning_effort}"]
+    codex_cmd.append("-")
+    cmd = isolated_command(workspace, codex_cmd)
 
     start_time = time.time()
     try:
         r = subprocess.run(
             cmd, input=prompt, capture_output=True, text=True,
-            cwd=task_path.parent, timeout=timeout,
+            cwd=workspace, timeout=timeout,
         )
         elapsed = time.time() - start_time
         _save_trace(trace_dir, problem, r.stdout)
+        (trace_dir / f"{problem}.stderr.log").write_text(r.stderr)
         metrics = _parse_result(r.stdout)
         return {"exit": "ok", "elapsed": elapsed, "metrics": metrics,
                 "returncode": r.returncode}
@@ -223,21 +244,20 @@ def run_agent(task_path, card_path, timeout, trace_dir,
             "returncode": None,
         }
 
-def check(task_path):
-    """Return whether Task.v compiles with Rocq."""
+def check(workspace):
+    """Return whether Task.v compiles inside the isolated namespace."""
+    rocq = Path.home() / ".opam" / "rocq-dev" / "bin" / "rocq"
     try:
         r = subprocess.run(
-            ["rocq", "compile", "-q", task_path.name],
-            capture_output=True, text=True, cwd=task_path.parent, timeout=300,
+            isolated_command(workspace, [str(rocq), "compile", "-q", "Task.v"]),
+            capture_output=True, text=True, cwd=workspace, timeout=300,
         )
     except subprocess.TimeoutExpired:
         return False
     return r.returncode == 0
 
 def main():
-    install_exit_handlers()
-    restore_hidden_path_permissions()
-
+    install_cleanup_handlers()
     available_benchmarks = sorted(
         path.name
         for path in (ROOT / "benchmarks").iterdir()
@@ -263,9 +283,6 @@ def main():
         parser.error("--given-r is only defined for the stlc benchmark")
 
     benchmark = ROOT / "benchmarks" / args.benchmark
-    task_file = benchmark / "input" / "Task.v"
-    card_file = benchmark / "card.md"
-
     result_dir = args.output_root / args.benchmark
     results_file = result_dir / f"results_{args.tag}.json"
     proof_dir = result_dir / f"proofs_{args.tag}"
@@ -274,20 +291,19 @@ def main():
     proof_dir.mkdir(parents=True, exist_ok=True)
     trace_dir.mkdir(parents=True, exist_ok=True)
 
-    ensure_orig(task_file)
-    restore_from_orig(task_file)
-    remove_build_artifacts(task_file)
-
     print(f"Case:    {args.benchmark}")
-    print(f"Task:    {task_file}")
     print(f"Results: {results_file}")
     print(f"Proofs:  {proof_dir}/")
     print(f"Traces:  {trace_dir}/")
 
+    workspace = prepare_workspace(benchmark, args.benchmark)
+    task_file = workspace / "Task.v"
+    original = (workspace / "Task.v.orig").read_bytes()
+    print(f"Isolated workspace: {workspace}")
     try:
-        _hide_path(ROOT / "theories")
+        verify_isolation(workspace)
         raw = run_agent(
-            task_file, card_file, args.timeout, trace_dir,
+            args.benchmark, workspace, args.timeout, trace_dir,
             model=args.model, reasoning_effort=args.reasoning_effort,
             lr_first=args.lr_first,
             given_r=args.given_r,
@@ -295,12 +311,15 @@ def main():
         proof_path = proof_dir / f"{args.benchmark}.v"
         if task_file.exists():
             shutil.copy2(task_file, proof_path)
-        compiled = check(task_file)
+        compiled = check(workspace)
+        orig_untouched = (workspace / "Task.v.orig").read_bytes() == original
 
         if raw["exit"] == "timeout":
             status = "timeout"
         elif raw["returncode"] != 0:
             status = "agent_error"
+        elif not orig_untouched:
+            status = "invalid_modified_orig"
         else:
             status = "proved" if compiled else "failed"
 
@@ -313,9 +332,7 @@ def main():
         results[args.benchmark] = result
         save_results(results, results_file)
     finally:
-        restore_from_orig(task_file)
-        remove_build_artifacts(task_file)
-        restore_hidden_path_permissions()
+        cleanup_workspace(workspace)
 
 
 if __name__ == "__main__":
