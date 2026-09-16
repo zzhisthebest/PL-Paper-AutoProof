@@ -1,0 +1,27 @@
+# SystemFRefinementIfRecursion
+
+Self-contained, locally nameless System F with formula-based refinement types,
+integers, arithmetic and partial division. The target is `Safety.never_stuck`:
+every state reachable from a closed refinement-typed program is a value or can step.
+Ordinary typing alone permits division by zero; the refinement proof supplies
+the nonzero-divisor guarantee.
+
+Booleans and if-then-else are included.
+
+Recursive functions use a nonnegative, strictly decreasing integer metric.
+The recursive call need not subtract one: its argument must satisfy the smaller
+metric refinement. An integer zero test supports branching.
+
+## Files
+
+- `Syntax.v`, `Infrastructure.v`, `CoreTyping.v`: language and core metatheory.
+- `RefinementLogic.v`: qualifier formulas and their interpretation.
+- `RefinementTyping.v`: refinement types, subtyping and typing rules.
+- `Evaluation.v`: evaluation metatheory.
+- `Denotations.v`: the logical relation, `denotes` and `evals_denotes`.
+- `Termination.v`: well-foundedness of the integer decrease relation.
+- `RefinementSoundness.v`: semantic typing and the proved `fundamental` theorem.
+- `Safety.v`: the final `never_stuck` theorem.
+
+Equations generates well-founded denotations and uses standard functional
+extensionality. There are no admitted proofs or project-specific axioms.

@@ -45,7 +45,9 @@ latexmk -xelatex main.tex
 
 ## Benchmark Cases表
 
-`N` = Normalization，`P` = Parametricity，`RS` = Refinement Soundness；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
+`N` = Normalization，`P` = Parametricity，`RS` = Refinement cases（当前目标为 Type Safety，沿用原列名）；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
+
+24 个 refinement cases 已统一升级为整数、公式 qualifier、部分除法下的 `never_stuck`；Recursion 使用非负、严格递减的整数度量，Non-determinism 覆盖所有归约路径，组合版本的度量比较也覆盖所有可能的整数结果。三个难度分别截止到语言定义、LR、已证明的 fundamental theorem。目录名暂保留 `refinement-soundness`；其余 72 个 cases 不变。
 
 | Feature | STLC-N-Hard | STLC-N-Medium | STLC-N-Easy | SystemF-N-Hard | SystemF-N-Medium | SystemF-N-Easy | SystemF-P-Hard | SystemF-P-Medium | SystemF-P-Easy | SystemF-RS-Hard | SystemF-RS-Medium | SystemF-RS-Easy |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|

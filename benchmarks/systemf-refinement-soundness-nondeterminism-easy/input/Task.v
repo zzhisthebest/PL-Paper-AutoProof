@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
+From Stdlib Require Import ZArith.BinInt.
 
 Module SystemFRefinementNonDeterminism.
 
@@ -18,8 +19,14 @@ Declare Custom Entry systemf_tm.
 Inductive ty : Type :=
   | Ty_BVar : nat -> ty
   | Ty_FVar : atom -> ty
+
   | Ty_Arrow : ty -> ty -> ty
-  | Ty_All : ty -> ty.
+
+  | Ty_All : ty -> ty
+  | Ty_Int : ty.
+
+Notation "'Int'" := Ty_Int
+  (in custom systemf_ty at level 0) : systemf_scope.
 
 Notation "T" := T
   (in custom systemf_ty at level 0, T constr at level 0) : systemf_scope.
@@ -38,13 +45,27 @@ Notation "'forall' ',' T" := (Ty_All T)
    T custom systemf_ty at level 200,
    right associativity) : systemf_scope.
 
+Inductive integer_operator : Type := Int_Add | Int_Sub | Int_Mul.
+
+Definition eval_integer_operator (op : integer_operator) (n m : Z) : Z :=
+  match op with
+  | Int_Add => (n + m)%Z
+  | Int_Sub => (n - m)%Z
+  | Int_Mul => (n * m)%Z
+  end.
+
 Inductive tm : Type :=
   | tm_bvar : nat -> tm
   | tm_fvar : atom -> tm
   | tm_abs : ty -> tm -> tm
   | tm_app : tm -> tm -> tm
+
   | tm_tabs : tm -> tm
+
   | tm_tapp : tm -> ty -> tm
+  | tm_int : Z -> tm
+  | tm_div : tm -> tm -> tm
+  | tm_arith : integer_operator -> tm -> tm -> tm
   | tm_choice : tm -> tm -> tm.
 
 Notation "t" := t
@@ -74,10 +95,8 @@ Notation "t '[' T ']'" := (tm_tapp t T)
   (in custom systemf_tm at level 10,
    t custom systemf_tm,
    T custom systemf_ty) : systemf_scope.
-
-Notation "'choice' t1 'or' t2" := (tm_choice t1 t2)
-  (in custom systemf_tm at level 200, t1 custom systemf_tm,
-   t2 custom systemf_tm at level 200) : systemf_scope.
+Notation "t1 '/' t2" := (tm_div t1 t2)
+  (in custom systemf_tm at level 20, left associativity) : systemf_scope.
 
 Fixpoint open_ty_rec (k : nat) (U T : ty) : ty :=
   match T with
@@ -86,6 +105,7 @@ Fixpoint open_ty_rec (k : nat) (U T : ty) : ty :=
   | Ty_Arrow T1 T2 =>
       Ty_Arrow (open_ty_rec k U T1) (open_ty_rec k U T2)
   | Ty_All T1 => Ty_All (open_ty_rec (S k) U T1)
+  | Ty_Int => Ty_Int
   end.
 
 Definition open_ty (T U : ty) : ty := open_ty_rec 0 U T.
@@ -98,10 +118,49 @@ Fixpoint open_tm_rec (k : nat) (u t : tm) : tm :=
   | tm_app t1 t2 => tm_app (open_tm_rec k u t1) (open_tm_rec k u t2)
   | tm_tabs t1 => tm_tabs (open_tm_rec k u t1)
   | tm_tapp t1 T => tm_tapp (open_tm_rec k u t1) T
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | tm_arith op t1 t2 => tm_arith op (open_tm_rec k u t1) (open_tm_rec k u t2)
   | tm_choice t1 t2 => tm_choice (open_tm_rec k u t1) (open_tm_rec k u t2)
   end.
 
 Definition open_tm (t u : tm) : tm := open_tm_rec 0 u t.
+
+Fixpoint fv_ty (T : ty) : list atom :=
+  match T with
+  | Ty_BVar _ => []
+  | Ty_FVar X => [X]
+  | Ty_Arrow T1 T2 => fv_ty T1 ++ fv_ty T2
+  | Ty_All T1 => fv_ty T1
+  | Ty_Int => []
+  end.
+
+Fixpoint fv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_abs _ t1 => fv_tm t1
+  | tm_app t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_tabs t1 => fv_tm t1
+  | tm_tapp t1 _ => fv_tm t1
+  | tm_int _ => []
+  | tm_div t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_arith op t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_choice t1 t2 => fv_tm t1 ++ fv_tm t2
+  end.
+
+Fixpoint ftv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ | tm_fvar _ => []
+  | tm_abs T t1 => fv_ty T ++ ftv_tm t1
+  | tm_app t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_tabs t1 => ftv_tm t1
+  | tm_tapp t1 T => ftv_tm t1 ++ fv_ty T
+  | tm_int _ => []
+  | tm_div t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_arith op t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_choice t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  end.
 
 Fixpoint open_tm_ty_rec (k : nat) (U : ty) (t : tm) : tm :=
   match t with
@@ -114,6 +173,9 @@ Fixpoint open_tm_ty_rec (k : nat) (U : ty) (t : tm) : tm :=
   | tm_tabs t1 => tm_tabs (open_tm_ty_rec (S k) U t1)
   | tm_tapp t1 T =>
       tm_tapp (open_tm_ty_rec k U t1) (open_ty_rec k U T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | tm_arith op t1 t2 => tm_arith op (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
   | tm_choice t1 t2 => tm_choice (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
   end.
 
@@ -126,6 +188,7 @@ Fixpoint ty_subst (X : atom) (U T : ty) : ty :=
   | Ty_FVar Y => if Nat.eqb X Y then U else Ty_FVar Y
   | Ty_Arrow T1 T2 => Ty_Arrow (ty_subst X U T1) (ty_subst X U T2)
   | Ty_All T1 => Ty_All (ty_subst X U T1)
+  | Ty_Int => Ty_Int
   end.
 
 Fixpoint tm_ty_subst (X : atom) (U : ty) (t : tm) : tm :=
@@ -136,6 +199,9 @@ Fixpoint tm_ty_subst (X : atom) (U : ty) (t : tm) : tm :=
   | tm_app t1 t2 => tm_app (tm_ty_subst X U t1) (tm_ty_subst X U t2)
   | tm_tabs t1 => tm_tabs (tm_ty_subst X U t1)
   | tm_tapp t1 T => tm_tapp (tm_ty_subst X U t1) (ty_subst X U T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | tm_arith op t1 t2 => tm_arith op (tm_ty_subst X U t1) (tm_ty_subst X U t2)
   | tm_choice t1 t2 => tm_choice (tm_ty_subst X U t1) (tm_ty_subst X U t2)
   end.
 
@@ -147,6 +213,9 @@ Fixpoint tm_subst (x : atom) (s t : tm) : tm :=
   | tm_app t1 t2 => tm_app (tm_subst x s t1) (tm_subst x s t2)
   | tm_tabs t1 => tm_tabs (tm_subst x s t1)
   | tm_tapp t1 T => tm_tapp (tm_subst x s t1) T
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (tm_subst x s t1) (tm_subst x s t2)
+  | tm_arith op t1 t2 => tm_arith op (tm_subst x s t1) (tm_subst x s t2)
   | tm_choice t1 t2 => tm_choice (tm_subst x s t1) (tm_subst x s t2)
   end.
 
@@ -162,7 +231,8 @@ Inductive lc_ty_at : nat -> ty -> Prop :=
       lc_ty_at k (Ty_Arrow T1 T2)
   | lc_ty_all : forall k T,
       lc_ty_at (S k) T ->
-      lc_ty_at k (Ty_All T).
+      lc_ty_at k (Ty_All T)
+  | lc_ty_int : forall k, lc_ty_at k Ty_Int.
 
 Definition locally_closed_ty (T : ty) : Prop := lc_ty_at 0 T.
 
@@ -187,6 +257,15 @@ Inductive lc_tm_at : nat -> nat -> tm -> Prop :=
       lc_tm_at K k t ->
       lc_ty_at K T ->
       lc_tm_at K k (tm_tapp t T)
+  | lc_tm_int : forall K k (n : Z), lc_tm_at K k (tm_int n)
+  | lc_tm_div : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_tm_at K k (tm_div t1 t2)
+  | lc_tm_arith : forall K k op t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_tm_at K k (tm_arith op t1 t2)
   | lc_tm_choice : forall K k t1 t2,
       lc_tm_at K k t1 -> lc_tm_at K k t2 -> lc_tm_at K k (tm_choice t1 t2).
 
@@ -198,7 +277,8 @@ Inductive value : tm -> Prop :=
       value (tm_abs T t)
   | v_tabs : forall t,
       locally_closed_tm (tm_tabs t) ->
-      value (tm_tabs t).
+      value (tm_tabs t)
+  | v_int : forall n : Z, value (tm_int n).
 
 Reserved Notation "t1 '-->' t2" (at level 40).
 
@@ -212,6 +292,7 @@ Inductive step : tm -> tm -> Prop :=
       t1 --> t1' ->
       locally_closed_tm t2 ->
       tm_app t1 t2 --> tm_app t1' t2
+
   | ST_App2 : forall v1 t2 t2',
       value v1 ->
       t2 --> t2' ->
@@ -226,13 +307,31 @@ Inductive step : tm -> tm -> Prop :=
       t --> t' ->
       locally_closed_ty T ->
       tm_tapp t T --> tm_tapp t' T
-  | ST_ChoiceLeft : forall t1 t2,
-      locally_closed_tm t1 ->
+  | ST_Div1 : forall t1 t1' t2,
+      t1 --> t1' ->
       locally_closed_tm t2 ->
+      tm_div t1 t2 --> tm_div t1' t2
+  | ST_Div2 : forall v1 t2 t2',
+      value v1 ->
+      t2 --> t2' ->
+      tm_div v1 t2 --> tm_div v1 t2'
+  | ST_DivInt : forall n m : Z,
+      m <> 0%Z ->
+      tm_div (tm_int n) (tm_int m) --> tm_int (Z.div n m)
+  | ST_Arith1 : forall op t1 t1' t2,
+      t1 --> t1' -> locally_closed_tm t2 ->
+      tm_arith op t1 t2 --> tm_arith op t1' t2
+  | ST_Arith2 : forall op v1 t2 t2',
+      value v1 -> t2 --> t2' ->
+      tm_arith op v1 t2 --> tm_arith op v1 t2'
+  | ST_ArithInt : forall op n m,
+      tm_arith op (tm_int n) (tm_int m) -->
+      tm_int (eval_integer_operator op n m)
+  | ST_ChoiceLeft : forall t1 t2,
+      locally_closed_tm t1 -> locally_closed_tm t2 ->
       tm_choice t1 t2 --> t1
   | ST_ChoiceRight : forall t1 t2,
-      locally_closed_tm t1 ->
-      locally_closed_tm t2 ->
+      locally_closed_tm t1 -> locally_closed_tm t2 ->
       tm_choice t1 t2 --> t2
 where "t1 '-->' t2" := (step t1 t2).
 
@@ -277,7 +376,8 @@ Inductive wf_ty : ty_context -> ty -> Prop :=
       forall (L : list atom) Delta T,
       (forall X, ~ In X L ->
         wf_ty (X :: Delta) (open_ty T (Ty_FVar X))) ->
-      wf_ty Delta (Ty_All T).
+      wf_ty Delta (Ty_All T)
+  | WF_Int : forall Delta, wf_ty Delta Ty_Int.
 
 Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
   | T_Var : forall Delta Gamma x T,
@@ -305,6 +405,16 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma t (Ty_All T) ->
       wf_ty Delta U ->
       has_type Delta Gamma (tm_tapp t U) (open_ty T U)
+  | T_Int : forall Delta Gamma (n : Z),
+      has_type Delta Gamma (tm_int n) Ty_Int
+  | T_Div : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      has_type Delta Gamma (tm_div t1 t2) Ty_Int
+  | T_Arith : forall Delta Gamma op t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      has_type Delta Gamma (tm_arith op t1 t2) Ty_Int
   | T_Choice : forall Delta Gamma t1 t2 T,
       has_type Delta Gamma t1 T -> has_type Delta Gamma t2 T ->
       has_type Delta Gamma (tm_choice t1 t2) T.
@@ -334,54 +444,14 @@ Proof.
   pose proof (in_le_max_atom _ _ H). lia.
 Qed.
 
-Inductive multi : tm -> tm -> Prop :=
-  | multi_refl : forall x, multi x x
-  | multi_step : forall x y z, x --> y -> multi y z -> multi x z.
-Notation "t '-->*' u" := (multi t u) (at level 40).
-
-Inductive strongly_normalizing : tm -> Prop :=
-  | SN_intro : forall t,
-      (forall u, t --> u -> strongly_normalizing u) -> strongly_normalizing t.
-
-Hint Constructors lc_ty_at lc_tm_at value : core.
 End SystemFRefinementNonDeterminism.
 
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
-
 Module SystemFRefinementNonDeterminismInfrastructure.
 Import ListNotations.
 Import SystemFRefinementNonDeterminism.
-
-Fixpoint fv_ty (T : ty) : list atom :=
-  match T with
-  | Ty_BVar _ => []
-  | Ty_FVar X => [X]
-  | Ty_Arrow T1 T2 => fv_ty T1 ++ fv_ty T2
-  | Ty_All T1 => fv_ty T1
-  end.
-
-Fixpoint fv_tm (t : tm) : list atom :=
-  match t with
-  | tm_bvar _ => []
-  | tm_fvar x => [x]
-  | tm_abs _ t1 => fv_tm t1
-  | tm_app t1 t2 => fv_tm t1 ++ fv_tm t2
-  | tm_tabs t1 => fv_tm t1
-  | tm_tapp t1 _ => fv_tm t1
-  | tm_choice t1 t2 => fv_tm t1 ++ fv_tm t2
-  end.
-
-Fixpoint ftv_tm (t : tm) : list atom :=
-  match t with
-  | tm_bvar _ | tm_fvar _ => []
-  | tm_abs T t1 => fv_ty T ++ ftv_tm t1
-  | tm_app t1 t2 => ftv_tm t1 ++ ftv_tm t2
-  | tm_tabs t1 => ftv_tm t1
-  | tm_tapp t1 T => ftv_tm t1 ++ fv_ty T
-  | tm_choice t1 t2 => ftv_tm t1 ++ ftv_tm t2
-  end.
 
 Fixpoint ftv_context (Gamma : context) : list atom :=
   match Gamma with
@@ -422,6 +492,7 @@ Proof.
   - apply lc_ty_fvar.
   - apply lc_ty_arrow; eauto.
   - apply lc_ty_all. apply IHHlc. lia.
+  - apply lc_ty_int.
 Qed.
 
 Lemma lc_tm_at_monotone : forall K k K' k' t,
@@ -442,7 +513,10 @@ Proof.
   - apply lc_tm_tapp.
     + apply IHHlc; assumption.
     + eapply lc_ty_at_monotone; eauto.
-  - eauto using lc_tm_at.
+  - apply lc_tm_int.
+  - apply lc_tm_div; eauto.
+  - apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
 Qed.
 
 Lemma open_ty_rec_lc_at : forall T k U,
@@ -462,7 +536,7 @@ Lemma open_tm_rec_lc_at : forall t K k u,
   open_tm_rec k u t = t.
 Proof.
   intros t K k u Hlc. induction Hlc; simpl;
-    try rewrite ?IHHlc, ?IHHlc1, ?IHHlc2, ?IHHlc3; try reflexivity.
+    try rewrite ?IHHlc, ?IHHlc1, ?IHHlc2; try reflexivity.
   - destruct (Nat.eqb k i) eqn:E.
     + apply Nat.eqb_eq in E. lia.
     + reflexivity.
@@ -473,7 +547,7 @@ Lemma open_tm_ty_rec_lc_at : forall t K k U,
   open_tm_ty_rec K U t = t.
 Proof.
   intros t K k U Hlc. induction Hlc; simpl;
-    try rewrite ?IHHlc1, ?IHHlc2, ?IHHlc3; try reflexivity.
+    try rewrite ?IHHlc1, ?IHHlc2; try reflexivity.
   - erewrite open_ty_rec_lc_at; eauto. rewrite IHHlc. reflexivity.
   - rewrite IHHlc. reflexivity.
   - rewrite IHHlc. erewrite open_ty_rec_lc_at; eauto.
@@ -490,6 +564,7 @@ Proof.
   - apply lc_ty_fvar.
   - inversion Hlc; subst. apply lc_ty_arrow; eauto.
   - inversion Hlc; subst. apply lc_ty_all. eapply IHT; eauto.
+  - apply lc_ty_int.
 Qed.
 
 Lemma lc_ty_at_open : forall T k U,
@@ -510,6 +585,7 @@ Proof.
     + eapply lc_ty_at_monotone.
       * exact HU.
       * lia.
+  - apply lc_ty_int.
 Qed.
 
 Lemma lc_tm_at_open_tm_inv : forall t K k x,
@@ -525,7 +601,10 @@ Proof.
   - inversion Hlc; subst. apply lc_tm_app; eauto.
   - inversion Hlc; subst. apply lc_tm_tabs; eauto.
   - inversion Hlc; subst. apply lc_tm_tapp; eauto.
-  - inversion Hlc; subst; eauto using lc_tm_at.
+  - apply lc_tm_int.
+  - inversion Hlc; subst. apply lc_tm_div; eauto.
+  - inversion Hlc; subst. apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
 Qed.
 
 Lemma lc_tm_at_open_ty_inv : forall t K k X,
@@ -543,7 +622,10 @@ Proof.
   - inversion Hlc; subst. apply lc_tm_tapp.
     + eapply IHt; eauto.
     + eapply lc_ty_at_open_inv; eauto.
-  - inversion Hlc; subst; eauto using lc_tm_at.
+  - apply lc_tm_int.
+  - inversion Hlc; subst. apply lc_tm_div; eauto.
+  - inversion Hlc; subst. apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
 Qed.
 
 Lemma wf_ty_lc : forall Delta T,
@@ -558,6 +640,7 @@ Proof.
     set (X := fresh L).
     apply (lc_ty_at_open_inv T 0 X).
     apply H0. subst X. apply fresh_notin.
+  - apply lc_ty_int.
 Qed.
 
 Lemma typing_lc : forall Delta Gamma t T,
@@ -581,7 +664,10 @@ Proof.
   - apply lc_tm_tapp.
     + assumption.
     + apply wf_ty_lc with Delta. assumption.
-  - apply lc_tm_choice; assumption.
+  - apply lc_tm_int.
+  - apply lc_tm_div; assumption.
+  - apply lc_tm_arith; assumption.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
 Qed.
 
 Lemma typing_type_lc : forall Delta Gamma t T,
@@ -605,6 +691,9 @@ Proof.
     apply lc_ty_at_open.
     + assumption.
     + apply wf_ty_lc with Delta. assumption.
+  - apply lc_ty_int.
+  - apply lc_ty_int.
+  - apply lc_ty_int.
   - exact IHHty1.
 Qed.
 
@@ -627,6 +716,7 @@ Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
   | Ty_Arrow T1 T2 =>
       Ty_Arrow (instantiate_ty theta T1) (instantiate_ty theta T2)
   | Ty_All T1 => Ty_All (instantiate_ty theta T1)
+  | Ty_Int => Ty_Int
   end.
 
 Fixpoint instantiate
@@ -638,6 +728,9 @@ Fixpoint instantiate
   | tm_app t1 t2 => tm_app (instantiate theta gamma t1) (instantiate theta gamma t2)
   | tm_tabs t1 => tm_tabs (instantiate theta gamma t1)
   | tm_tapp t1 T => tm_tapp (instantiate theta gamma t1) (instantiate_ty theta T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | tm_arith op t1 t2 => tm_arith op (instantiate theta gamma t1) (instantiate theta gamma t2)
   | tm_choice t1 t2 => tm_choice (instantiate theta gamma t1) (instantiate theta gamma t2)
   end.
 
@@ -659,6 +752,7 @@ Proof.
     + lia.
   - apply lc_ty_arrow; auto.
   - apply lc_ty_all. auto.
+  - apply lc_ty_int.
 Qed.
 
 Lemma instantiate_lc_at : forall t K k theta gamma,
@@ -681,7 +775,10 @@ Proof.
   - apply lc_tm_tapp.
     + auto.
     + apply instantiate_ty_lc_at; assumption.
-  - eauto using lc_tm_at.
+  - apply lc_tm_int.
+  - apply lc_tm_div; auto.
+  - apply lc_tm_arith; auto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
 Qed.
 
 Lemma instantiate_ty_closed : forall theta T,
@@ -753,8 +850,12 @@ Proof.
     reflexivity.
   - rewrite (IHt k theta gamma x u Hfresh Htheta Hgamma Hu).
     reflexivity.
-  - repeat rewrite in_app_iff in Hfresh.
-    rewrite IHt1, IHt2 by (try assumption; intuition). reflexivity.
+  - reflexivity.
+  - rewrite in_app_iff in Hfresh.
+    rewrite IHt1, IHt2; intuition.
+  - rewrite in_app_iff in Hfresh.
+    rewrite IHt1, IHt2; intuition.
+  - rewrite in_app_iff in Hfresh. rewrite IHt1, IHt2; intuition.
 Qed.
 
 Lemma instantiate_open_tm : forall t theta gamma x u,
@@ -797,6 +898,7 @@ Proof.
     rewrite (IHT2 k theta X U H2 Htheta HU).
     reflexivity.
   - rewrite (IHT (S k) theta X U Hfresh Htheta HU). reflexivity.
+  - reflexivity.
 Qed.
 
 Lemma instantiate_ty_open : forall T theta X U,
@@ -821,7 +923,8 @@ Lemma instantiate_open_ty_rec : forall t K theta gamma X U,
   open_tm_ty_rec K U (instantiate theta gamma t).
 Proof.
   induction t as
-      [i | x | T body IHbody | t1 IH1 t2 IH2 | body IHbody | body IHbody T | a IHa b IHb];
+      [i | x | T body IHbody | t1 IH1 t2 IH2 | body IHbody | body IHbody T
+      | n | t1 IH1 t2 IH2 | op t1 IH1 t2 IH2 | t1 IH1 t2 IH2];
     intros K theta gamma X U Hfresh Htheta Hgamma HU; simpl in *.
   - reflexivity.
   - symmetry. apply open_tm_ty_rec_lc_at with (k := 0).
@@ -849,8 +952,12 @@ Proof.
     rewrite (IHbody K theta gamma X U Hbody Htheta Hgamma HU).
     rewrite (instantiate_ty_open_rec T K theta X U HT Htheta HU).
     reflexivity.
+  - reflexivity.
   - rewrite in_app_iff in Hfresh.
-    rewrite IHa, IHb by (try assumption; intuition). reflexivity.
+    rewrite IH1, IH2; intuition.
+  - rewrite in_app_iff in Hfresh.
+    rewrite IH1, IH2; intuition.
+  - rewrite in_app_iff in Hfresh. rewrite IH1, IH2; intuition.
 Qed.
 
 Lemma instantiate_open_ty : forall t theta gamma X U,
@@ -893,35 +1000,8 @@ Qed.
 Lemma instantiate_identity : forall t,
   instantiate identity_type_substitution identity_term_substitution t = t.
 Proof.
-  induction t; simpl; try rewrite ?IHt1, ?IHt2, ?IHt3, ?IHt;
+  induction t; simpl; try rewrite ?IHt1, ?IHt2, ?IHt;
     try rewrite instantiate_ty_identity; reflexivity.
-Qed.
-
-Lemma open_tm_preserves_lc_at : forall t K k u,
-  lc_tm_at K (S k) t -> locally_closed_tm u ->
-  lc_tm_at K k (open_tm_rec k u t).
-Proof.
-  induction t; intros K k u Hlc Hu; simpl; inversion Hlc; subst;
-    eauto 8 using lc_tm_at.
-  destruct (Nat.eqb k n) eqn:E.
-  - eapply lc_tm_at_monotone; [exact Hu|lia|lia].
-  - apply Nat.eqb_neq in E. apply lc_tm_bvar. lia.
-Qed.
-
-Lemma open_tm_ty_preserves_lc_at : forall t K k U,
-  lc_tm_at (S K) k t -> locally_closed_ty U ->
-  lc_tm_at K k (open_tm_ty_rec K U t).
-Proof.
-  induction t; intros K k U Hlc HU; simpl; inversion Hlc; subst;
-    eauto 8 using lc_tm_at.
-  - apply lc_tm_abs.
-    + apply lc_ty_at_open; [assumption|].
-      eapply lc_ty_at_monotone; [exact HU|lia].
-    + eapply IHt; eauto.
-  - apply lc_tm_tapp.
-    + eapply IHt; eauto.
-    + apply lc_ty_at_open; [assumption|].
-      eapply lc_ty_at_monotone; [exact HU|lia].
 Qed.
 
 End SystemFRefinementNonDeterminismInfrastructure.
@@ -929,7 +1009,6 @@ End SystemFRefinementNonDeterminismInfrastructure.
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
-
 Module SystemFRefinementNonDeterminismCoreTyping.
 Import ListNotations.
 Import SystemFRefinementNonDeterminism.
@@ -954,6 +1033,7 @@ Proof.
     unfold ty_context_included in *. simpl. intros Y [E | Hin].
     + left. exact E.
     + right. apply Hinc. exact Hin.
+  - apply WF_Int.
 Qed.
 
 Lemma has_type_weaken_context : forall Delta Gamma t T,
@@ -972,7 +1052,10 @@ Proof.
   - apply T_App with T1; auto.
   - apply T_TAbs with L. intros X Hfresh. apply H0; assumption.
   - eapply T_TApp; eauto.
-  - eapply T_Choice; eauto.
+  - apply T_Int.
+  - apply T_Div; auto.
+  - apply T_Arith; auto.
+  - apply T_Choice; auto.
 Qed.
 
 Lemma has_type_weaken_type : forall Delta Gamma t T,
@@ -992,7 +1075,10 @@ Proof.
     + left. exact E.
     + right. apply Hinc. exact Hin.
   - eapply T_TApp; eauto. eapply wf_ty_weaken; eauto.
-  - eapply T_Choice; eauto.
+  - apply T_Int.
+  - apply T_Div; auto.
+  - apply T_Arith; auto.
+  - apply T_Choice; auto.
 Qed.
 
 Definition type_substitution_wf
@@ -1010,6 +1096,7 @@ Proof.
     + left. apply IHT1. exact Hin.
     + right. apply IHT2. exact Hin.
   - apply IHT. exact Hin.
+  - contradiction.
 Qed.
 
 Lemma wf_ty_fv : forall Delta T,
@@ -1033,6 +1120,7 @@ Proof.
     destruct IH as [E | HinDelta].
     + subst Y. contradiction.
     + exact HinDelta.
+  - contradiction.
 Qed.
 
 Lemma instantiate_ty_open_rec_local : forall T k theta X U,
@@ -1063,6 +1151,7 @@ Proof.
     + intros Y Hin. apply Htheta. apply in_app_iff. auto.
     + intros Y Hin. apply Htheta. apply in_app_iff. auto.
   - rewrite IHT; try assumption. reflexivity.
+  - reflexivity.
 Qed.
 
 Lemma instantiate_ty_open_local : forall T theta X U,
@@ -1118,6 +1207,7 @@ Proof.
         eapply wf_ty_fv; [exact Hwhole |]. simpl. exact Hin.
       - apply lc_ty_fvar. }
     rewrite <- Hopen. exact (IH Hsub).
+  - apply WF_Int.
 Qed.
 
 Definition context_wf (Delta : ty_context) (Gamma : context) : Prop :=
@@ -1183,6 +1273,7 @@ Proof.
   - rewrite in_app_iff in Hfresh.
     rewrite IHT1, IHT2; tauto.
   - f_equal. apply IHT. assumption.
+  - reflexivity.
 Qed.
 
 Lemma instantiate_ty_open_rec_commute : forall T k U theta,
@@ -1196,6 +1287,7 @@ Proof.
     eapply lc_ty_at_monotone; [apply Htheta | lia].
   - rewrite IHT1, IHT2; try assumption. reflexivity.
   - rewrite IHT; try assumption. reflexivity.
+  - reflexivity.
 Qed.
 
 Lemma instantiate_ty_open_commute : forall T U theta,
@@ -1223,6 +1315,9 @@ Proof.
       | Delta Gamma t1 t2 T1 T2 Ht1 IHt1 Ht2 IHt2
       | L Delta Gamma body T Hbody IHbody
       | Delta Gamma t T U Ht IHt HU
+      | Delta Gamma n
+      | Delta Gamma t1 t2 Ht1 IHt1 Ht2 IHt2
+      | Delta Gamma op t1 t2 Ht1 IHt1 Ht2 IHt2
       | Delta Gamma t1 t2 T Ht1 IHt1 Ht2 IHt2];
     intros Hctx Delta' Gamma' theta gamma Htheta Hgamma Htheta_wf Hgamma_ty;
     simpl.
@@ -1304,16 +1399,17 @@ Proof.
     eapply T_TApp.
     + apply IHt; assumption.
     + eapply wf_ty_instantiate; eauto.
-  - eapply T_Choice.
-    + apply IHt1; assumption.
-    + apply IHt2; assumption.
+  - apply T_Int.
+  - apply T_Div; [apply IHt1 | apply IHt2]; assumption.
+  - apply T_Arith; [apply IHt1 | apply IHt2]; assumption.
+  - apply T_Choice; [apply IHt1 | apply IHt2]; assumption.
 Qed.
 
 Lemma wf_ty_open_all : forall Delta T U,
   wf_ty Delta (Ty_All T) -> wf_ty Delta U -> wf_ty Delta (open_ty T U).
 Proof.
   intros Delta T U Hall HU.
-  inversion Hall as [| |L Delta0 body Hbody]; subst.
+  inversion Hall as [| |L Delta0 body Hbody|]; subst.
   set (X := fresh (L ++ Delta ++ fv_ty T)).
   assert (HX : ~ In X (L ++ Delta ++ fv_ty T)).
   { subst X. apply fresh_notin. }
@@ -1356,31 +1452,259 @@ Proof.
   - inversion IHHty1. assumption.
   - apply WF_All with L. intros X Hfresh. apply H0. exact Hfresh.
   - eapply wf_ty_open_all; eauto.
+  - apply WF_Int.
+  - apply WF_Int.
+  - apply WF_Int.
   - exact IHHty1.
 Qed.
 
 End SystemFRefinementNonDeterminismCoreTyping.
 
-From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
+From Stdlib Require Import Arith.PeanoNat Lists.List ZArith.BinInt.
+Module SystemFRefinementNonDeterminismLogic.
+Import ListNotations SystemFRefinementNonDeterminism.
 
+Inductive qualifier : Type :=
+  | Pred_True : qualifier
+  | Pred_False : qualifier
+  | Pred_Eq : tm -> tm -> qualifier
+  | Pred_Lt : tm -> tm -> qualifier
+  | Pred_Le : tm -> tm -> qualifier
+  | Pred_And : qualifier -> qualifier -> qualifier
+  | Pred_Or : qualifier -> qualifier -> qualifier
+  | Pred_Not : qualifier -> qualifier.
+
+Definition Pred_Ne (t1 t2 : tm) : qualifier := Pred_Not (Pred_Eq t1 t2).
+Definition Pred_Gt (t1 t2 : tm) : qualifier := Pred_Lt t2 t1.
+Definition Pred_Ge (t1 t2 : tm) : qualifier := Pred_Le t2 t1.
+
+Definition Pred_Implies (p q : qualifier) : qualifier :=
+  Pred_Or (Pred_Not p) q.
+
+Fixpoint open_pred_tm_rec (k : nat) (u : tm) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_And p1 p2 =>
+      Pred_And (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
+  | Pred_Not p1 => Pred_Not (open_pred_tm_rec k u p1)
+  end.
+
+Definition open_qualifier_tm_rec (k : nat) (u : tm) (q : qualifier) : qualifier :=
+  open_pred_tm_rec k u q.
+
+Definition open_pred_tm (p : qualifier) (u : tm) : qualifier :=
+  open_pred_tm_rec 0 u p.
+
+Definition open_qualifier_tm (ps : qualifier) (u : tm) : qualifier :=
+  open_qualifier_tm_rec 0 u ps.
+
+Fixpoint open_pred_ty_rec (k : nat) (U : ty) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_And p1 p2 =>
+      Pred_And (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
+  | Pred_Not p1 => Pred_Not (open_pred_ty_rec k U p1)
+  end.
+
+Definition open_qualifier_ty_rec (k : nat) (U : ty) (q : qualifier) : qualifier :=
+  open_pred_ty_rec k U q.
+
+Fixpoint pred_subst (x : atom) (s : tm) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 => Pred_Eq (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_Lt t1 t2 => Pred_Lt (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_Le t1 t2 => Pred_Le (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_And p1 p2 => Pred_And (pred_subst x s p1) (pred_subst x s p2)
+  | Pred_Or p1 p2 => Pred_Or (pred_subst x s p1) (pred_subst x s p2)
+  | Pred_Not p1 => Pred_Not (pred_subst x s p1)
+  end.
+
+Definition qualifier_subst (x : atom) (s : tm) (q : qualifier) : qualifier :=
+  pred_subst x s q.
+
+Fixpoint pred_ty_subst (X : atom) (U : ty) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_And p1 p2 =>
+      Pred_And (pred_ty_subst X U p1) (pred_ty_subst X U p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (pred_ty_subst X U p1) (pred_ty_subst X U p2)
+  | Pred_Not p1 => Pred_Not (pred_ty_subst X U p1)
+  end.
+
+Definition qualifier_ty_subst (X : atom) (U : ty) (q : qualifier) : qualifier :=
+  pred_ty_subst X U q.
+
+Inductive lc_pred_at : nat -> nat -> qualifier -> Prop :=
+  | LCP_True : forall K k, lc_pred_at K k Pred_True
+  | LCP_False : forall K k, lc_pred_at K k Pred_False
+  | LCP_Eq : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Eq t1 t2)
+  | LCP_Lt : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Lt t1 t2)
+  | LCP_Le : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Le t1 t2)
+  | LCP_And : forall K k p1 p2,
+      lc_pred_at K k p1 ->
+      lc_pred_at K k p2 ->
+      lc_pred_at K k (Pred_And p1 p2)
+  | LCP_Or : forall K k p1 p2,
+      lc_pred_at K k p1 ->
+      lc_pred_at K k p2 ->
+      lc_pred_at K k (Pred_Or p1 p2)
+  | LCP_Not : forall K k p,
+      lc_pred_at K k p ->
+      lc_pred_at K k (Pred_Not p).
+
+Definition lc_qualifier_at (K k : nat) (q : qualifier) : Prop :=
+  lc_pred_at K k q.
+
+Inductive predicate_wf : ty_context -> context -> qualifier -> Prop :=
+  | PWF_True : forall Delta Gamma,
+      predicate_wf Delta Gamma Pred_True
+  | PWF_False : forall Delta Gamma,
+      predicate_wf Delta Gamma Pred_False
+  | PWF_Eq : forall Delta Gamma t1 t2 T,
+      has_type Delta Gamma t1 T ->
+      has_type Delta Gamma t2 T ->
+      predicate_wf Delta Gamma (Pred_Eq t1 t2)
+  | PWF_Lt : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      predicate_wf Delta Gamma (Pred_Lt t1 t2)
+  | PWF_Le : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      predicate_wf Delta Gamma (Pred_Le t1 t2)
+  | PWF_And : forall Delta Gamma p1 p2,
+      predicate_wf Delta Gamma p1 ->
+      predicate_wf Delta Gamma p2 ->
+      predicate_wf Delta Gamma (Pred_And p1 p2)
+  | PWF_Or : forall Delta Gamma p1 p2,
+      predicate_wf Delta Gamma p1 ->
+      predicate_wf Delta Gamma p2 ->
+      predicate_wf Delta Gamma (Pred_Or p1 p2)
+  | PWF_Not : forall Delta Gamma p,
+      predicate_wf Delta Gamma p ->
+      predicate_wf Delta Gamma (Pred_Not p).
+
+Definition qualifier_wf (Delta : ty_context) (Gamma : context)
+    (q : qualifier) : Prop := predicate_wf Delta Gamma q.
+
+Inductive predicate_multistep : tm -> tm -> Prop :=
+  | PMS_Refl : forall t,
+      predicate_multistep t t
+  | PMS_Step : forall t1 t2 t3,
+      t1 --> t2 ->
+      predicate_multistep t2 t3 ->
+      predicate_multistep t1 t3.
+
+Record atom_interpretation := {
+  interpret_eq : tm -> tm -> Prop;
+  interpret_lt : tm -> tm -> Prop;
+  interpret_le : tm -> tm -> Prop
+}.
+
+Fixpoint interpret_qualifier (atoms : atom_interpretation) (p : qualifier) : Prop :=
+  match p with
+  | Pred_True => True
+  | Pred_False => False
+  | Pred_Eq t1 t2 => atoms.(interpret_eq) t1 t2
+  | Pred_Lt t1 t2 => atoms.(interpret_lt) t1 t2
+  | Pred_Le t1 t2 => atoms.(interpret_le) t1 t2
+  | Pred_And p1 p2 =>
+      interpret_qualifier atoms p1 /\ interpret_qualifier atoms p2
+  | Pred_Or p1 p2 =>
+      interpret_qualifier atoms p1 \/ interpret_qualifier atoms p2
+  | Pred_Not p1 => ~ interpret_qualifier atoms p1
+  end.
+
+Definition operational_atoms : atom_interpretation := {|
+  interpret_eq := fun t1 t2 =>
+    exists v, predicate_multistep t1 v /\
+              predicate_multistep t2 v /\ value v;
+  interpret_lt := fun t1 t2 =>
+    exists n1 n2 : Z,
+      predicate_multistep t1 (tm_int n1) /\
+      predicate_multistep t2 (tm_int n2) /\ (n1 < n2)%Z /\
+      (forall m1 m2 : Z,
+        predicate_multistep t1 (tm_int m1) ->
+        predicate_multistep t2 (tm_int m2) -> (m1 < m2)%Z);
+  interpret_le := fun t1 t2 =>
+    exists n1 n2 : Z,
+      predicate_multistep t1 (tm_int n1) /\
+      predicate_multistep t2 (tm_int n2) /\ (n1 <= n2)%Z
+|}.
+
+Definition predicate_holds (p : qualifier) : Prop :=
+  interpret_qualifier operational_atoms p.
+
+Lemma interpret_qualifier_ext : forall atoms1 atoms2 p,
+  (forall t1 t2, atoms1.(interpret_eq) t1 t2 <-> atoms2.(interpret_eq) t1 t2) ->
+  (forall t1 t2, atoms1.(interpret_lt) t1 t2 <-> atoms2.(interpret_lt) t1 t2) ->
+  (forall t1 t2, atoms1.(interpret_le) t1 t2 <-> atoms2.(interpret_le) t1 t2) ->
+  (interpret_qualifier atoms1 p <-> interpret_qualifier atoms2 p).
+Proof.
+  intros atoms1 atoms2 p Heq Hlt Hle.
+  induction p; simpl; firstorder.
+Qed.
+
+Definition qualifier_holds (q : qualifier) : Prop := predicate_holds q.
+
+Fixpoint predicate_closed (p : qualifier) : Prop :=
+  match p with
+  | Pred_True | Pred_False => True
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 =>
+      locally_closed_tm t1 /\ fv_tm t1 = [] /\ ftv_tm t1 = [] /\
+      locally_closed_tm t2 /\ fv_tm t2 = [] /\ ftv_tm t2 = []
+  | Pred_And p1 p2 | Pred_Or p1 p2 =>
+      predicate_closed p1 /\ predicate_closed p2
+  | Pred_Not p1 => predicate_closed p1
+  end.
+
+End SystemFRefinementNonDeterminismLogic.
+
+From Stdlib Require Import Arith.PeanoNat Lists.List Lia ZArith.BinInt.
 Module SystemFRefinementNonDeterminismTyping.
 Import ListNotations.
 Import SystemFRefinementNonDeterminism.
-Import SystemFRefinementNonDeterminismInfrastructure.
-Import SystemFRefinementNonDeterminismCoreTyping.
-
-Inductive predicate : Type :=
-  | Pred_True : predicate
-  | Pred_False : predicate
-  | Pred_Eq : tm -> tm -> predicate
-  | Pred_And : predicate -> predicate -> predicate.
-
-Inductive predicates : Type :=
-  | PEmpty : predicates
-  | PCons : predicate -> predicates -> predicates.
+Export SystemFRefinementNonDeterminismLogic.
 
 Inductive rty : Type :=
-  | R_Refine : ty -> predicates -> rty
+  | R_Refine : ty -> qualifier -> rty
   | R_Func : rty -> rty -> rty
   | R_Exists : rty -> rty -> rty
   | R_Poly : rty -> rty.
@@ -1393,26 +1717,9 @@ Fixpoint erase (R : rty) : ty :=
   | R_Poly R => Ty_All (erase R)
   end.
 
-Fixpoint open_pred_tm_rec (k : nat) (u : tm) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (open_tm_rec k u t1) (open_tm_rec k u t2)
-  | Pred_And p1 p2 =>
-      Pred_And (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
-  end.
-
-Fixpoint open_preds_tm_rec (k : nat) (u : tm) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (open_pred_tm_rec k u p) (open_preds_tm_rec k u ps')
-  end.
-
 Fixpoint open_rty_tm_rec (k : nat) (u : tm) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine T (open_preds_tm_rec (S k) u ps)
+  | R_Refine T ps => R_Refine T (open_qualifier_tm_rec (S k) u ps)
   | R_Func R1 R2 =>
       R_Func (open_rty_tm_rec k u R1) (open_rty_tm_rec (S k) u R2)
   | R_Exists R1 R2 =>
@@ -1420,36 +1727,13 @@ Fixpoint open_rty_tm_rec (k : nat) (u : tm) (R : rty) : rty :=
   | R_Poly R1 => R_Poly (open_rty_tm_rec k u R1)
   end.
 
-Definition open_pred_tm (p : predicate) (u : tm) : predicate :=
-  open_pred_tm_rec 0 u p.
-
-Definition open_preds_tm (ps : predicates) (u : tm) : predicates :=
-  open_preds_tm_rec 0 u ps.
-
 Definition open_rty_tm (R : rty) (u : tm) : rty :=
   open_rty_tm_rec 0 u R.
-
-Fixpoint open_pred_ty_rec (k : nat) (U : ty) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
-  | Pred_And p1 p2 =>
-      Pred_And (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
-  end.
-
-Fixpoint open_preds_ty_rec (k : nat) (U : ty) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (open_pred_ty_rec k U p) (open_preds_ty_rec k U ps')
-  end.
 
 Fixpoint open_rty_ty_rec (k : nat) (U : ty) (R : rty) : rty :=
   match R with
   | R_Refine T ps =>
-      R_Refine (open_ty_rec k U T) (open_preds_ty_rec k U ps)
+      R_Refine (open_ty_rec k U T) (open_qualifier_ty_rec k U ps)
   | R_Func R1 R2 =>
       R_Func (open_rty_ty_rec k U R1) (open_rty_ty_rec k U R2)
   | R_Exists R1 R2 =>
@@ -1460,48 +1744,17 @@ Fixpoint open_rty_ty_rec (k : nat) (U : ty) (R : rty) : rty :=
 Definition open_rty_ty (R : rty) (U : ty) : rty :=
   open_rty_ty_rec 0 U R.
 
-Fixpoint pred_subst (x : atom) (s : tm) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 => Pred_Eq (tm_subst x s t1) (tm_subst x s t2)
-  | Pred_And p1 p2 => Pred_And (pred_subst x s p1) (pred_subst x s p2)
-  end.
-
-Fixpoint preds_subst (x : atom) (s : tm) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' => PCons (pred_subst x s p) (preds_subst x s ps')
-  end.
-
 Fixpoint rty_subst (x : atom) (s : tm) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine T (preds_subst x s ps)
+  | R_Refine T ps => R_Refine T (qualifier_subst x s ps)
   | R_Func R1 R2 => R_Func (rty_subst x s R1) (rty_subst x s R2)
   | R_Exists R1 R2 => R_Exists (rty_subst x s R1) (rty_subst x s R2)
   | R_Poly R1 => R_Poly (rty_subst x s R1)
   end.
 
-Fixpoint pred_ty_subst (X : atom) (U : ty) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (tm_ty_subst X U t1) (tm_ty_subst X U t2)
-  | Pred_And p1 p2 =>
-      Pred_And (pred_ty_subst X U p1) (pred_ty_subst X U p2)
-  end.
-
-Fixpoint preds_ty_subst (X : atom) (U : ty) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (pred_ty_subst X U p) (preds_ty_subst X U ps')
-  end.
-
 Fixpoint rty_ty_subst (X : atom) (U : ty) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine (ty_subst X U T) (preds_ty_subst X U ps)
+  | R_Refine T ps => R_Refine (ty_subst X U T) (qualifier_ty_subst X U ps)
   | R_Func R1 R2 =>
       R_Func (rty_ty_subst X U R1) (rty_ty_subst X U R2)
   | R_Exists R1 R2 =>
@@ -1509,29 +1762,10 @@ Fixpoint rty_ty_subst (X : atom) (U : ty) (R : rty) : rty :=
   | R_Poly R1 => R_Poly (rty_ty_subst X U R1)
   end.
 
-Inductive lc_pred_at : nat -> nat -> predicate -> Prop :=
-  | LCP_True : forall K k, lc_pred_at K k Pred_True
-  | LCP_False : forall K k, lc_pred_at K k Pred_False
-  | LCP_Eq : forall K k t1 t2,
-      lc_tm_at K k t1 ->
-      lc_tm_at K k t2 ->
-      lc_pred_at K k (Pred_Eq t1 t2)
-  | LCP_And : forall K k p1 p2,
-      lc_pred_at K k p1 ->
-      lc_pred_at K k p2 ->
-      lc_pred_at K k (Pred_And p1 p2).
-
-Inductive lc_preds_at : nat -> nat -> predicates -> Prop :=
-  | LCPS_Empty : forall K k, lc_preds_at K k PEmpty
-  | LCPS_Cons : forall K k p ps,
-      lc_pred_at K k p ->
-      lc_preds_at K k ps ->
-      lc_preds_at K k (PCons p ps).
-
 Inductive lc_rty_at : nat -> nat -> rty -> Prop :=
   | LCR_Refine : forall K k T ps,
       lc_ty_at K T ->
-      lc_preds_at K (S k) ps ->
+      lc_qualifier_at K (S k) ps ->
       lc_rty_at K k (R_Refine T ps)
   | LCR_Func : forall K k R1 R2,
       lc_rty_at K k R1 ->
@@ -1566,36 +1800,14 @@ Fixpoint erase_context (RGamma : rcontext) : context :=
   | (x, R) :: RGamma' => update (erase_context RGamma') x (erase R)
   end.
 
-Inductive predicate_wf : ty_context -> context -> predicate -> Prop :=
-  | PWF_True : forall Delta Gamma,
-      predicate_wf Delta Gamma Pred_True
-  | PWF_False : forall Delta Gamma,
-      predicate_wf Delta Gamma Pred_False
-  | PWF_Eq : forall Delta Gamma t1 t2 T,
-      has_type Delta Gamma t1 T ->
-      has_type Delta Gamma t2 T ->
-      predicate_wf Delta Gamma (Pred_Eq t1 t2)
-  | PWF_And : forall Delta Gamma p1 p2,
-      predicate_wf Delta Gamma p1 ->
-      predicate_wf Delta Gamma p2 ->
-      predicate_wf Delta Gamma (Pred_And p1 p2).
-
-Inductive predicates_wf : ty_context -> context -> predicates -> Prop :=
-  | PSWF_Empty : forall Delta Gamma,
-      predicates_wf Delta Gamma PEmpty
-  | PSWF_Cons : forall Delta Gamma p ps,
-      predicate_wf Delta Gamma p ->
-      predicates_wf Delta Gamma ps ->
-      predicates_wf Delta Gamma (PCons p ps).
-
 Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
 
   | RWF_Refine : forall (L : list atom) Delta RGamma T ps,
       wf_ty Delta T ->
       (forall x, ~ In x L ->
-        predicates_wf Delta
+        qualifier_wf Delta
           (update (erase_context RGamma) x T)
-          (open_preds_tm ps (tm_fvar x))) ->
+          (open_qualifier_tm ps (tm_fvar x))) ->
       wf_rty Delta RGamma (R_Refine T ps)
 
   | RWF_Func : forall (L : list atom) Delta RGamma R1 R2,
@@ -1616,53 +1828,42 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
         wf_rty (X :: Delta) RGamma (open_rty_ty R (Ty_FVar X))) ->
       wf_rty Delta RGamma (R_Poly R).
 
-Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :=
+Inductive entails : ty_context -> rcontext -> qualifier -> qualifier -> Prop :=
   | Entails_Refl : forall Delta RGamma ps,
       entails Delta RGamma ps ps
   | Entails_True : forall Delta RGamma ps,
-      entails Delta RGamma ps PEmpty
+      entails Delta RGamma ps Pred_True
   | Entails_Trans : forall Delta RGamma ps qs rs,
       entails Delta RGamma ps qs ->
       entails Delta RGamma qs rs ->
       entails Delta RGamma ps rs
-  | Entails_Head : forall Delta RGamma p ps,
-      entails Delta RGamma (PCons p ps) (PCons p PEmpty)
-  | Entails_Tail : forall Delta RGamma p ps,
-      entails Delta RGamma (PCons p ps) ps
-  | Entails_Cons : forall Delta RGamma ps p qs,
-      entails Delta RGamma ps (PCons p PEmpty) ->
+  | Entails_AndLeft : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) p
+  | Entails_AndRight : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) q
+  | Entails_AndIntro : forall Delta RGamma ps p qs,
+      entails Delta RGamma ps p ->
       entails Delta RGamma ps qs ->
-      entails Delta RGamma ps (PCons p qs)
+      entails Delta RGamma ps (Pred_And p qs)
+  | Entails_OrLeft : forall Delta RGamma p q,
+      entails Delta RGamma p (Pred_Or p q)
+  | Entails_OrRight : forall Delta RGamma p q,
+      entails Delta RGamma q (Pred_Or p q)
+  | Entails_OrElim : forall Delta RGamma p q r,
+      entails Delta RGamma p r ->
+      entails Delta RGamma q r ->
+      entails Delta RGamma (Pred_Or p q) r
+  | Entails_NotIntro : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) Pred_False ->
+      entails Delta RGamma p (Pred_Not q)
+  | Entails_NotElim : forall Delta RGamma p,
+      entails Delta RGamma (Pred_And p (Pred_Not p)) Pred_False
+  | Entails_Context : forall Delta RGamma x T p q,
+      lookup_rcontext x RGamma = Some (R_Refine T p) ->
+      entails Delta RGamma q (open_qualifier_tm p (tm_fvar x))
 
-  | Entails_False : forall Delta RGamma ps qs,
-      entails Delta RGamma (PCons Pred_False ps) qs.
-
-Inductive predicate_multistep : tm -> tm -> Prop :=
-  | PMS_Refl : forall t,
-      predicate_multistep t t
-  | PMS_Step : forall t1 t2 t3,
-      t1 --> t2 ->
-      predicate_multistep t2 t3 ->
-      predicate_multistep t1 t3.
-
-Inductive predicate_holds : predicate -> Prop :=
-  | PH_True : predicate_holds Pred_True
-  | PH_Eq : forall t1 t2 v,
-      predicate_multistep t1 v ->
-      predicate_multistep t2 v ->
-      value v ->
-      predicate_holds (Pred_Eq t1 t2)
-  | PH_And : forall p1 p2,
-      predicate_holds p1 ->
-      predicate_holds p2 ->
-      predicate_holds (Pred_And p1 p2).
-
-Inductive predicates_hold : predicates -> Prop :=
-  | PHS_Empty : predicates_hold PEmpty
-  | PHS_Cons : forall p ps,
-      predicate_holds p ->
-      predicates_hold ps ->
-      predicates_hold (PCons p ps).
+  | Entails_False : forall Delta RGamma q,
+      entails Delta RGamma Pred_False q.
 
 Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
   | RT_Var : forall Delta RGamma x R,
@@ -1691,20 +1892,30 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       has_rtype Delta RGamma t (R_Poly R) ->
       wf_ty Delta U ->
       has_rtype Delta RGamma (tm_tapp t U) (open_rty_ty R U)
+  | RT_Int : forall Delta RGamma (n : Z),
+      has_rtype Delta RGamma (tm_int n)
+        (R_Refine Ty_Int (Pred_Eq (tm_bvar 0) (tm_int n)))
+  | RT_Div : forall Delta RGamma t1 t2,
+      has_rtype Delta RGamma t1 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma t2
+        (R_Refine Ty_Int (Pred_Ne (tm_bvar 0) (tm_int 0%Z))) ->
+      has_rtype Delta RGamma (tm_div t1 t2) (R_Refine Ty_Int Pred_True)
+  | RT_Arith : forall Delta RGamma op t1 t2,
+      has_rtype Delta RGamma t1 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma t2 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma (tm_arith op t1 t2)
+        (R_Refine Ty_Int (Pred_Eq (tm_bvar 0) (tm_arith op t1 t2)))
+
   | RT_Choice : forall Delta RGamma t1 t2 R,
       has_rtype Delta RGamma t1 R ->
       has_rtype Delta RGamma t2 R ->
       has_rtype Delta RGamma (tm_choice t1 t2) R
-
-  | RT_Core : forall Delta RGamma t T,
-      has_type Delta (erase_context RGamma) t T ->
-      has_rtype Delta RGamma t (R_Refine T PEmpty)
-
   | RT_RefineValue : forall Delta RGamma v T ps,
       has_type Delta (erase_context RGamma) v T ->
       value v ->
       wf_rty Delta RGamma (R_Refine T ps) ->
-      predicates_hold (open_preds_tm ps v) ->
+      predicate_closed (open_qualifier_tm ps v) ->
+      qualifier_holds (open_qualifier_tm ps v) ->
       has_rtype Delta RGamma v (R_Refine T ps)
 
   | RT_Sub : forall Delta RGamma t R S,
@@ -1719,9 +1930,9 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
   | S_Refine : forall (L : list atom) Delta RGamma T ps qs,
       (forall x, ~ In x L ->
         entails Delta
-          (update_rcontext RGamma x (R_Refine T PEmpty))
-          (open_preds_tm ps (tm_fvar x))
-          (open_preds_tm qs (tm_fvar x))) ->
+          (update_rcontext RGamma x (R_Refine T Pred_True))
+          (open_qualifier_tm ps (tm_fvar x))
+          (open_qualifier_tm qs (tm_fvar x))) ->
       subtype Delta RGamma (R_Refine T ps) (R_Refine T qs)
   | S_Func : forall (L : list atom) Delta RGamma R1 R2 S1 S2,
       subtype Delta RGamma S1 R1 ->
@@ -1801,6 +2012,7 @@ Fixpoint close_ty_rec (k : nat) (X : atom) (T : ty) : ty :=
   | Ty_Arrow T1 T2 =>
       Ty_Arrow (close_ty_rec k X T1) (close_ty_rec k X T2)
   | Ty_All T1 => Ty_All (close_ty_rec (S k) X T1)
+  | Ty_Int => Ty_Int
   end.
 
 Lemma close_open_ty_rec : forall T k X,
@@ -1817,6 +2029,7 @@ Proof.
     rewrite (proj2 (Nat.eqb_neq X a)) by assumption. reflexivity.
   - rewrite in_app_iff in Hfresh. rewrite IHT1, IHT2; intuition.
   - rewrite IHT by assumption. reflexivity.
+  - reflexivity.
 Qed.
 
 Lemma open_ty_fresh_injective : forall T1 T2 X,
@@ -1920,8 +2133,10 @@ Proof.
   - simpl. apply T_TAbs with L. intros X Hfresh.
     rewrite <- (erase_open_rty_ty R (Ty_FVar X)). apply H0. exact Hfresh.
   - rewrite (erase_open_rty_ty R U). eapply T_TApp; eauto.
-  - eapply T_Choice; eauto.
-  - exact H.
+  - apply T_Int.
+  - simpl in *. apply T_Div; assumption.
+  - simpl in *. apply T_Arith; assumption.
+  - apply T_Choice; auto.
   - exact H.
   - match goal with
     | Hsub : subtype _ _ _ _ |- _ =>
@@ -1933,193 +2148,51 @@ Qed.
 End SystemFRefinementNonDeterminismTyping.
 
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
-Import ListNotations.
-Module SystemFRefinementNonDeterminismLogicalRelation.
-Import SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure.
+Module SystemFRefinementNonDeterminismEvaluation.
+Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure
+  SystemFRefinementNonDeterminismCoreTyping.
 
-Definition relation := tm -> Prop.
-Record value_candidate := {
-  candidate_relation : relation;
-  candidate_values : forall v, candidate_relation v -> value v
-}.
-Definition relation_env := atom -> option value_candidate.
-Definition relation_update (rho : relation_env) (X : atom) (a : value_candidate) :=
-  fun Y => if Nat.eqb X Y then Some a else rho Y.
+Inductive multi : tm -> tm -> Prop :=
+  | multi_refl : forall t, multi t t
+  | multi_step : forall t1 t2 t3,
+      t1 --> t2 -> multi t2 t3 -> multi t1 t3.
+Notation "t '-->*' u" := (multi t u) (at level 40).
 
-Definition expression_lifting (R : relation) (t : tm) : Prop :=
-  locally_closed_tm t /\ strongly_normalizing t /\
-  forall v, t -->* v -> value v -> R v.
+Definition halts (t : tm) : Prop :=
+  exists v, multi t v /\ value v.
 
-Fixpoint value_relation (eta : list value_candidate) (rho : relation_env)
-    (T : ty) (v : tm) : Prop :=
-  match T with
-  | Ty_BVar i =>
-      match nth_error eta i with Some a => a.(candidate_relation) v | None => False end
-  | Ty_FVar X =>
-      match rho X with Some a => a.(candidate_relation) v | None => False end
-  | Ty_Arrow T1 T2 =>
-      value v /\ exists U body, v = tm_abs U body /\
-      forall arg, value_relation eta rho T1 arg ->
-        expression_lifting (value_relation eta rho T2) (open_tm body arg)
-  | Ty_All T =>
-      value v /\ exists body, v = tm_tabs body /\
-      forall (U : ty) (a : value_candidate), locally_closed_ty U ->
-        expression_lifting (value_relation (a :: eta) rho T) (open_tm_ty body U)
-  end.
+Inductive must_terminate : tm -> Prop :=
+  | MT_intro : forall t,
+      (value t \/ exists u, t --> u) ->
+      (forall u, t --> u -> must_terminate u) ->
+      must_terminate t.
 
-Definition expression_relation eta rho T t :=
-  expression_lifting (value_relation eta rho T) t.
-
-Lemma value_relation_value : forall eta rho T v,
-  value_relation eta rho T v -> value v.
+Lemma open_tm_preserves_lc_at : forall t K k u,
+  lc_tm_at K (S k) t -> locally_closed_tm u ->
+  lc_tm_at K k (open_tm_rec k u t).
 Proof.
-  intros eta rho T v H. destruct T; simpl in H; try exact (proj1 H).
-  - destruct (nth_error eta n) as [a|]; try contradiction. exact (candidate_values a v H).
-  - destruct (rho a) as [b|]; try contradiction. exact (candidate_values b v H).
+  induction t; intros K k u Hlc Hu; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  destruct (Nat.eqb k n) eqn:E.
+  - eapply lc_tm_at_monotone; [exact Hu|lia|lia].
+  - apply Nat.eqb_neq in E. apply lc_tm_bvar. lia.
 Qed.
 
-Definition interpreted_candidate eta rho T : value_candidate :=
-  {| candidate_relation := value_relation eta rho T;
-     candidate_values := value_relation_value eta rho T |}.
-
-Lemma expression_lifting_equiv : forall R S,
-  (forall v, R v <-> S v) ->
-  forall t, expression_lifting R t <-> expression_lifting S t.
+Lemma open_tm_ty_preserves_lc_at : forall t K k U,
+  lc_tm_at (S K) k t -> locally_closed_ty U ->
+  lc_tm_at K k (open_tm_ty_rec K U t).
 Proof.
-  unfold expression_lifting. firstorder.
+  induction t; intros K k U Hlc HU; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  - apply lc_tm_abs.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
+    + eapply IHt; eauto.
+  - apply lc_tm_tapp.
+    + eapply IHt; eauto.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
 Qed.
-
-Lemma value_arrow_equiv : forall eta1 eta2 rho1 rho2 A1 A2 B1 B2,
-  (forall v, value_relation eta1 rho1 A1 v <-> value_relation eta2 rho2 A2 v) ->
-  (forall v, value_relation eta1 rho1 B1 v <-> value_relation eta2 rho2 B2 v) ->
-  forall v, value_relation eta1 rho1 (Ty_Arrow A1 B1) v <->
-            value_relation eta2 rho2 (Ty_Arrow A2 B2) v.
-Proof.
-  intros eta1 eta2 rho1 rho2 A1 A2 B1 B2 HA HB v. cbn [value_relation].
-  split; intros [Hv [U [body [Heq Hmap]]]]; split; [exact Hv| |exact Hv|];
-    exists U, body; split; [exact Heq| |exact Heq|]; intros arg Harg.
-  - apply (proj1 (expression_lifting_equiv _ _ HB _)).
-    apply Hmap. apply (proj2 (HA arg)). exact Harg.
-  - apply (proj2 (expression_lifting_equiv _ _ HB _)).
-    apply Hmap. apply (proj1 (HA arg)). exact Harg.
-Qed.
-
-Lemma value_all_equiv : forall eta1 eta2 rho1 rho2 T1 T2,
-  (forall a v, value_relation (a :: eta1) rho1 T1 v <->
-               value_relation (a :: eta2) rho2 T2 v) ->
-  forall v, value_relation eta1 rho1 (Ty_All T1) v <->
-            value_relation eta2 rho2 (Ty_All T2) v.
-Proof.
-  intros eta1 eta2 rho1 rho2 T1 T2 H v. cbn [value_relation].
-  split; intros [Hv [body [Heq Hmap]]]; split; [exact Hv| |exact Hv|];
-    exists body; split; [exact Heq| |exact Heq|]; intros U a HU.
-  - apply (proj1 (expression_lifting_equiv _ _ (H a) _)). apply Hmap. exact HU.
-  - apply (proj2 (expression_lifting_equiv _ _ (H a) _)). apply Hmap. exact HU.
-Qed.
-
-Lemma value_relation_env_equiv : forall T k eta1 eta2 rho,
-  lc_ty_at k T ->
-  (forall i, i < k -> nth_error eta1 i = nth_error eta2 i) ->
-  forall v, value_relation eta1 rho T v <-> value_relation eta2 rho T v.
-Proof.
-  induction T; intros k eta1 eta2 rho Hlc Henv v.
-  - cbn [value_relation]. rewrite Henv; [reflexivity|inversion Hlc; assumption].
-  - reflexivity.
-  - apply value_arrow_equiv; intros u; eapply IHT1 || eapply IHT2;
-      try (inversion Hlc; eassumption); exact Henv.
-  - apply value_all_equiv. intros a u.
-    apply (IHT (S k)); [inversion Hlc; assumption|].
-    intros i Hi. destruct i; simpl; [reflexivity|apply Henv; lia].
-Qed.
-
-Lemma value_relation_closed_env : forall T eta1 eta2 rho,
-  locally_closed_ty T ->
-  forall v, value_relation eta1 rho T v <-> value_relation eta2 rho T v.
-Proof.
-  intros T eta1 eta2 rho Hlc. apply (value_relation_env_equiv T 0); auto.
-  intros i Hi. lia.
-Qed.
-
-Lemma value_relation_rho_update_irrelevant : forall T eta rho X a,
-  ~ In X (fv_ty T) ->
-  forall v, value_relation eta (relation_update rho X a) T v <->
-            value_relation eta rho T v.
-Proof.
-  induction T; intros eta rho X b Hfresh v; simpl in Hfresh.
-  - reflexivity.
-  - cbn [value_relation]. unfold relation_update.
-    destruct (Nat.eqb X a) eqn:E; [apply Nat.eqb_eq in E; subst; tauto|reflexivity].
-  - rewrite in_app_iff in Hfresh. apply value_arrow_equiv.
-    + apply IHT1. tauto.
-    + apply IHT2. tauto.
-  - apply value_all_equiv. intros a u. apply IHT. exact Hfresh.
-Qed.
-
-Lemma nth_error_snoc_last : forall (A : Type) (xs : list A) x,
-  nth_error (xs ++ [x]) (length xs) = Some x.
-Proof.
-  intros A xs x. induction xs; simpl; auto.
-Qed.
-
-Lemma value_relation_open_relation : forall T k eta rho X a,
-  length eta = k -> lc_ty_at (S k) T -> ~ In X (fv_ty T) ->
-  forall v, value_relation (eta ++ [a]) rho T v <->
-    value_relation eta (relation_update rho X a) (open_ty_rec k (Ty_FVar X) T) v.
-Proof.
-  induction T; intros k eta rho X b Hlen Hlc Hfresh v.
-  - assert (Hlt : n < S k) by (inversion Hlc; assumption).
-    cbn [open_ty_rec]. destruct (Nat.eqb k n) eqn:E.
-    + apply Nat.eqb_eq in E. subst n.
-      cbn [value_relation]. rewrite <- Hlen, nth_error_snoc_last.
-      unfold relation_update. rewrite Nat.eqb_refl. reflexivity.
-    + cbn [value_relation]. rewrite nth_error_app1.
-      * reflexivity.
-      * apply Nat.eqb_neq in E. lia.
-  - cbn [open_ty_rec value_relation]. unfold relation_update.
-    destruct (Nat.eqb X a) eqn:E; [apply Nat.eqb_eq in E; subst; simpl in Hfresh; tauto|reflexivity].
-  - cbn [open_ty_rec]. apply value_arrow_equiv.
-    + apply IHT1 with (k := k); try assumption.
-      * inversion Hlc; assumption.
-      * simpl in Hfresh. rewrite in_app_iff in Hfresh. tauto.
-    + apply IHT2 with (k := k); try assumption.
-      * inversion Hlc; assumption.
-      * simpl in Hfresh. rewrite in_app_iff in Hfresh. tauto.
-  - cbn [open_ty_rec]. apply value_all_equiv. intros a u.
-    apply (IHT (S k) (a :: eta)); simpl; try congruence; try assumption.
-    inversion Hlc; assumption.
-Qed.
-
-Lemma value_relation_open_type : forall T k eta rho U,
-  length eta = k -> lc_ty_at (S k) T -> locally_closed_ty U ->
-  forall v,
-    value_relation (eta ++ [interpreted_candidate [] rho U]) rho T v <->
-    value_relation eta rho (open_ty_rec k U T) v.
-Proof.
-  induction T; intros k eta rho U Hlen Hlc HU v.
-  - assert (Hlt : n < S k) by (inversion Hlc; assumption).
-    cbn [open_ty_rec]. destruct (Nat.eqb k n) eqn:E.
-    + apply Nat.eqb_eq in E. subst n.
-      cbn [value_relation]. rewrite <- Hlen, nth_error_snoc_last.
-      cbn [interpreted_candidate candidate_relation].
-      apply value_relation_closed_env. exact HU.
-    + cbn [value_relation]. rewrite nth_error_app1.
-      * reflexivity.
-      * apply Nat.eqb_neq in E. lia.
-  - reflexivity.
-  - cbn [open_ty_rec]. apply value_arrow_equiv.
-    + apply IHT1 with (k := k); try assumption. inversion Hlc; assumption.
-    + apply IHT2 with (k := k); try assumption. inversion Hlc; assumption.
-  - cbn [open_ty_rec]. apply value_all_equiv. intros a u.
-    apply (IHT (S k) (a :: eta)); simpl; try congruence; try assumption.
-    inversion Hlc; assumption.
-Qed.
-
-End SystemFRefinementNonDeterminismLogicalRelation.
-
-From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
-Import ListNotations.
-Module SystemFRefinementNonDeterminismNormalization.
-Import SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure SystemFRefinementNonDeterminismCoreTyping SystemFRefinementNonDeterminismLogicalRelation.
 
 Lemma value_regular : forall v, value v -> locally_closed_tm v.
 Proof. intros v H. destruct H; try assumption; constructor. Qed.
@@ -2138,16 +2211,7 @@ Proof.
   - eapply open_tm_ty_preserves_lc_at.
     + inversion H; eassumption.
     + exact H0.
-Qed.
 
-Lemma sn_step : forall t t',
-  strongly_normalizing t ->
-  t --> t' ->
-  strongly_normalizing t'.
-Proof.
-  intros t t' Hsn Hstep.
-  inversion Hsn as [t0 Hnext].
-  apply Hnext. exact Hstep.
 Qed.
 
 Lemma value_multi_eq : forall v t,
@@ -2159,296 +2223,6 @@ Proof.
   inversion Hmulti; subst.
   - reflexivity.
   - exfalso. eapply value_no_step; eauto.
-Qed.
-
-Lemma value_sn : forall v,
-  value v ->
-  strongly_normalizing v.
-Proof.
-  intros v Hv.
-  apply SN_intro. intros t Hstep.
-  exfalso. eapply value_no_step; eauto.
-Qed.
-
-Section Compatibility.
-Variable eta : list value_candidate.
-Variable rho : relation_env.
-Local Notation strong_value_relation := (value_relation eta rho).
-Local Notation strong_expression_relation := (expression_relation eta rho).
-
-Lemma strong_value_relation_value : forall T v,
-  strong_value_relation T v -> value v.
-Proof. intros T v H. eapply value_relation_value. exact H. Qed.
-Lemma strong_value_relation_lc : forall T v,
-  strong_value_relation T v -> locally_closed_tm v.
-Proof. intros T v H. apply value_regular. eapply strong_value_relation_value. exact H. Qed.
-Lemma strong_value_is_expression : forall T v,
-  strong_value_relation T v ->
-  strong_expression_relation T v.
-Proof.
-  intros T v Hv.
-  split.
-  - eapply strong_value_relation_lc. exact Hv.
-  - split.
-    + apply value_sn. eapply strong_value_relation_value. exact Hv.
-    + intros v' Hmulti Hvalue.
-      assert (v' = v).
-      {
-        eapply value_multi_eq.
-        - eapply strong_value_relation_value. exact Hv.
-        - exact Hmulti.
-      }
-      subst v'. exact Hv.
-Qed.
-
-Lemma strong_expression_step : forall T t t',
-  strong_expression_relation T t ->
-  t --> t' ->
-  strong_expression_relation T t'.
-Proof.
-  intros T t t' [Hlc [Hsn Hall]] Hstep.
-  split.
-  - eapply step_preserves_lc; eauto.
-  - split.
-    + eapply sn_step; eauto.
-    + intros v Hmulti Hv.
-      apply Hall with (v := v); auto.
-      eapply multi_step; eauto.
-Qed.
-
-Lemma strong_expression_of_reducts : forall T t,
-  locally_closed_tm t ->
-  ~ value t ->
-  (forall t', t --> t' -> strong_expression_relation T t') ->
-  strong_expression_relation T t.
-Proof.
-  intros T t Hlc Hnotvalue Hnext.
-  split. exact Hlc.
-  split.
-  - apply SN_intro. intros t' Hstep.
-    destruct (Hnext t' Hstep) as [_ [Hsn _]]. exact Hsn.
-  - intros v Hmulti Hv.
-    inversion Hmulti; subst.
-    + contradiction.
-    + destruct (Hnext y H) as [_ [_ Hall]].
-      eapply Hall; eauto.
-Qed.
-
-Lemma strong_expression_intro : forall T t,
-  locally_closed_tm t ->
-  (value t -> strong_value_relation T t) ->
-  (forall u, t --> u -> strong_expression_relation T u) ->
-  strong_expression_relation T t.
-Proof.
-  intros T t Hlc HV Hnext. split. exact Hlc.
-  split.
-  - apply SN_intro. intros u Hstep.
-    destruct (Hnext u Hstep) as [_ [Hsn _]]. exact Hsn.
-  - intros v Hsteps Hv. inversion Hsteps; subst.
-    + apply HV. exact Hv.
-    + destruct (Hnext y H) as [_ [_ Hall]]. eapply Hall; eauto.
-Qed.
-
-Lemma strong_expression_app : forall T1 T2 t1 t2,
-  strong_expression_relation (Ty_Arrow T1 T2) t1 ->
-  strong_expression_relation T1 t2 ->
-  strong_expression_relation T2 (tm_app t1 t2).
-Proof.
-  intros T1 T2 t1 t2 [Hlc1 [Hsn1 Hall1]] HE2.
-  revert T1 T2 Hlc1 Hall1 t2 HE2.
-  induction Hsn1 as [t1 Hnext1 IH1]. intros T1 T2 Hlc1 Hall1 t2 [Hlc2 [Hsn2 Hall2]].
-  revert Hlc2 Hall2. induction Hsn2 as [t2 Hnext2 IH2]. intros Hlc2 Hall2.
-  apply strong_expression_of_reducts.
-  - apply lc_tm_app; assumption.
-  - intros Hv. inversion Hv; subst.
-  - intros u Hstep. inversion Hstep; subst.
-    + pose proof (Hall1 (tm_abs T t) (multi_refl _) (v_abs T t H1)) as HVfun.
-      pose proof (Hall2 t2 (multi_refl _) H3) as HVarg.
-      destruct HVfun as [_ [U [body [Heq Hmap]]]].
-      injection Heq as E1 E2. subst U body. apply Hmap. exact HVarg.
-    + apply (IH1 t1' H1 T1 T2).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall1 v); auto. eapply multi_step; eauto.
-      * split. exact Hlc2. split. apply SN_intro. exact Hnext2. exact Hall2.
-    + apply (IH2 t2' H3).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall2 v); auto. eapply multi_step; eauto.
-Qed.
-
-Lemma strong_expression_choice : forall T t1 t2,
-  strong_expression_relation T t1 ->
-  strong_expression_relation T t2 ->
-  strong_expression_relation T (tm_choice t1 t2).
-Proof.
-  intros T t1 t2 HE1 HE2.
-  destruct HE1 as [Hlc1 [Hsn1 Hall1]].
-  destruct HE2 as [Hlc2 [Hsn2 Hall2]].
-  apply strong_expression_of_reducts.
-  - apply lc_tm_choice; assumption.
-  - intro Hvalue. inversion Hvalue; subst.
-  - intros u Hstep. inversion Hstep; subst.
-    + exact (conj Hlc1 (conj Hsn1 Hall1)).
-    + exact (conj Hlc2 (conj Hsn2 Hall2)).
-Qed.
-
-End Compatibility.
-
-Lemma strong_expression_tapp : forall eta rho T t U a,
-  expression_relation eta rho (Ty_All T) t -> locally_closed_ty U ->
-  expression_relation (a :: eta) rho T (tm_tapp t U).
-Proof.
-  intros eta rho T t U a [Hlc [Hsn Hall]] HU.
-  revert Hlc Hall. induction Hsn as [t Hnext IH]. intros Hlc Hall.
-  apply (strong_expression_of_reducts (a :: eta) rho T).
-  - apply lc_tm_tapp; assumption.
-  - intros Hv. inversion Hv; subst.
-  - intros u Hstep. inversion Hstep; subst.
-    + match goal with H : locally_closed_tm (tm_tabs ?b) |- _ =>
-        pose proof (Hall _ (multi_refl _) (v_tabs b H)) as HV end.
-      destruct HV as [_ [body [Heq Hmap]]]. injection Heq as ->.
-      apply Hmap. exact HU.
-    + eapply IH.
-      * eassumption.
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall v); auto. eapply multi_step; eauto.
-Qed.
-
-Definition related_substitution (rho : relation_env) (Gamma : context)
-    (gamma : term_substitution) : Prop :=
-  forall x T, lookup_context x Gamma = Some T -> value_relation [] rho T (gamma x).
-
-Lemma related_substitution_update : forall rho Gamma gamma x T v,
-  related_substitution rho Gamma gamma -> value_relation [] rho T v ->
-  related_substitution rho (update Gamma x T) (term_subst_update gamma x v).
-Proof.
-  intros rho Gamma gamma x T v Hrel HV y U Hy.
-  unfold update, term_subst_update in *. simpl in Hy.
-  destruct (Nat.eqb y x) eqn:E.
-  - apply Nat.eqb_eq in E. subst y. rewrite Nat.eqb_refl.
-    injection Hy as ->. exact HV.
-  - assert (E' : Nat.eqb x y = false) by (apply Nat.eqb_neq; apply Nat.eqb_neq in E; congruence).
-    rewrite E'. apply Hrel. exact Hy.
-Qed.
-
-Lemma lookup_context_ftv : forall Gamma x T X,
-  lookup_context x Gamma = Some T -> In X (fv_ty T) -> In X (ftv_context Gamma).
-Proof.
-  induction Gamma as [|[y U] Gamma IH]; intros x T X Hlookup Hin; simpl in *.
-  - discriminate.
-  - destruct (Nat.eqb x y).
-    + injection Hlookup as ->. apply in_or_app. left. exact Hin.
-    + apply in_or_app. right. eapply IH; eauto.
-Qed.
-
-Lemma related_substitution_relation_update : forall rho Gamma gamma X a,
-  related_substitution rho Gamma gamma -> ~ In X (ftv_context Gamma) ->
-  related_substitution (relation_update rho X a) Gamma gamma.
-Proof.
-  intros rho Gamma gamma X a Hrel Hfresh x T Hlookup.
-  assert (Hnot : ~ In X (fv_ty T)).
-  { intros Hin. apply Hfresh. eapply lookup_context_ftv; eauto. }
-  apply (proj2 (value_relation_rho_update_irrelevant T [] rho X a Hnot (gamma x))).
-  apply Hrel. exact Hlookup.
-Qed.
-
-Theorem fundamental : forall Delta Gamma t T,
-  has_type Delta Gamma t T ->
-  forall theta rho gamma,
-    type_substitution_closed theta -> term_substitution_closed gamma ->
-    related_substitution rho Gamma gamma ->
-    expression_relation [] rho T (instantiate theta gamma t).
-Proof.
-  intros Delta Gamma t T Hty.
-  induction Hty as
-      [Delta Gamma x T Hlookup Hwf
-      | L Delta Gamma T1 body T2 Hwf Hbody IHbody
-      | Delta Gamma t1 t2 T1 T2 Ht1 IHt1 Ht2 IHt2
-      | L Delta Gamma body T Hbody IHbody
-      | Delta Gamma t T U Ht IHt HU
-      | Delta Gamma t1 t2 T Ht1 IHt1 Ht2 IHt2];
-    intros theta rho gamma Htheta Hgamma Hterms.
-  - apply strong_value_is_expression. apply Hterms. exact Hlookup.
-  - assert (Hwhole : has_type Delta Gamma (tm_abs T1 body) (Ty_Arrow T1 T2)).
-    { eapply T_Abs; eauto. }
-    assert (Hvlc : locally_closed_tm (instantiate theta gamma (tm_abs T1 body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply strong_value_is_expression. cbn [value_relation instantiate].
-    split. apply v_abs. exact Hvlc.
-    exists (instantiate_ty theta T1), (instantiate theta gamma body).
-    split. reflexivity. intros arg Harg.
-    assert (Harglc : locally_closed_tm arg).
-    { apply value_regular. eapply value_relation_value. exact Harg. }
-    set (x := fresh (L ++ fv_tm body)).
-    assert (Hxall : ~ In x (L ++ fv_tm body)) by (subst x; apply fresh_notin).
-    rewrite in_app_iff in Hxall.
-    assert (HxL : ~ In x L) by tauto.
-    assert (Hxbody : ~ In x (fv_tm body)) by tauto.
-    pose proof (IHbody x HxL theta rho (term_subst_update gamma x arg)
-      Htheta (term_subst_update_closed gamma x arg Hgamma Harglc)
-      (related_substitution_update rho Gamma gamma x T1 arg Hterms Harg)) as IH.
-    rewrite (instantiate_open_tm body theta gamma x arg Hxbody Htheta Hgamma Harglc) in IH.
-    exact IH.
-  - apply strong_expression_app with (T1 := T1); [apply IHt1|apply IHt2]; assumption.
-  - assert (Hwhole : has_type Delta Gamma (tm_tabs body) (Ty_All T)).
-    { eapply T_TAbs; eauto. }
-    assert (Hvlc : locally_closed_tm (instantiate theta gamma (tm_tabs body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply strong_value_is_expression. cbn [value_relation instantiate].
-    split. apply v_tabs. exact Hvlc.
-    exists (instantiate theta gamma body). split. reflexivity.
-    intros U a HU.
-    set (X := fresh (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma)).
-    assert (HXall : ~ In X (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma))
-      by (subst X; apply fresh_notin).
-    repeat rewrite in_app_iff in HXall.
-    assert (HXL : ~ In X L) by tauto.
-    assert (HXT : ~ In X (fv_ty T)) by tauto.
-    assert (HXbody : ~ In X (ftv_tm body)) by tauto.
-    assert (HXGamma : ~ In X (ftv_context Gamma)) by tauto.
-    pose proof (IHbody X HXL (type_subst_update theta X U)
-      (relation_update rho X a) gamma
-      (type_subst_update_closed theta X U Htheta HU) Hgamma
-      (related_substitution_relation_update rho Gamma gamma X a Hterms HXGamma)) as IH.
-    rewrite (instantiate_open_ty body theta gamma X U HXbody Htheta Hgamma HU) in IH.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Hwhole) as HH. inversion HH; assumption. }
-    apply (proj2 (expression_lifting_equiv _ _
-      (value_relation_open_relation T 0 [] rho X a eq_refl HTlc HXT) _)).
-    exact IH.
-  - cbn [instantiate].
-    pose proof (IHt theta rho gamma Htheta Hgamma Hterms) as HE.
-    assert (HUlc : locally_closed_ty U) by (eapply wf_ty_lc; eauto).
-    assert (HUinst : locally_closed_ty (instantiate_ty theta U)).
-    { apply instantiate_ty_closed; assumption. }
-    pose proof (strong_expression_tapp [] rho T _ (instantiate_ty theta U)
-      (interpreted_candidate [] rho U) HE HUinst) as Hout.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Ht) as HH. inversion HH; assumption. }
-    apply (proj1 (expression_lifting_equiv _ _
-      (value_relation_open_type T 0 [] rho U eq_refl HTlc HUlc) _)). exact Hout.
-  - apply strong_expression_choice; [apply IHt1|apply IHt2]; assumption.
-Qed.
-
-Lemma canonical_arrow : forall v T1 T2,
-  value v ->
-  has_type [] empty v (Ty_Arrow T1 T2) ->
-  exists U body, v = tm_abs U body.
-Proof.
-  intros v T1 T2 Hv Hty.
-  inversion Hv; subst.
-  - exists T, t. reflexivity.
-  - inversion Hty.
-Qed.
-
-Lemma canonical_all : forall v T,
-  value v ->
-  has_type [] empty v (Ty_All T) ->
-  exists body, v = tm_tabs body.
-Proof.
-  intros v T Hv Hty.
-  inversion Hv; subst.
-  - inversion Hty.
-  - exists t. reflexivity.
 Qed.
 
 Lemma term_beta_typing : forall L T1 body T2 v,
@@ -2542,41 +2316,6 @@ Proof.
   - exact (wf_ty_lc [] U HU).
 Qed.
 
-Theorem core_progress : forall t T,
-  has_type [] empty t T ->
-  value t \/ exists t', t --> t'.
-Proof.
-  intros t T Hty.
-  remember (@nil atom) as Delta eqn:EDelta.
-  remember empty as Gamma eqn:EGamma.
-  induction Hty; subst.
-  - discriminate H.
-  - left. apply v_abs. eapply typing_lc. eapply T_Abs; eauto.
-  - right.
-    destruct IHHty1 as [Hv1 | [t1' Hs1]]; try reflexivity.
-    + destruct IHHty2 as [Hv2 | [t2' Hs2]]; try reflexivity.
-      * destruct (canonical_arrow _ _ _ Hv1 Hty1) as [U [body E]].
-        subst t1. exists (open_tm body t2). apply ST_AppAbs.
-        -- eapply typing_lc. exact Hty1.
-        -- exact Hv2.
-      * exists (tm_app t1 t2'). apply ST_App2; assumption.
-    + exists (tm_app t1' t2). apply ST_App1.
-      * exact Hs1.
-      * eapply typing_lc. exact Hty2.
-  - left. apply v_tabs. eapply typing_lc. eapply T_TAbs; eauto.
-  - right.
-    destruct IHHty as [Hv | [t' Hs]]; try reflexivity.
-    + destruct (canonical_all _ _ Hv Hty) as [body E]. subst t.
-      exists (open_tm_ty body U). apply ST_TAppTabs.
-      * eapply typing_lc. exact Hty.
-      * eapply wf_ty_lc. eassumption.
-    + exists (tm_tapp t' U). apply ST_TApp.
-      * exact Hs.
-      * eapply wf_ty_lc. eassumption.
-  - right. exists t1. apply ST_ChoiceLeft;
-      eapply typing_lc; eauto.
-Qed.
-
 Theorem core_preservation : forall t t' T,
   has_type [] empty t T ->
   t --> t' ->
@@ -2592,98 +2331,101 @@ Proof.
   - eapply T_App; eauto.
   - inversion Hty; subst. eapply type_beta_typing; eauto.
   - eapply T_TApp; eauto.
-  - exact Hty1.
-  - exact Hty2.
+  - apply T_Div; eauto.
+  - apply T_Div; eauto.
+  - apply T_Int.
+  - apply T_Arith; eauto.
+  - apply T_Arith; eauto.
+  - apply T_Int.
+  - assumption.
+  - assumption.
 Qed.
 
-Definition empty_relation_env : relation_env := fun _ => None.
-
-Theorem strong_normalization : forall t T,
-  has_type [] empty t T -> strongly_normalizing t.
+Lemma multi_preservation : forall t t' T,
+  has_type [] empty t T ->
+  multi t t' ->
+  has_type [] empty t' T.
 Proof.
-  intros t T HT.
-  assert (Hempty : related_substitution empty_relation_env empty identity_term_substitution).
-  { intros x U Hlookup. discriminate Hlookup. }
-  pose proof (fundamental [] empty t T HT identity_type_substitution empty_relation_env
-    identity_term_substitution identity_type_substitution_closed
-    identity_term_substitution_closed Hempty) as Hrel.
-  rewrite instantiate_identity in Hrel.
-  exact (proj1 (proj2 Hrel)).
+  intros t t' T Hty Hmulti. induction Hmulti.
+  - exact Hty.
+  - apply IHHmulti. eapply core_preservation; eauto.
 Qed.
 
-Definition halts (t : tm) : Prop :=
-  exists v, t -->* v /\ value v.
+Lemma multi_trans : forall t u v,
+  multi t u -> multi u v -> multi t v.
+Proof. intros t u v H. induction H; eauto using multi. Qed.
 
-Lemma typed_strong_normalization_implies_halts : forall t,
-  strongly_normalizing t ->
-  forall T, has_type [] empty t T -> halts t.
+Lemma must_terminate_value : forall v, value v -> must_terminate v.
 Proof.
-  intros t Hsn. induction Hsn as [t Hnext IH]. intros T Htyped.
-  destruct (core_progress t T Htyped) as [Hv | [t' Hstep]].
-  - exists t. split; [apply multi_refl | exact Hv].
-  - pose proof (core_preservation t t' T Htyped Hstep) as Htyped'.
-    destruct (IH t' Hstep T Htyped') as [v [Hsteps Hv]].
-    exists v. split; [eapply multi_step; eauto | exact Hv].
+  intros v Hv. constructor; [left; assumption |].
+  intros u Hs. exfalso. eapply value_no_step; eauto.
 Qed.
 
-Theorem weak_normalization : forall t T,
-  has_type [] empty t T -> halts t.
+Lemma must_terminate_step : forall t u,
+  must_terminate t -> t --> u -> must_terminate u.
+Proof. intros t u H Hs. inversion H; eauto. Qed.
+
+Lemma must_terminate_multi : forall t u,
+  multi t u -> must_terminate t -> must_terminate u.
 Proof.
-  intros t T Htyped.
-  eapply typed_strong_normalization_implies_halts.
-  - apply strong_normalization with (T := T). exact Htyped.
-  - exact Htyped.
+  intros t u H. induction H; intros; eauto using must_terminate_step.
 Qed.
 
-End SystemFRefinementNonDeterminismNormalization.
+Lemma must_terminate_progress : forall t,
+  must_terminate t -> value t \/ exists u, t --> u.
+Proof. intros t H; inversion H; assumption. Qed.
+
+Lemma must_terminate_halts : forall t, must_terminate t -> halts t.
+Proof.
+  intros t H. induction H as [t Hp Hnext IH].
+  destruct Hp as [Hv | [u Hs]].
+  - exists t. split; [constructor | assumption].
+  - destruct (IH u Hs) as [v [Hm Hv]].
+    exists v. split; [eapply multi_step; eauto | assumption].
+Qed.
+
+End SystemFRefinementNonDeterminismEvaluation.
 
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia Program.Wf.
 From Equations Require Import Equations.
-
 Module SystemFRefinementNonDeterminismDenotations.
 Import ListNotations.
 Import SystemFRefinementNonDeterminism.
 Import SystemFRefinementNonDeterminismInfrastructure.
 Import SystemFRefinementNonDeterminismCoreTyping.
 Import SystemFRefinementNonDeterminismTyping.
-Import SystemFRefinementNonDeterminismNormalization.
+Import SystemFRefinementNonDeterminismEvaluation.
 
-Fixpoint fv_pred (p : predicate) : list atom :=
+Fixpoint fv_pred (p : qualifier) : list atom :=
   match p with
   | Pred_True | Pred_False => []
-  | Pred_Eq t1 t2 => fv_tm t1 ++ fv_tm t2
-  | Pred_And p1 p2 => fv_pred p1 ++ fv_pred p2
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 => fv_tm t1 ++ fv_tm t2
+  | Pred_And p1 p2 | Pred_Or p1 p2 => fv_pred p1 ++ fv_pred p2
+  | Pred_Not p => fv_pred p
   end.
 
-Fixpoint fv_preds (ps : predicates) : list atom :=
-  match ps with
-  | PEmpty => []
-  | PCons p ps' => fv_pred p ++ fv_preds ps'
-  end.
+Definition fv_qualifier := fv_pred.
 
 Fixpoint fv_rty (R : rty) : list atom :=
   match R with
-  | R_Refine _ ps => fv_preds ps
+  | R_Refine _ ps => fv_qualifier ps
   | R_Func R1 R2 | R_Exists R1 R2 => fv_rty R1 ++ fv_rty R2
   | R_Poly R1 => fv_rty R1
   end.
 
-Fixpoint ftv_pred (p : predicate) : list atom :=
+Fixpoint ftv_pred (p : qualifier) : list atom :=
   match p with
   | Pred_True | Pred_False => []
-  | Pred_Eq t1 t2 => ftv_tm t1 ++ ftv_tm t2
-  | Pred_And p1 p2 => ftv_pred p1 ++ ftv_pred p2
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | Pred_And p1 p2 | Pred_Or p1 p2 => ftv_pred p1 ++ ftv_pred p2
+  | Pred_Not p => ftv_pred p
   end.
 
-Fixpoint ftv_preds (ps : predicates) : list atom :=
-  match ps with
-  | PEmpty => []
-  | PCons p ps' => ftv_pred p ++ ftv_preds ps'
-  end.
+Definition ftv_qualifier := ftv_pred.
 
 Fixpoint ftv_rty (R : rty) : list atom :=
   match R with
-  | R_Refine T ps => fv_ty T ++ ftv_preds ps
+  | R_Refine T ps => fv_ty T ++ ftv_qualifier ps
   | R_Func R1 R2 | R_Exists R1 R2 => ftv_rty R1 ++ ftv_rty R2
   | R_Poly R1 => ftv_rty R1
   end.
@@ -2702,33 +2444,29 @@ Fixpoint ftv_rcontext (RGamma : rcontext) : list atom :=
 
 Fixpoint instantiate_pred
     (theta : type_substitution) (gamma : term_substitution)
-    (p : predicate) : predicate :=
+    (p : qualifier) : qualifier :=
   match p with
   | Pred_True => Pred_True
   | Pred_False => Pred_False
   | Pred_Eq t1 t2 =>
       Pred_Eq (instantiate theta gamma t1) (instantiate theta gamma t2)
-  | Pred_And p1 p2 =>
-      Pred_And (instantiate_pred theta gamma p1)
+  | Pred_Lt t1 t2 => Pred_Lt (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | Pred_Le t1 t2 => Pred_Le (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | Pred_And p1 p2 => Pred_And (instantiate_pred theta gamma p1) (instantiate_pred theta gamma p2)
+  | Pred_Not p => Pred_Not (instantiate_pred theta gamma p)
+  | Pred_Or p1 p2 =>
+      Pred_Or (instantiate_pred theta gamma p1)
         (instantiate_pred theta gamma p2)
   end.
 
-Fixpoint instantiate_preds
-    (theta : type_substitution) (gamma : term_substitution)
-    (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (instantiate_pred theta gamma p)
-        (instantiate_preds theta gamma ps')
-  end.
+Definition instantiate_qualifier := instantiate_pred.
 
 Fixpoint instantiate_rty
     (theta : type_substitution) (gamma : term_substitution)
     (R : rty) : rty :=
   match R with
   | R_Refine T ps =>
-      R_Refine (instantiate_ty theta T) (instantiate_preds theta gamma ps)
+      R_Refine (instantiate_ty theta T) (instantiate_qualifier theta gamma ps)
   | R_Func R1 R2 =>
       R_Func (instantiate_rty theta gamma R1)
         (instantiate_rty theta gamma R2)
@@ -2785,25 +2523,22 @@ Lemma instantiate_pred_open_tm_rec : forall p k theta gamma x u,
     (open_pred_tm_rec k (tm_fvar x) p) =
   open_pred_tm_rec k u (instantiate_pred theta gamma p).
 Proof.
-  induction p; intros; simpl in *; try reflexivity.
-  - rewrite in_app_iff in H.
-    rewrite !instantiate_open_tm_rec; intuition.
-  - rewrite in_app_iff in H.
-    rewrite IHp1, IHp2; intuition.
+  induction p; intros; simpl in *; try reflexivity;
+    try solve [rewrite in_app_iff in H; rewrite !instantiate_open_tm_rec; intuition];
+    try solve [rewrite in_app_iff in H; rewrite IHp1, IHp2; intuition].
+  f_equal. apply IHp; assumption.
 Qed.
 
-Lemma instantiate_preds_open_tm_rec : forall ps k theta gamma x u,
-  ~ In x (fv_preds ps) ->
+Lemma instantiate_qualifier_open_tm_rec : forall ps k theta gamma x u,
+  ~ In x (fv_qualifier ps) ->
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
   locally_closed_tm u ->
-  instantiate_preds theta (term_subst_update gamma x u)
-    (open_preds_tm_rec k (tm_fvar x) ps) =
-  open_preds_tm_rec k u (instantiate_preds theta gamma ps).
+  instantiate_qualifier theta (term_subst_update gamma x u)
+    (open_qualifier_tm_rec k (tm_fvar x) ps) =
+  open_qualifier_tm_rec k u (instantiate_qualifier theta gamma ps).
 Proof.
-  induction ps; intros; simpl in *; try reflexivity.
-  rewrite in_app_iff in H.
-  rewrite instantiate_pred_open_tm_rec, IHps; intuition.
+  exact instantiate_pred_open_tm_rec.
 Qed.
 
 Lemma instantiate_rty_open_tm_rec : forall R k theta gamma x u,
@@ -2816,7 +2551,7 @@ Lemma instantiate_rty_open_tm_rec : forall R k theta gamma x u,
   open_rty_tm_rec k u (instantiate_rty theta gamma R).
 Proof.
   induction R; intros; simpl in *.
-  - f_equal. apply instantiate_preds_open_tm_rec; assumption.
+  - f_equal. apply instantiate_qualifier_open_tm_rec; assumption.
   - rewrite in_app_iff in H.
     rewrite IHR1, IHR2; intuition.
   - rewrite in_app_iff in H.
@@ -2846,25 +2581,22 @@ Lemma instantiate_pred_open_ty_rec : forall p k theta gamma X U,
     (open_pred_ty_rec k (Ty_FVar X) p) =
   open_pred_ty_rec k U (instantiate_pred theta gamma p).
 Proof.
-  induction p; intros; simpl in *; try reflexivity.
-  - rewrite in_app_iff in H.
-    rewrite !instantiate_open_ty_rec; intuition.
-  - rewrite in_app_iff in H.
-    rewrite IHp1, IHp2; intuition.
+  induction p; intros; simpl in *; try reflexivity;
+    try solve [rewrite in_app_iff in H; rewrite !instantiate_open_ty_rec; intuition];
+    try solve [rewrite in_app_iff in H; rewrite IHp1, IHp2; intuition].
+  f_equal. apply IHp; assumption.
 Qed.
 
-Lemma instantiate_preds_open_ty_rec : forall ps k theta gamma X U,
-  ~ In X (ftv_preds ps) ->
+Lemma instantiate_qualifier_open_ty_rec : forall ps k theta gamma X U,
+  ~ In X (ftv_qualifier ps) ->
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
   locally_closed_ty U ->
-  instantiate_preds (type_subst_update theta X U) gamma
-    (open_preds_ty_rec k (Ty_FVar X) ps) =
-  open_preds_ty_rec k U (instantiate_preds theta gamma ps).
+  instantiate_qualifier (type_subst_update theta X U) gamma
+    (open_qualifier_ty_rec k (Ty_FVar X) ps) =
+  open_qualifier_ty_rec k U (instantiate_qualifier theta gamma ps).
 Proof.
-  induction ps; intros; simpl in *; try reflexivity.
-  rewrite in_app_iff in H.
-  rewrite instantiate_pred_open_ty_rec, IHps; intuition.
+  exact instantiate_pred_open_ty_rec.
 Qed.
 
 Lemma instantiate_rty_open_ty_rec : forall R k theta gamma X U,
@@ -2880,7 +2612,7 @@ Proof.
   - rewrite in_app_iff in H.
     f_equal.
     + apply instantiate_ty_open_rec; intuition.
-    + apply instantiate_preds_open_ty_rec; intuition.
+    + apply instantiate_qualifier_open_ty_rec; intuition.
   - rewrite in_app_iff in H.
     rewrite IHR1, IHR2; intuition.
   - rewrite in_app_iff in H.
@@ -2914,6 +2646,8 @@ Proof.
   - f_equal. apply IHt. exact H.
   - f_equal. apply IHt. exact H.
   - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
 Qed.
 
 Lemma instantiate_rty_term_update_irrelevant : forall R theta gamma x u,
@@ -2921,16 +2655,14 @@ Lemma instantiate_rty_term_update_irrelevant : forall R theta gamma x u,
   instantiate_rty theta (term_subst_update gamma x u) R =
   instantiate_rty theta gamma R.
 Proof.
-  induction R; intros; simpl in *.
-  - f_equal. induction p; simpl in *; try reflexivity.
-    rewrite in_app_iff in H. f_equal.
-    + induction p; simpl in *; try reflexivity.
-      * rewrite in_app_iff in H. f_equal;
-          apply instantiate_term_update_irrelevant; intuition.
-      * rewrite in_app_iff in H. f_equal; [apply IHp1 | apply IHp2]; intuition.
-    + apply IHp. intuition.
-  - rewrite in_app_iff in H. f_equal; [apply IHR1 | apply IHR2]; intuition.
-  - rewrite in_app_iff in H. f_equal; [apply IHR1 | apply IHR2]; intuition.
+  induction R as [T ps | R1 IHR1 R2 IHR2 | R1 IHR1 R2 IHR2 | R IHR];
+    intros; simpl in *.
+  - f_equal. induction ps; simpl in *; try reflexivity;
+      try solve [rewrite in_app_iff in H; f_equal; apply instantiate_term_update_irrelevant; intuition];
+      try solve [rewrite in_app_iff in H; f_equal; [apply IHps1|apply IHps2]; intuition].
+    f_equal. apply IHps. exact H.
+  - rewrite in_app_iff in H. f_equal; [apply IHR1|apply IHR2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHR1|apply IHR2]; intuition.
   - f_equal. apply IHR. exact H.
 Qed.
 
@@ -2948,7 +2680,9 @@ Proof.
   - rewrite in_app_iff in H. f_equal.
     + apply IHt. tauto.
     + apply instantiate_ty_update_irrelevant. tauto.
-  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; tauto.
+  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHt1 | apply IHt2]; intuition.
 Qed.
 
 Lemma instantiate_rty_type_update_irrelevant : forall R theta gamma X U,
@@ -2956,18 +2690,18 @@ Lemma instantiate_rty_type_update_irrelevant : forall R theta gamma X U,
   instantiate_rty (type_subst_update theta X U) gamma R =
   instantiate_rty theta gamma R.
 Proof.
-  induction R; intros; simpl in *.
+  induction R as [T ps | R1 IHR1 R2 IHR2 | R1 IHR1 R2 IHR2 | R IHR];
+    intros; simpl in *.
   - rewrite in_app_iff in H. f_equal.
     + apply instantiate_ty_update_irrelevant. intuition.
-    + induction p; simpl in *; try reflexivity.
-      rewrite in_app_iff in H. f_equal.
-      * induction p; simpl in *; try reflexivity.
-        -- rewrite in_app_iff in H. f_equal;
-             apply instantiate_term_type_update_irrelevant; intuition.
-        -- rewrite in_app_iff in H. f_equal; [apply IHp1 | apply IHp2]; intuition.
-      * apply IHp. intuition.
-  - rewrite in_app_iff in H. f_equal; [apply IHR1 | apply IHR2]; intuition.
-  - rewrite in_app_iff in H. f_equal; [apply IHR1 | apply IHR2]; intuition.
+    + assert (HF : ~ In X (ftv_pred ps)) by intuition.
+      clear H. rename HF into H.
+      induction ps; simpl in *; try reflexivity;
+        try solve [rewrite in_app_iff in H; f_equal; apply instantiate_term_type_update_irrelevant; intuition];
+        try solve [rewrite in_app_iff in H; f_equal; [apply IHps1|apply IHps2]; intuition].
+      f_equal. apply IHps. exact H.
+  - rewrite in_app_iff in H. f_equal; [apply IHR1|apply IHR2]; intuition.
+  - rewrite in_app_iff in H. f_equal; [apply IHR1|apply IHR2]; intuition.
   - f_equal. apply IHR. exact H.
 Qed.
 
@@ -2986,6 +2720,8 @@ Proof.
   - f_equal; [apply IHt1 | apply IHt2]; assumption.
   - f_equal. apply IHt; assumption.
   - f_equal. apply IHt; assumption.
+  - f_equal; [apply IHt1 | apply IHt2]; assumption.
+  - f_equal; [apply IHt1 | apply IHt2]; assumption.
   - f_equal; [apply IHt1 | apply IHt2]; assumption.
 Qed.
 
@@ -3007,21 +2743,21 @@ Lemma instantiate_pred_open_tm_commute : forall p k u theta gamma,
   open_pred_tm_rec k (instantiate theta gamma u)
     (instantiate_pred theta gamma p).
 Proof.
-  induction p; intros; simpl; try reflexivity.
-  - rewrite !instantiate_open_tm_rec_commute; try assumption. reflexivity.
-  - rewrite IHp1, IHp2; try assumption. reflexivity.
+  induction p; intros; simpl; try reflexivity;
+    try solve [rewrite !instantiate_open_tm_rec_commute; try assumption; reflexivity];
+    try solve [rewrite IHp1, IHp2; try assumption; reflexivity].
+  f_equal. apply IHp; assumption.
 Qed.
 
-Lemma instantiate_preds_open_tm_commute : forall ps k u theta gamma,
+Lemma instantiate_qualifier_open_tm_commute : forall ps k u theta gamma,
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
   locally_closed_tm u ->
-  instantiate_preds theta gamma (open_preds_tm_rec k u ps) =
-  open_preds_tm_rec k (instantiate theta gamma u)
-    (instantiate_preds theta gamma ps).
+  instantiate_qualifier theta gamma (open_qualifier_tm_rec k u ps) =
+  open_qualifier_tm_rec k (instantiate theta gamma u)
+    (instantiate_qualifier theta gamma ps).
 Proof.
-  induction ps; intros; simpl; try reflexivity.
-  rewrite instantiate_pred_open_tm_commute, IHps; try assumption. reflexivity.
+  exact instantiate_pred_open_tm_commute.
 Qed.
 
 Lemma instantiate_rty_open_tm_commute : forall R k u theta gamma,
@@ -3033,7 +2769,7 @@ Lemma instantiate_rty_open_tm_commute : forall R k u theta gamma,
     (instantiate_rty theta gamma R).
 Proof.
   induction R; intros; simpl.
-  - f_equal. apply instantiate_preds_open_tm_commute; assumption.
+  - f_equal. apply instantiate_qualifier_open_tm_commute; assumption.
   - rewrite IHR1, IHR2; try assumption. reflexivity.
   - rewrite IHR1, IHR2; try assumption. reflexivity.
   - rewrite IHR; try assumption. reflexivity.
@@ -3068,6 +2804,8 @@ Proof.
     + apply IHt; assumption.
     + apply instantiate_ty_open_rec_commute. exact H.
   - f_equal; [apply IHt1 | apply IHt2]; assumption.
+  - f_equal; [apply IHt1 | apply IHt2]; assumption.
+  - f_equal; [apply IHt1 | apply IHt2]; assumption.
 Qed.
 
 Lemma instantiate_open_ty_tm_commute : forall t U theta gamma,
@@ -3089,21 +2827,21 @@ Lemma instantiate_pred_open_ty_commute : forall p k U theta gamma,
   open_pred_ty_rec k (instantiate_ty theta U)
     (instantiate_pred theta gamma p).
 Proof.
-  induction p; intros; simpl; try reflexivity.
-  - rewrite !instantiate_open_ty_tm_rec_commute; try assumption. reflexivity.
-  - rewrite IHp1, IHp2; try assumption. reflexivity.
+  induction p; intros; simpl; try reflexivity;
+    try solve [rewrite !instantiate_open_ty_tm_rec_commute; try assumption; reflexivity];
+    try solve [rewrite IHp1, IHp2; try assumption; reflexivity].
+  f_equal. apply IHp; assumption.
 Qed.
 
-Lemma instantiate_preds_open_ty_commute : forall ps k U theta gamma,
+Lemma instantiate_qualifier_open_ty_commute : forall ps k U theta gamma,
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
   locally_closed_ty U ->
-  instantiate_preds theta gamma (open_preds_ty_rec k U ps) =
-  open_preds_ty_rec k (instantiate_ty theta U)
-    (instantiate_preds theta gamma ps).
+  instantiate_qualifier theta gamma (open_qualifier_ty_rec k U ps) =
+  open_qualifier_ty_rec k (instantiate_ty theta U)
+    (instantiate_qualifier theta gamma ps).
 Proof.
-  induction ps; intros; simpl; try reflexivity.
-  rewrite instantiate_pred_open_ty_commute, IHps; try assumption. reflexivity.
+  exact instantiate_pred_open_ty_commute.
 Qed.
 
 Lemma instantiate_rty_open_ty_commute : forall R k U theta gamma,
@@ -3116,7 +2854,7 @@ Lemma instantiate_rty_open_ty_commute : forall R k U theta gamma,
 Proof.
   induction R; intros; simpl.
   - rewrite instantiate_ty_open_rec_commute,
-      instantiate_preds_open_ty_commute; try assumption. reflexivity.
+      instantiate_qualifier_open_ty_commute; try assumption. reflexivity.
   - rewrite IHR1, IHR2; try assumption. reflexivity.
   - rewrite IHR1, IHR2; try assumption. reflexivity.
   - rewrite IHR; try assumption. reflexivity.
@@ -3145,6 +2883,7 @@ Proof.
   - apply v_tabs.
     change (locally_closed_tm (instantiate theta gamma (tm_tabs t))).
     apply instantiate_closed; assumption.
+  - apply v_int.
 Qed.
 
 Lemma instantiate_step : forall t t' theta gamma,
@@ -3174,8 +2913,14 @@ Proof.
   - apply ST_TApp.
     + apply IHHstep.
     + apply instantiate_ty_closed; assumption.
-  - apply ST_ChoiceLeft; apply instantiate_closed; assumption.
-  - apply ST_ChoiceRight; apply instantiate_closed; assumption.
+  - apply ST_Div1; [assumption|apply instantiate_closed; assumption].
+  - apply ST_Div2; [apply instantiate_value; assumption|assumption].
+  - apply ST_DivInt. assumption.
+  - apply ST_Arith1; [assumption|apply instantiate_closed; assumption].
+  - apply ST_Arith2; [apply instantiate_value; assumption|assumption].
+  - apply ST_ArithInt.
+  - apply ST_ChoiceLeft; eauto using instantiate_closed.
+  - apply ST_ChoiceRight; eauto using instantiate_closed.
 Qed.
 
 Lemma instantiate_predicate_multistep : forall t t' theta gamma,
@@ -3192,32 +2937,41 @@ Proof.
     + exact IHHmulti.
 Qed.
 
-Lemma instantiate_predicate_holds : forall p theta gamma,
-  predicate_holds p ->
-  type_substitution_closed theta ->
-  term_substitution_closed gamma ->
-  predicate_holds (instantiate_pred theta gamma p).
+Lemma instantiate_ty_no_free : forall T theta,
+  fv_ty T = [] -> instantiate_ty theta T = T.
 Proof.
-  intros p theta gamma Hholds Htheta Hgamma. induction Hholds; simpl.
-  - apply PH_True.
-  - eapply PH_Eq with (v := instantiate theta gamma v).
-    + eapply instantiate_predicate_multistep; eauto.
-    + eapply instantiate_predicate_multistep; eauto.
-    + eapply instantiate_value; eauto.
-  - apply PH_And; assumption.
+  induction T; intros; simpl in *; try discriminate; try reflexivity.
+  - apply app_eq_nil in H as [H1 H2]. rewrite IHT1, IHT2; auto.
+  - rewrite IHT; auto.
 Qed.
 
-Lemma instantiate_predicates_hold : forall ps theta gamma,
-  predicates_hold ps ->
+Lemma instantiate_no_free : forall t theta gamma,
+  fv_tm t = [] -> ftv_tm t = [] -> instantiate theta gamma t = t.
+Proof.
+  induction t; intros; simpl in *; try discriminate; try reflexivity;
+    repeat match goal with H : _ ++ _ = [] |- _ => apply app_eq_nil in H as [? ?] end;
+    f_equal; eauto using instantiate_ty_no_free.
+Qed.
+
+Lemma instantiate_pred_closed : forall p theta gamma,
+  predicate_closed p -> instantiate_pred theta gamma p = p.
+Proof.
+  induction p; intros; simpl in *; try reflexivity;
+    try solve [decompose [and] H; f_equal; apply instantiate_no_free; assumption];
+    try solve [destruct H; f_equal; auto].
+  f_equal. apply IHp. assumption.
+Qed.
+
+Lemma instantiate_qualifier_holds : forall ps theta gamma,
+  predicate_closed ps ->
+  qualifier_holds ps ->
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
-  predicates_hold (instantiate_preds theta gamma ps).
+  qualifier_holds (instantiate_qualifier theta gamma ps).
 Proof.
-  intros ps theta gamma Hholds Htheta Hgamma. induction Hholds; simpl.
-  - apply PHS_Empty.
-  - apply PHS_Cons.
-    + eapply instantiate_predicate_holds; eauto.
-    + exact IHHholds.
+  intros ps theta gamma Hclosed Hholds Htheta Hgamma.
+  unfold instantiate_qualifier. rewrite instantiate_pred_closed by assumption.
+  exact Hholds.
 Qed.
 
 Lemma instantiate_pred_open_rec_commute : forall p k u theta gamma,
@@ -3228,23 +2982,21 @@ Lemma instantiate_pred_open_rec_commute : forall p k u theta gamma,
   open_pred_tm_rec k (instantiate theta gamma u)
     (instantiate_pred theta gamma p).
 Proof.
-  induction p; intros; simpl; try reflexivity.
-  - f_equal; apply instantiate_open_tm_rec_commute; assumption.
-  - f_equal; [apply IHp1 | apply IHp2]; assumption.
+  induction p; intros; simpl; try reflexivity;
+    try solve [rewrite !instantiate_open_tm_rec_commute; try assumption; reflexivity];
+    try solve [rewrite IHp1, IHp2; try assumption; reflexivity].
+  f_equal. apply IHp; assumption.
 Qed.
 
-Lemma instantiate_preds_open_commute : forall ps u theta gamma,
+Lemma instantiate_qualifier_open_commute : forall ps u theta gamma,
   type_substitution_closed theta ->
   term_substitution_closed gamma ->
   locally_closed_tm u ->
-  instantiate_preds theta gamma (open_preds_tm ps u) =
-  open_preds_tm (instantiate_preds theta gamma ps)
+  instantiate_qualifier theta gamma (open_qualifier_tm ps u) =
+  open_qualifier_tm (instantiate_qualifier theta gamma ps)
     (instantiate theta gamma u).
 Proof.
-  induction ps; intros; unfold open_preds_tm in *; simpl in *; try reflexivity.
-  f_equal.
-  - apply instantiate_pred_open_rec_commute; assumption.
-  - apply IHps; assumption.
+  intros. apply instantiate_pred_open_rec_commute; assumption.
 Qed.
 
 Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
@@ -3252,7 +3004,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
 
       value v /\
       has_type [] empty v T /\
-      predicates_hold (open_preds_tm ps v);
+      qualifier_holds (open_qualifier_tm ps v);
   denotes (R_Func R1 R2) v :=
 
       value v /\
@@ -3260,7 +3012,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       forall arg,
         denotes R1 arg ->
         locally_closed_tm (tm_app v arg) /\
-        strongly_normalizing (tm_app v arg) /\
+        must_terminate (tm_app v arg) /\
         forall result,
           multi (tm_app v arg) result ->
           value result ->
@@ -3277,7 +3029,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       forall U,
         wf_ty [] U ->
         locally_closed_tm (tm_tapp v U) /\
-        strongly_normalizing (tm_tapp v U) /\
+        must_terminate (tm_tapp v U) /\
         forall result,
           multi (tm_tapp v U) result ->
           value result ->
@@ -3300,7 +3052,7 @@ Qed.
 
 Definition evals_denotes (R : rty) (t : tm) : Prop :=
   locally_closed_tm t /\
-  strongly_normalizing t /\
+  must_terminate t /\
   forall v,
     multi t v ->
     value v ->
@@ -3309,7 +3061,7 @@ Definition evals_denotes (R : rty) (t : tm) : Prop :=
 Lemma denotes_refine_iff : forall T ps v,
   denotes (R_Refine T ps) v <->
   value v /\ has_type [] empty v T /\
-  predicates_hold (open_preds_tm ps v).
+  qualifier_holds (open_qualifier_tm ps v).
 Proof.
   intros. simp denotes. reflexivity.
 Qed.
@@ -3320,7 +3072,7 @@ Lemma denotes_func_iff : forall R1 R2 v,
   forall arg,
     denotes R1 arg ->
     locally_closed_tm (tm_app v arg) /\
-    strongly_normalizing (tm_app v arg) /\
+    must_terminate (tm_app v arg) /\
     forall result,
       multi (tm_app v arg) result ->
       value result ->
@@ -3344,7 +3096,7 @@ Lemma denotes_poly_iff : forall R v,
   forall U,
     wf_ty [] U ->
     locally_closed_tm (tm_tapp v U) /\
-    strongly_normalizing (tm_tapp v U) /\
+    must_terminate (tm_tapp v U) /\
     forall result,
       multi (tm_tapp v U) result ->
       value result ->
@@ -3362,7 +3114,7 @@ Qed.
 
 Lemma denotes_refinement_predicates : forall T ps v,
   denotes (R_Refine T ps) v ->
-  predicates_hold (open_preds_tm ps v).
+  qualifier_holds (open_qualifier_tm ps v).
 Proof.
   intros T ps v H.
   cbn [denotes] in H.
@@ -3372,23 +3124,20 @@ Qed.
 Lemma instantiate_pred_identity : forall p,
   instantiate_pred identity_type_substitution identity_term_substitution p = p.
 Proof.
-  induction p; simpl; try reflexivity.
-  - rewrite !instantiate_identity. reflexivity.
-  - rewrite IHp1, IHp2. reflexivity.
+  induction p; simpl; rewrite ?instantiate_identity, ?IHp1, ?IHp2, ?IHp; reflexivity.
 Qed.
 
-Lemma instantiate_preds_identity : forall ps,
-  instantiate_preds identity_type_substitution identity_term_substitution ps = ps.
+Lemma instantiate_qualifier_identity : forall ps,
+  instantiate_qualifier identity_type_substitution identity_term_substitution ps = ps.
 Proof.
-  induction ps; simpl; try reflexivity.
-  rewrite instantiate_pred_identity, IHps. reflexivity.
+  exact instantiate_pred_identity.
 Qed.
 
 Lemma instantiate_rty_identity : forall R,
   instantiate_rty identity_type_substitution identity_term_substitution R = R.
 Proof.
   induction R; simpl.
-  - rewrite instantiate_ty_identity, instantiate_preds_identity. reflexivity.
+  - rewrite instantiate_ty_identity, instantiate_qualifier_identity. reflexivity.
   - rewrite IHR1, IHR2. reflexivity.
   - rewrite IHR1, IHR2. reflexivity.
   - rewrite IHR. reflexivity.
@@ -3396,15 +3145,14 @@ Qed.
 
 End SystemFRefinementNonDeterminismDenotations.
 
-From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
-
+From Stdlib Require Import Arith.PeanoNat Lists.List Lia ZArith.BinInt.
 Module SystemFRefinementNonDeterminismSoundness.
 Import ListNotations.
 Import SystemFRefinementNonDeterminism.
 Import SystemFRefinementNonDeterminismInfrastructure.
 Import SystemFRefinementNonDeterminismCoreTyping.
 Import SystemFRefinementNonDeterminismTyping.
-Import SystemFRefinementNonDeterminismNormalization.
+Import SystemFRefinementNonDeterminismEvaluation.
 Import SystemFRefinementNonDeterminismDenotations.
 
 Definition related_substitution
@@ -3426,8 +3174,7 @@ Proof.
   intros R v Hden. split.
   - apply value_regular. eapply denotes_value. exact Hden.
   - split.
-    + apply SN_intro. intros u Hstep.
-      exfalso. eapply value_no_step; eauto using denotes_value.
+    + apply must_terminate_value. eapply denotes_value. exact Hden.
     + intros result Hsteps Hvalue.
       assert (Hv : value v) by (eapply denotes_value; exact Hden).
       assert (result = v).
@@ -3540,50 +3287,23 @@ Qed.
 Lemma entails_sound : forall Delta RGamma ps qs,
   entails Delta RGamma ps qs ->
   forall theta gamma,
-    predicates_hold (instantiate_preds theta gamma ps) ->
-    predicates_hold (instantiate_preds theta gamma qs).
+    type_substitution_closed theta ->
+    term_substitution_closed gamma ->
+    related_substitution theta gamma RGamma ->
+    qualifier_holds (instantiate_qualifier theta gamma ps) ->
+    qualifier_holds (instantiate_qualifier theta gamma qs).
 Proof.
   intros Delta RGamma ps qs Hentails. induction Hentails;
-    intros theta gamma Hholds; simpl in *.
-  - exact Hholds.
-  - apply PHS_Empty.
-  - apply IHHentails2. apply IHHentails1. exact Hholds.
-  - inversion Hholds; subst. apply PHS_Cons; [assumption | apply PHS_Empty].
-  - inversion Hholds; subst. assumption.
-  - apply PHS_Cons.
-    + pose proof (IHHentails1 theta gamma Hholds) as Hhead.
-      inversion Hhead; subst. assumption.
-    + apply IHHentails2. exact Hholds.
-  - inversion Hholds; subst.
-    match goal with
-    | Hfalse : predicate_holds Pred_False |- _ => inversion Hfalse
-    end.
-Qed.
-
-Lemma core_evals_denotes : forall Delta RGamma t T theta gamma,
-  has_type Delta (erase_context RGamma) t T ->
-  context_wf Delta (erase_context RGamma) ->
-  type_substitution_closed theta ->
-  term_substitution_closed gamma ->
-  type_substitution_wf Delta [] theta ->
-  related_substitution theta gamma RGamma ->
-  evals_denotes
-    (R_Refine (instantiate_ty theta T) PEmpty)
-    (instantiate theta gamma t).
-Proof.
-  intros Delta RGamma t T theta gamma Htyped Hctx Htheta Hgamma
-    HthetaWf Hrelated.
-  pose proof (has_type_instantiate Delta (erase_context RGamma) t T Htyped Hctx
-    [] empty theta gamma Htheta Hgamma HthetaWf
-    (related_substitution_typed theta gamma RGamma Hrelated)) as Hinst.
-  split.
-  - eapply typing_lc. exact Hinst.
-  - split.
-    + eapply strong_normalization. exact Hinst.
-    + intros v Hsteps Hv. cbn [denotes].
-      split; [exact Hv |]. split.
-      * eapply core_multi_preservation; eauto.
-      * apply PHS_Empty.
+    intros theta gamma Htheta Hgamma Hrel Hholds;
+    cbn [instantiate_qualifier instantiate_pred qualifier_holds predicate_holds interpret_qualifier] in *;
+    try tauto; try solve [firstorder].
+  pose proof (Hrel x (R_Refine T p) H) as Hd.
+  apply denotes_refine_iff in Hd. destruct Hd as [Hv [Ht Hp]].
+  unfold open_qualifier_tm, open_qualifier_tm_rec.
+  unfold qualifier_holds, instantiate_qualifier.
+  rewrite (instantiate_pred_open_tm_commute p 0 (tm_fvar x) theta gamma
+    Htheta Hgamma (lc_tm_fvar 0 0 x)).
+  exact Hp.
 Qed.
 
 Scheme has_rtype_mut_ind := Induction for has_rtype Sort Prop
@@ -3635,39 +3355,80 @@ Qed.
 
 Lemma evals_denotes_intro : forall R t,
   locally_closed_tm t ->
+  (value t \/ exists u, t --> u) ->
   (value t -> denotes R t) ->
   (forall u, t --> u -> evals_denotes R u) ->
   evals_denotes R t.
 Proof.
-  intros R t Hlc Hvalue Hnext. split; [exact Hlc |]. split.
-  - apply SN_intro. intros u Hstep.
-    destruct (Hnext u Hstep) as [_ [Hsn _]]. exact Hsn.
-  - intros v Hsteps Hv. inversion Hsteps; subst.
-    + apply Hvalue. exact Hv.
-    + destruct (Hnext y H) as [_ [_ Hall]]. eapply Hall; eauto.
+  intros R t Hlc Hp Hv Hnext. split; [assumption |]. split.
+  - constructor; [assumption |].
+    intros u Hs. exact (proj1 (proj2 (Hnext u Hs))).
+  - intros v Hm Hvalue. inversion Hm; subst.
+    + apply Hv; assumption.
+    + match goal with
+      | Hs : t --> ?u, Hrest : multi ?u v |- _ =>
+          exact (proj2 (proj2 (Hnext u Hs)) v Hrest Hvalue)
+      end.
 Qed.
 
 Lemma evals_denotes_map : forall R S t,
   (forall v, denotes R v -> denotes S v) ->
-  evals_denotes R t ->
-  evals_denotes S t.
+  evals_denotes R t -> evals_denotes S t.
 Proof.
-  intros R S t Hmap [Hlc [Hsn Hall]].
-  split; [exact Hlc |]. split; [exact Hsn |].
-  intros v Hsteps Hv. apply Hmap. eapply Hall; eauto.
+  intros R S t Hmap [Hlc [Htotal Hall]].
+  split; [assumption |]. split; [assumption |].
+  intros v Hm Hv. apply Hmap. apply Hall; assumption.
 Qed.
 
 Lemma evals_denotes_reduct : forall R t u,
-  evals_denotes R t ->
-  t --> u ->
-  evals_denotes R u.
+  evals_denotes R t -> t --> u -> evals_denotes R u.
 Proof.
-  intros R t u [Hlc [Hsn Hall]] Hstep. split.
+  intros R t u [Hlc [Htotal Hall]] Hs. split.
   - eapply step_preserves_lc; eauto.
-  - split.
-    + inversion Hsn; subst. eauto.
-    + intros v Hsteps Hv. apply Hall; [|exact Hv].
-      eapply multi_step; eauto.
+  - split; [eapply must_terminate_step; eauto |].
+    intros v Hm Hv. apply Hall; [eapply multi_step; eauto |assumption].
+Qed.
+
+Lemma evals_denotes_single : forall R t u,
+  locally_closed_tm t ->
+  t --> u ->
+  (forall w, t --> w -> w = u) ->
+  evals_denotes R u ->
+  evals_denotes R t.
+Proof.
+  intros R t u Hlc Hs Hunique Hu. apply evals_denotes_intro.
+  - exact Hlc.
+  - right. eauto.
+  - intros Hv. exfalso. eapply value_no_step; eauto.
+  - intros w Hw. rewrite (Hunique w Hw). exact Hu.
+Qed.
+
+Lemma evals_denotes_bind : forall S R t (E : tm -> tm),
+  evals_denotes S t ->
+  (forall u, locally_closed_tm u -> locally_closed_tm (E u)) ->
+  (forall u, ~ value (E u)) ->
+  (forall u u', u --> u' -> E u --> E u') ->
+  (forall u w, ~ value u -> E u --> w ->
+    exists u', u --> u' /\ w = E u') ->
+  (forall v, multi t v -> value v -> denotes S v -> evals_denotes R (E v)) ->
+  evals_denotes R (E t).
+Proof.
+  intros S R t E [Hlc [Htotal Hall]] HElc HEnval HEstep HEinv.
+  revert Hlc Hall.
+  induction Htotal as [t Hp Hnext IH]; intros Hlc Hall Hcont.
+  destruct Hp as [Hv | [u Hs]].
+  - apply Hcont; [constructor |assumption |apply Hall; [constructor |assumption]].
+  - apply evals_denotes_intro.
+    + apply HElc; assumption.
+    + right. exists (E u). apply HEstep; assumption.
+    + intros Hv. exfalso. exact (HEnval t Hv).
+    + intros w Hw.
+      assert (Hnv : ~ value t) by (intro Hv; eapply value_no_step; eauto).
+      destruct (HEinv t w Hnv Hw) as [u' [Hs' ->]].
+      apply (IH u' Hs').
+      * eapply step_preserves_lc; eauto.
+      * intros v Hm Hv. apply Hall; [eapply multi_step; eauto |assumption].
+      * intros v Hm Hv Hd. apply Hcont; [eapply multi_step; eauto |assumption |assumption].
 Qed.
 
 Lemma evals_denotes_app_exists : forall R1 R2 t1 t2,
@@ -3675,74 +3436,183 @@ Lemma evals_denotes_app_exists : forall R1 R2 t1 t2,
   evals_denotes R1 t2 ->
   evals_denotes (R_Exists R1 R2) (tm_app t1 t2).
 Proof.
-  intros R1 R2 t1 t2 [Hlc1 [Hsn1 Hall1]] Harg.
-  revert R1 R2 Hlc1 Hall1 t2 Harg.
-  induction Hsn1 as [t1 Hnext1 IH1].
-  intros R1 R2 Hlc1 Hall1 t2 [Hlc2 [Hsn2 Hall2]].
-  revert Hlc2 Hall2. induction Hsn2 as [t2 Hnext2 IH2].
-  intros Hlc2 Hall2.
-  apply evals_denotes_intro.
-  - apply lc_tm_app; assumption.
-  - intros Hv. inversion Hv.
-  - intros u Hstep. inversion Hstep; subst.
-    + pose proof (Hall1 _ (multi_refl _) (v_abs T t H1)) as HfunDen.
-      pose proof (Hall2 _ (multi_refl _) H3) as HargDen.
-      apply (proj1 (denotes_func_iff _ _ _)) in HfunDen.
-      destruct HfunDen as [_ [_ Happly]].
-      pose proof (Happly t2 HargDen) as Hbody.
-      eapply evals_denotes_map; [|eapply evals_denotes_reduct; eauto].
-      intros result HresultDen.
-      apply (proj2 (denotes_exists_iff _ _ _)).
-      split; [eapply denotes_value; exact HresultDen |]. split.
-      * pose proof (denotes_typing _ _ HresultDen) as Htyped.
-        rewrite erase_open_rty_tm in Htyped. exact Htyped.
-      * exists t2. split; assumption.
-    + apply (IH1 t1' H1 R1 R2).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hsteps Hv. apply Hall1; auto. eapply multi_step; eauto.
-      * split; [exact Hlc2 |]. split; [apply SN_intro; exact Hnext2 | exact Hall2].
-    + apply (IH2 t2' H3).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hsteps Hv. apply Hall2; auto. eapply multi_step; eauto.
+  intros R1 R2 t1 t2 Hfun Harg.
+  eapply evals_denotes_bind with (S := R_Func R1 R2) (E := fun u => tm_app u t2).
+  - exact Hfun.
+  - intros; apply lc_tm_app; [assumption |exact (proj1 Harg)].
+  - intros u Hv; inversion Hv.
+  - intros; apply ST_App1; [assumption |exact (proj1 Harg)].
+  - intros u w Hnv Hs. inversion Hs; subst.
+    + exfalso. apply Hnv. constructor; assumption.
+    + eauto.
+    + contradiction.
+  - intros f Htf Hvf Hdf.
+    eapply evals_denotes_bind with (S := R1) (E := fun u => tm_app f u).
+    + exact Harg.
+    + intros; apply lc_tm_app; [apply value_regular; assumption |assumption].
+    + intros u Hv; inversion Hv.
+    + intros; apply ST_App2; assumption.
+    + intros u w Hnv Hs. inversion Hs; subst.
+      * contradiction.
+      * exfalso. eapply value_no_step; eauto.
+      * eauto.
+    + intros arg Hta Hva Hda.
+      apply denotes_func_iff in Hdf. destruct Hdf as [_ [_ Happ]].
+      eapply evals_denotes_map; [|exact (Happ arg Hda)].
+      intros result Hd. apply denotes_exists_iff.
+      split; [eapply denotes_value; eauto |]. split.
+      * pose proof (denotes_typing _ _ Hd) as Ht.
+        rewrite erase_open_rty_tm in Ht. exact Ht.
+      * exists arg. auto.
 Qed.
 
 Lemma evals_denotes_tapp : forall R t U,
-  evals_denotes (R_Poly R) t ->
-  wf_ty [] U ->
+  evals_denotes (R_Poly R) t -> wf_ty [] U ->
   evals_denotes (open_rty_ty R U) (tm_tapp t U).
 Proof.
-  intros R t U [Hlc [Hsn Hall]] HU.
-  revert Hlc Hall. induction Hsn as [t Hnext IH]. intros Hlc Hall.
-  apply evals_denotes_intro.
-  - apply lc_tm_tapp; [exact Hlc | eapply wf_ty_lc; exact HU].
-  - intros Hv. inversion Hv.
-  - intros u Hstep. inversion Hstep; subst.
-    + match goal with
-      | Htabs : locally_closed_tm (tm_tabs ?body) |- _ =>
-          pose proof (Hall (tm_tabs body) (multi_refl _)
-            (v_tabs body Htabs)) as HpolyDen
-      end.
-      apply (proj1 (denotes_poly_iff _ _)) in HpolyDen.
-      destruct HpolyDen as [_ [_ Happly]].
-      eapply evals_denotes_reduct; [apply Happly; exact HU | exact Hstep].
-    + eapply IH.
-      * eassumption.
-      * eapply step_preserves_lc; eauto.
-      * intros v Hsteps Hv. apply Hall; auto. eapply multi_step; eauto.
+  intros R t U Ht HU.
+  eapply evals_denotes_bind with (S := R_Poly R) (E := fun u => tm_tapp u U).
+  - exact Ht.
+  - intros; apply lc_tm_tapp; [assumption |eapply wf_ty_lc; eauto].
+  - intros u Hv; inversion Hv.
+  - intros; apply ST_TApp; [assumption |eapply wf_ty_lc; eauto].
+  - intros u w Hnv Hs. inversion Hs; subst.
+    + exfalso. apply Hnv. constructor; assumption.
+    + eauto.
+  - intros v Hm Hv Hd. apply denotes_poly_iff in Hd.
+    destruct Hd as [_ [_ Happ]]. apply Happ; assumption.
 Qed.
 
 Lemma evals_denotes_choice : forall R t1 t2,
-  evals_denotes R t1 ->
-  evals_denotes R t2 ->
+  evals_denotes R t1 -> evals_denotes R t2 ->
   evals_denotes R (tm_choice t1 t2).
 Proof.
-  intros R t1 t2 [Hlc1 [Hsn1 Hall1]] [Hlc2 [Hsn2 Hall2]].
-  apply evals_denotes_intro.
-  - apply lc_tm_choice; assumption.
+  intros R t1 t2 H1 H2. apply evals_denotes_intro.
+  - apply lc_tm_choice; [exact (proj1 H1) |exact (proj1 H2)].
+  - right. exists t1. apply ST_ChoiceLeft; [exact (proj1 H1) |exact (proj1 H2)].
   - intros Hv. inversion Hv.
-  - intros u Hstep. inversion Hstep; subst;
-      [exact (conj Hlc1 (conj Hsn1 Hall1)) |
-       exact (conj Hlc2 (conj Hsn2 Hall2))].
+  - intros u Hs. inversion Hs; subst; assumption.
+Qed.
+
+Lemma multi_div_left : forall t1 t1' t2,
+  multi t1 t1' -> locally_closed_tm t2 ->
+  multi (tm_div t1 t2) (tm_div t1' t2).
+Proof.
+  intros t1 t1' t2 H Hlc. induction H; eauto using multi, step.
+Qed.
+
+Lemma multi_div_right : forall v t2 t2',
+  value v -> multi t2 t2' ->
+  multi (tm_div v t2) (tm_div v t2').
+Proof.
+  intros v t2 t2' Hv H. induction H; eauto using multi, step.
+Qed.
+
+Lemma value_int_canonical : forall v,
+  value v -> has_type [] empty v Ty_Int -> exists n, v = tm_int n.
+Proof.
+  intros v Hv Ht. inversion Hv; subst; inversion Ht; eauto.
+Qed.
+
+Lemma evals_denotes_div : forall t1 t2,
+  evals_denotes (R_Refine Ty_Int Pred_True) t1 ->
+  evals_denotes (R_Refine Ty_Int (Pred_Ne (tm_bvar 0) (tm_int 0%Z))) t2 ->
+  evals_denotes (R_Refine Ty_Int Pred_True) (tm_div t1 t2).
+Proof.
+  intros t1 t2 H1 H2.
+  eapply evals_denotes_bind with
+    (S := R_Refine Ty_Int Pred_True) (E := fun u => tm_div u t2).
+  - exact H1.
+  - intros; apply lc_tm_div; [assumption |exact (proj1 H2)].
+  - intros u Hv; inversion Hv.
+  - intros; apply ST_Div1; [assumption |exact (proj1 H2)].
+  - intros u w Hnv Hs. inversion Hs; subst; eauto;
+      exfalso; apply Hnv; first [assumption |constructor].
+  - intros v1 Hm1 Hv1 Hd1. apply denotes_refine_iff in Hd1.
+    destruct Hd1 as [_ [Ht1 _]].
+    destruct (value_int_canonical _ Hv1 Ht1) as [n ->].
+    eapply evals_denotes_bind with
+      (S := R_Refine Ty_Int (Pred_Ne (tm_bvar 0) (tm_int 0%Z)))
+      (E := fun u => tm_div (tm_int n) u).
+    + exact H2.
+    + intros; apply lc_tm_div; [constructor |assumption].
+    + intros u Hv; inversion Hv.
+    + intros; apply ST_Div2; [constructor |assumption].
+    + intros u w Hnv Hs. inversion Hs; subst; eauto;
+        try match goal with Hs : step (tm_int _) _ |- _ => inversion Hs end;
+        exfalso; apply Hnv; first [assumption |constructor].
+    + intros v2 Hm2 Hv2 Hd2. apply denotes_refine_iff in Hd2.
+      destruct Hd2 as [_ [Ht2 Hnz]].
+      destruct (value_int_canonical _ Hv2 Ht2) as [m ->].
+      assert (Em : m <> 0%Z).
+      { intro E. subst m. apply Hnz.
+        exists (tm_int 0%Z). repeat split; constructor. }
+      eapply evals_denotes_single with (u := tm_int (Z.div n m)).
+      * repeat constructor.
+      * apply ST_DivInt; assumption.
+      * intros w Hs. inversion Hs; subst; try reflexivity;
+          match goal with Hs : step (tm_int _) _ |- _ => inversion Hs end.
+      * apply evals_denotes_of_denotes. apply denotes_refine_iff.
+        split; [constructor |]. split; [constructor |exact I].
+Qed.
+
+Lemma multi_arith_left : forall op t1 t1' t2,
+  multi t1 t1' -> locally_closed_tm t2 ->
+  multi (tm_arith op t1 t2) (tm_arith op t1' t2).
+Proof. intros op t1 t1' t2 H Hlc. induction H; eauto using multi, step. Qed.
+
+Lemma multi_arith_right : forall op v t2 t2',
+  value v -> multi t2 t2' ->
+  multi (tm_arith op v t2) (tm_arith op v t2').
+Proof. intros op v t2 t2' Hv H. induction H; eauto using multi, step. Qed.
+
+Lemma evals_denotes_arith : forall op t1 t2,
+  evals_denotes (R_Refine Ty_Int Pred_True) t1 ->
+  evals_denotes (R_Refine Ty_Int Pred_True) t2 ->
+  evals_denotes (R_Refine Ty_Int
+    (Pred_Eq (tm_bvar 0) (tm_arith op t1 t2))) (tm_arith op t1 t2).
+Proof.
+  intros op t1 t2 H1 H2.
+  eapply evals_denotes_bind with
+    (S := R_Refine Ty_Int Pred_True) (E := fun u => tm_arith op u t2).
+  - exact H1.
+  - intros; apply lc_tm_arith; [assumption |exact (proj1 H2)].
+  - intros u Hv; inversion Hv.
+  - intros; apply ST_Arith1; [assumption |exact (proj1 H2)].
+  - intros u w Hnv Hs. inversion Hs; subst; eauto;
+      exfalso; apply Hnv; first [assumption |constructor].
+  - intros v1 Hm1 Hv1 Hd1. apply denotes_refine_iff in Hd1.
+    destruct Hd1 as [_ [Ht1 _]].
+    destruct (value_int_canonical _ Hv1 Ht1) as [n ->].
+    eapply evals_denotes_bind with
+      (S := R_Refine Ty_Int Pred_True) (E := fun u => tm_arith op (tm_int n) u).
+    + exact H2.
+    + intros; apply lc_tm_arith; [constructor |assumption].
+    + intros u Hv; inversion Hv.
+    + intros; apply ST_Arith2; [constructor |assumption].
+    + intros u w Hnv Hs. inversion Hs; subst; eauto;
+        try match goal with Hs : step (tm_int _) _ |- _ => inversion Hs end;
+        exfalso; apply Hnv; first [assumption |constructor].
+    + intros v2 Hm2 Hv2 Hd2. apply denotes_refine_iff in Hd2.
+      destruct Hd2 as [_ [Ht2 _]].
+      destruct (value_int_canonical _ Hv2 Ht2) as [m ->].
+      set (result := eval_integer_operator op n m).
+      eapply evals_denotes_single with (u := tm_int result).
+      * repeat constructor.
+      * apply ST_ArithInt.
+      * intros w Hs. inversion Hs; subst; try reflexivity;
+          match goal with Hs : step (tm_int _) _ |- _ => inversion Hs end.
+      * apply evals_denotes_of_denotes. apply denotes_refine_iff.
+        split; [constructor |]. split; [constructor |].
+        unfold open_qualifier_tm, open_qualifier_tm_rec. simpl.
+        rewrite (open_tm_rec_lc_at t1 0 0 (tm_int result) (proj1 H1)),
+          (open_tm_rec_lc_at t2 0 0 (tm_int result) (proj1 H2)).
+        exists (tm_int result). split; [constructor |]. split; [|constructor].
+        assert (Hm : multi (tm_arith op t1 t2) (tm_int result)).
+        { eapply multi_trans; [apply multi_arith_left; [exact Hm1 |exact (proj1 H2)] |].
+          eapply multi_trans; [apply multi_arith_right; eauto using value |].
+          eapply multi_step; [apply ST_ArithInt |constructor]. }
+        induction Hm; eauto using predicate_multistep.
 Qed.
 
 Lemma instantiated_refinement_typing_erases : forall Delta RGamma t R theta gamma,
@@ -3836,6 +3706,9 @@ Proof.
     + apply lc_tm_app.
       * apply value_regular. exact Hvalue.
       * exact Harglc.
+    + right. eexists. apply ST_AppAbs.
+      * exact (value_regular _ Hvalue).
+      * eapply denotes_value. exact Harg.
     + intros HappValue. inversion HappValue.
     + intros u Hstep. inversion Hstep; subst.
       * exact Hresult.
@@ -3892,6 +3765,9 @@ Proof.
     + apply lc_tm_tapp.
       * apply value_regular. exact Hvalue.
       * eapply wf_ty_lc. exact HU.
+    + right. eexists. apply ST_TAppTabs.
+      * exact (value_regular _ Hvalue).
+      * eapply wf_ty_lc. exact HU.
     + intros HtappValue. inversion HtappValue.
     + intros u Hstep. inversion Hstep; subst.
       * exact Hresult.
@@ -3908,17 +3784,26 @@ Proof.
     { apply instantiate_rty_open_ty_commute_top; try assumption.
       eapply wf_ty_lc. exact HU. }
     rewrite Heq. exact Hresult.
+  - intros Delta RGamma n Hctx theta gamma Htheta Hgamma HthetaWf Hrelated.
+    apply evals_denotes_of_denotes. apply denotes_refine_iff.
+    split; [constructor|]. split; [constructor|].
+    exists (tm_int n). repeat split; constructor.
+  - intros Delta RGamma t1 t2 Ht1 IHt1 Ht2 IHt2 Hctx theta gamma
+      Htheta Hgamma HthetaWf Hrelated.
+    apply evals_denotes_div.
+    + exact (IHt1 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
+    + exact (IHt2 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
+  - intros Delta RGamma op t1 t2 Ht1 IHt1 Ht2 IHt2 Hctx theta gamma
+      Htheta Hgamma HthetaWf Hrelated.
+    apply evals_denotes_arith.
+    + exact (IHt1 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
+    + exact (IHt2 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
   - intros Delta RGamma t1 t2 R Ht1 IHt1 Ht2 IHt2 Hctx theta gamma
       Htheta Hgamma HthetaWf Hrelated.
-    pose proof (IHt1 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated)
-      as Hleft.
-    pose proof (IHt2 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated)
-      as Hright.
-    simpl. apply evals_denotes_choice; assumption.
-  - intros Delta RGamma t T Htyped Hctx theta gamma Htheta Hgamma
-      HthetaWf Hrelated.
-    eapply core_evals_denotes; eauto.
-  - intros Delta RGamma v T ps Htyped Hv Hwf Hpred Hctx theta gamma
+    apply evals_denotes_choice.
+    + exact (IHt1 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
+    + exact (IHt2 Hctx theta gamma Htheta Hgamma HthetaWf Hrelated).
+  - intros Delta RGamma v T ps Htyped Hv Hwf Hclosed Hpred Hctx theta gamma
       Htheta Hgamma HthetaWf Hrelated.
     assert (Hinst_value : value (instantiate theta gamma v)).
     { eapply instantiate_value; eauto. }
@@ -3927,12 +3812,12 @@ Proof.
     split; [exact Hinst_value |]. split.
     + eapply has_type_instantiate; eauto.
       exact (related_substitution_typed theta gamma RGamma Hrelated).
-    + pose proof (instantiate_predicates_hold _ theta gamma Hpred Htheta Hgamma)
+    + pose proof (instantiate_qualifier_holds _ theta gamma Hclosed Hpred Htheta Hgamma)
         as Hpred'.
-      assert (Heq : instantiate_preds theta gamma (open_preds_tm ps v) =
-        open_preds_tm (instantiate_preds theta gamma ps)
+      assert (Heq : instantiate_qualifier theta gamma (open_qualifier_tm ps v) =
+        open_qualifier_tm (instantiate_qualifier theta gamma ps)
           (instantiate theta gamma v)).
-      { apply instantiate_preds_open_commute; try assumption.
+      { apply instantiate_qualifier_open_commute; try assumption.
         apply value_regular. exact Hv. }
       rewrite Heq in Hpred'.
       exact Hpred'.
@@ -3949,8 +3834,8 @@ Proof.
       Hgamma HthetaWf Hrelated v Hden.
     apply (proj1 (denotes_refine_iff _ _ _)) in Hden.
     destruct Hden as [Hv [Htyped Hps]].
-    set (x := fresh (L ++ fv_preds ps ++ fv_preds qs)).
-    assert (Hxall : ~ In x (L ++ fv_preds ps ++ fv_preds qs))
+    set (x := fresh (L ++ fv_qualifier ps ++ fv_qualifier qs ++ fv_rcontext RGamma)).
+    assert (Hxall : ~ In x (L ++ fv_qualifier ps ++ fv_qualifier qs ++ fv_rcontext RGamma))
       by (subst x; apply fresh_notin).
     repeat rewrite in_app_iff in Hxall.
     pose proof (entails_sound _ _ _ _ (Hentails x ltac:(tauto)) theta
@@ -3959,18 +3844,23 @@ Proof.
     assert (Hgamma' : term_substitution_closed (term_subst_update gamma x v)).
     { apply term_subst_update_closed; assumption. }
     assert (Hps_eq :
-      instantiate_preds theta (term_subst_update gamma x v)
-        (open_preds_tm ps (tm_fvar x)) =
-      open_preds_tm (instantiate_preds theta gamma ps) v).
-    { unfold open_preds_tm. apply instantiate_preds_open_tm_rec; tauto. }
+      instantiate_qualifier theta (term_subst_update gamma x v)
+        (open_qualifier_tm ps (tm_fvar x)) =
+      open_qualifier_tm (instantiate_qualifier theta gamma ps) v).
+    { unfold open_qualifier_tm. apply instantiate_qualifier_open_tm_rec; tauto. }
     assert (Hqs_eq :
-      instantiate_preds theta (term_subst_update gamma x v)
-        (open_preds_tm qs (tm_fvar x)) =
-      open_preds_tm (instantiate_preds theta gamma qs) v).
-    { unfold open_preds_tm. apply instantiate_preds_open_tm_rec; tauto. }
+      instantiate_qualifier theta (term_subst_update gamma x v)
+        (open_qualifier_tm qs (tm_fvar x)) =
+      open_qualifier_tm (instantiate_qualifier theta gamma qs) v).
+    { unfold open_qualifier_tm. apply instantiate_qualifier_open_tm_rec; tauto. }
     apply (proj2 (denotes_refine_iff _ _ _)).
     split; [exact Hv |]. split; [exact Htyped |].
-    rewrite <- Hqs_eq. apply Hsound. rewrite Hps_eq. exact Hps.
+    rewrite <- Hqs_eq. apply Hsound; try assumption.
+    + apply related_substitution_update; try assumption.
+      * apply denotes_refine_iff. split; [exact Hv|]. split; [exact Htyped|exact I].
+      * simpl. tauto.
+      * tauto.
+    + rewrite Hps_eq. exact Hps.
   - intros L Delta RGamma R1 R2 S1 S2 Hdomain IHdomain Hcodomain IHcodomain
       Hwf Hctx theta gamma Htheta Hgamma HthetaWf Hrelated v Hden.
     apply (proj1 (denotes_func_iff _ _ _)) in Hden.
@@ -4170,24 +4060,15 @@ Qed.
 
 End SystemFRefinementNonDeterminismSoundness.
 
-Module SystemFRefinementSoundnessNondeterminismEasyTask.
-Import ListNotations.
-Import SystemFRefinementNonDeterminism.
-Import SystemFRefinementNonDeterminismInfrastructure.
-Import SystemFRefinementNonDeterminismCoreTyping.
-Import SystemFRefinementNonDeterminismTyping.
-Import SystemFRefinementNonDeterminismLogicalRelation.
-Import SystemFRefinementNonDeterminismNormalization.
-Import SystemFRefinementNonDeterminismDenotations.
-Import SystemFRefinementNonDeterminismSoundness.
+Module SystemFRefinementNonDeterminismTask.
+Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure SystemFRefinementNonDeterminismCoreTyping SystemFRefinementNonDeterminismLogic SystemFRefinementNonDeterminismTyping SystemFRefinementNonDeterminismEvaluation SystemFRefinementNonDeterminismDenotations SystemFRefinementNonDeterminismSoundness.
 
-Theorem refinement_soundness : forall t T ps v,
-  has_rtype [] empty_rcontext t (R_Refine T ps) ->
-  multi t v ->
-  value v ->
-  predicates_hold (open_preds_tm ps v).
+Theorem never_stuck : forall (t t' : tm) (R : rty),
+  has_rtype [] empty_rcontext t R ->
+  multi t t' ->
+  value t' \/ exists t'' : tm, t' --> t''.
 Proof.
 
 Qed.
 
-End SystemFRefinementSoundnessNondeterminismEasyTask.
+End SystemFRefinementNonDeterminismTask.

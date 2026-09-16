@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Lia.
+From Stdlib Require Import ZArith.BinInt.
 
 Module SystemFRefinementIf.
 
@@ -18,9 +19,15 @@ Declare Custom Entry systemf_tm.
 Inductive ty : Type :=
   | Ty_BVar : nat -> ty
   | Ty_FVar : atom -> ty
+
   | Ty_Arrow : ty -> ty -> ty
+
   | Ty_All : ty -> ty
+  | Ty_Int : ty
   | Ty_Bool : ty.
+
+Notation "'Int'" := Ty_Int
+  (in custom systemf_ty at level 0) : systemf_scope.
 
 Notation "T" := T
   (in custom systemf_ty at level 0, T constr at level 0) : systemf_scope.
@@ -39,13 +46,27 @@ Notation "'forall' ',' T" := (Ty_All T)
    T custom systemf_ty at level 200,
    right associativity) : systemf_scope.
 
+Inductive integer_operator : Type := Int_Add | Int_Sub | Int_Mul.
+
+Definition eval_integer_operator (op : integer_operator) (n m : Z) : Z :=
+  match op with
+  | Int_Add => (n + m)%Z
+  | Int_Sub => (n - m)%Z
+  | Int_Mul => (n * m)%Z
+  end.
+
 Inductive tm : Type :=
   | tm_bvar : nat -> tm
   | tm_fvar : atom -> tm
   | tm_abs : ty -> tm -> tm
   | tm_app : tm -> tm -> tm
+
   | tm_tabs : tm -> tm
+
   | tm_tapp : tm -> ty -> tm
+  | tm_int : Z -> tm
+  | tm_div : tm -> tm -> tm
+  | tm_arith : integer_operator -> tm -> tm -> tm
   | tm_true : tm
   | tm_false : tm
   | tm_if : tm -> tm -> tm -> tm.
@@ -77,6 +98,8 @@ Notation "t '[' T ']'" := (tm_tapp t T)
   (in custom systemf_tm at level 10,
    t custom systemf_tm,
    T custom systemf_ty) : systemf_scope.
+Notation "t1 '/' t2" := (tm_div t1 t2)
+  (in custom systemf_tm at level 20, left associativity) : systemf_scope.
 
 Notation "'Bool'" := Ty_Bool (in custom systemf_ty at level 0) : systemf_scope.
 Notation "'true'" := tm_true (in custom systemf_tm at level 0) : systemf_scope.
@@ -92,6 +115,7 @@ Fixpoint open_ty_rec (k : nat) (U T : ty) : ty :=
   | Ty_Arrow T1 T2 =>
       Ty_Arrow (open_ty_rec k U T1) (open_ty_rec k U T2)
   | Ty_All T1 => Ty_All (open_ty_rec (S k) U T1)
+  | Ty_Int => Ty_Int
   | Ty_Bool => Ty_Bool
   end.
 
@@ -105,12 +129,56 @@ Fixpoint open_tm_rec (k : nat) (u t : tm) : tm :=
   | tm_app t1 t2 => tm_app (open_tm_rec k u t1) (open_tm_rec k u t2)
   | tm_tabs t1 => tm_tabs (open_tm_rec k u t1)
   | tm_tapp t1 T => tm_tapp (open_tm_rec k u t1) T
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | tm_arith op t1 t2 => tm_arith op (open_tm_rec k u t1) (open_tm_rec k u t2)
   | tm_true => tm_true
   | tm_false => tm_false
   | tm_if t1 t2 t3 => tm_if (open_tm_rec k u t1) (open_tm_rec k u t2) (open_tm_rec k u t3)
   end.
 
 Definition open_tm (t u : tm) : tm := open_tm_rec 0 u t.
+
+Fixpoint fv_ty (T : ty) : list atom :=
+  match T with
+  | Ty_BVar _ => []
+  | Ty_FVar X => [X]
+  | Ty_Arrow T1 T2 => fv_ty T1 ++ fv_ty T2
+  | Ty_All T1 => fv_ty T1
+  | Ty_Int => []
+  | Ty_Bool => []
+  end.
+
+Fixpoint fv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_abs _ t1 => fv_tm t1
+  | tm_app t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_tabs t1 => fv_tm t1
+  | tm_tapp t1 _ => fv_tm t1
+  | tm_int _ => []
+  | tm_div t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_arith op t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_true => []
+  | tm_false => []
+  | tm_if t1 t2 t3 => fv_tm t1 ++ fv_tm t2 ++ fv_tm t3
+  end.
+
+Fixpoint ftv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ | tm_fvar _ => []
+  | tm_abs T t1 => fv_ty T ++ ftv_tm t1
+  | tm_app t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_tabs t1 => ftv_tm t1
+  | tm_tapp t1 T => ftv_tm t1 ++ fv_ty T
+  | tm_int _ => []
+  | tm_div t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_arith op t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_true => []
+  | tm_false => []
+  | tm_if t1 t2 t3 => ftv_tm t1 ++ ftv_tm t2 ++ ftv_tm t3
+  end.
 
 Fixpoint open_tm_ty_rec (k : nat) (U : ty) (t : tm) : tm :=
   match t with
@@ -123,6 +191,9 @@ Fixpoint open_tm_ty_rec (k : nat) (U : ty) (t : tm) : tm :=
   | tm_tabs t1 => tm_tabs (open_tm_ty_rec (S k) U t1)
   | tm_tapp t1 T =>
       tm_tapp (open_tm_ty_rec k U t1) (open_ty_rec k U T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | tm_arith op t1 t2 => tm_arith op (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
   | tm_true => tm_true
   | tm_false => tm_false
   | tm_if t1 t2 t3 => tm_if (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2) (open_tm_ty_rec k U t3)
@@ -137,6 +208,7 @@ Fixpoint ty_subst (X : atom) (U T : ty) : ty :=
   | Ty_FVar Y => if Nat.eqb X Y then U else Ty_FVar Y
   | Ty_Arrow T1 T2 => Ty_Arrow (ty_subst X U T1) (ty_subst X U T2)
   | Ty_All T1 => Ty_All (ty_subst X U T1)
+  | Ty_Int => Ty_Int
   | Ty_Bool => Ty_Bool
   end.
 
@@ -148,6 +220,9 @@ Fixpoint tm_ty_subst (X : atom) (U : ty) (t : tm) : tm :=
   | tm_app t1 t2 => tm_app (tm_ty_subst X U t1) (tm_ty_subst X U t2)
   | tm_tabs t1 => tm_tabs (tm_ty_subst X U t1)
   | tm_tapp t1 T => tm_tapp (tm_ty_subst X U t1) (ty_subst X U T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | tm_arith op t1 t2 => tm_arith op (tm_ty_subst X U t1) (tm_ty_subst X U t2)
   | tm_true => tm_true
   | tm_false => tm_false
   | tm_if t1 t2 t3 => tm_if (tm_ty_subst X U t1) (tm_ty_subst X U t2) (tm_ty_subst X U t3)
@@ -161,6 +236,9 @@ Fixpoint tm_subst (x : atom) (s t : tm) : tm :=
   | tm_app t1 t2 => tm_app (tm_subst x s t1) (tm_subst x s t2)
   | tm_tabs t1 => tm_tabs (tm_subst x s t1)
   | tm_tapp t1 T => tm_tapp (tm_subst x s t1) T
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (tm_subst x s t1) (tm_subst x s t2)
+  | tm_arith op t1 t2 => tm_arith op (tm_subst x s t1) (tm_subst x s t2)
   | tm_true => tm_true
   | tm_false => tm_false
   | tm_if t1 t2 t3 => tm_if (tm_subst x s t1) (tm_subst x s t2) (tm_subst x s t3)
@@ -179,6 +257,7 @@ Inductive lc_ty_at : nat -> ty -> Prop :=
   | lc_ty_all : forall k T,
       lc_ty_at (S k) T ->
       lc_ty_at k (Ty_All T)
+  | lc_ty_int : forall k, lc_ty_at k Ty_Int
   | lc_ty_bool : forall k, lc_ty_at k Ty_Bool.
 
 Definition locally_closed_ty (T : ty) : Prop := lc_ty_at 0 T.
@@ -204,10 +283,20 @@ Inductive lc_tm_at : nat -> nat -> tm -> Prop :=
       lc_tm_at K k t ->
       lc_ty_at K T ->
       lc_tm_at K k (tm_tapp t T)
+  | lc_tm_int : forall K k (n : Z), lc_tm_at K k (tm_int n)
+  | lc_tm_div : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_tm_at K k (tm_div t1 t2)
+  | lc_tm_arith : forall K k op t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_tm_at K k (tm_arith op t1 t2)
   | lc_tm_true : forall K k, lc_tm_at K k tm_true
   | lc_tm_false : forall K k, lc_tm_at K k tm_false
   | lc_tm_if : forall K k t1 t2 t3,
-      lc_tm_at K k t1 -> lc_tm_at K k t2 -> lc_tm_at K k t3 -> lc_tm_at K k (tm_if t1 t2 t3).
+      lc_tm_at K k t1 -> lc_tm_at K k t2 -> lc_tm_at K k t3 ->
+      lc_tm_at K k (tm_if t1 t2 t3).
 
 Definition locally_closed_tm (t : tm) : Prop := lc_tm_at 0 0 t.
 
@@ -218,6 +307,7 @@ Inductive value : tm -> Prop :=
   | v_tabs : forall t,
       locally_closed_tm (tm_tabs t) ->
       value (tm_tabs t)
+  | v_int : forall n : Z, value (tm_int n)
   | v_true : value tm_true
   | v_false : value tm_false.
 
@@ -233,6 +323,7 @@ Inductive step : tm -> tm -> Prop :=
       t1 --> t1' ->
       locally_closed_tm t2 ->
       tm_app t1 t2 --> tm_app t1' t2
+
   | ST_App2 : forall v1 t2 t2',
       value v1 ->
       t2 --> t2' ->
@@ -247,19 +338,35 @@ Inductive step : tm -> tm -> Prop :=
       t --> t' ->
       locally_closed_ty T ->
       tm_tapp t T --> tm_tapp t' T
-  | ST_IfTrue : forall t1 t2,
-      locally_closed_tm t1 ->
-      locally_closed_tm t2 ->
-      tm_if tm_true t1 t2 --> t1
-  | ST_IfFalse : forall t1 t2,
-      locally_closed_tm t1 ->
-      locally_closed_tm t2 ->
-      tm_if tm_false t1 t2 --> t2
-  | ST_If : forall t1 t1' t2 t3,
+  | ST_Div1 : forall t1 t1' t2,
       t1 --> t1' ->
       locally_closed_tm t2 ->
-      locally_closed_tm t3 ->
+      tm_div t1 t2 --> tm_div t1' t2
+  | ST_Div2 : forall v1 t2 t2',
+      value v1 ->
+      t2 --> t2' ->
+      tm_div v1 t2 --> tm_div v1 t2'
+  | ST_DivInt : forall n m : Z,
+      m <> 0%Z ->
+      tm_div (tm_int n) (tm_int m) --> tm_int (Z.div n m)
+  | ST_Arith1 : forall op t1 t1' t2,
+      t1 --> t1' -> locally_closed_tm t2 ->
+      tm_arith op t1 t2 --> tm_arith op t1' t2
+  | ST_Arith2 : forall op v1 t2 t2',
+      value v1 -> t2 --> t2' ->
+      tm_arith op v1 t2 --> tm_arith op v1 t2'
+  | ST_ArithInt : forall op n m,
+      tm_arith op (tm_int n) (tm_int m) -->
+      tm_int (eval_integer_operator op n m)
+  | ST_If : forall t1 t1' t2 t3,
+      t1 --> t1' -> locally_closed_tm t2 -> locally_closed_tm t3 ->
       tm_if t1 t2 t3 --> tm_if t1' t2 t3
+  | ST_IfTrue : forall t2 t3,
+      locally_closed_tm t2 -> locally_closed_tm t3 ->
+      tm_if tm_true t2 t3 --> t2
+  | ST_IfFalse : forall t2 t3,
+      locally_closed_tm t2 -> locally_closed_tm t3 ->
+      tm_if tm_false t2 t3 --> t3
 where "t1 '-->' t2" := (step t1 t2).
 
 Definition ty_context := list atom.
@@ -304,6 +411,7 @@ Inductive wf_ty : ty_context -> ty -> Prop :=
       (forall X, ~ In X L ->
         wf_ty (X :: Delta) (open_ty T (Ty_FVar X))) ->
       wf_ty Delta (Ty_All T)
+  | WF_Int : forall Delta, wf_ty Delta Ty_Int
   | WF_Bool : forall Delta, wf_ty Delta Ty_Bool.
 
 Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
@@ -332,31 +440,266 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma t (Ty_All T) ->
       wf_ty Delta U ->
       has_type Delta Gamma (tm_tapp t U) (open_ty T U)
+  | T_Int : forall Delta Gamma (n : Z),
+      has_type Delta Gamma (tm_int n) Ty_Int
+  | T_Div : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      has_type Delta Gamma (tm_div t1 t2) Ty_Int
+  | T_Arith : forall Delta Gamma op t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      has_type Delta Gamma (tm_arith op t1 t2) Ty_Int
   | T_True : forall Delta Gamma, has_type Delta Gamma tm_true Ty_Bool
   | T_False : forall Delta Gamma, has_type Delta Gamma tm_false Ty_Bool
   | T_If : forall Delta Gamma t1 t2 t3 T,
       has_type Delta Gamma t1 Ty_Bool ->
-      has_type Delta Gamma t2 T -> has_type Delta Gamma t3 T ->
+      has_type Delta Gamma t2 T ->
+      has_type Delta Gamma t3 T ->
       has_type Delta Gamma (tm_if t1 t2 t3) T.
+
+Fixpoint max_atom (L : list atom) : atom :=
+  match L with
+  | [] => 0
+  | x :: L' => Nat.max x (max_atom L')
+  end.
+
+Definition fresh (L : list atom) : atom := S (max_atom L).
 
 End SystemFRefinementIf.
 
+From Stdlib Require Import Arith.PeanoNat Lists.List ZArith.BinInt.
+Module SystemFRefinementIfLogic.
+Import ListNotations SystemFRefinementIf.
+
+Inductive qualifier : Type :=
+  | Pred_True : qualifier
+  | Pred_False : qualifier
+  | Pred_Eq : tm -> tm -> qualifier
+  | Pred_Lt : tm -> tm -> qualifier
+  | Pred_Le : tm -> tm -> qualifier
+  | Pred_And : qualifier -> qualifier -> qualifier
+  | Pred_Or : qualifier -> qualifier -> qualifier
+  | Pred_Not : qualifier -> qualifier.
+
+Definition Pred_Ne (t1 t2 : tm) : qualifier := Pred_Not (Pred_Eq t1 t2).
+Definition Pred_Gt (t1 t2 : tm) : qualifier := Pred_Lt t2 t1.
+Definition Pred_Ge (t1 t2 : tm) : qualifier := Pred_Le t2 t1.
+
+Definition Pred_Implies (p q : qualifier) : qualifier :=
+  Pred_Or (Pred_Not p) q.
+
+Fixpoint open_pred_tm_rec (k : nat) (u : tm) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (open_tm_rec k u t1) (open_tm_rec k u t2)
+  | Pred_And p1 p2 =>
+      Pred_And (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
+  | Pred_Not p1 => Pred_Not (open_pred_tm_rec k u p1)
+  end.
+
+Definition open_qualifier_tm_rec (k : nat) (u : tm) (q : qualifier) : qualifier :=
+  open_pred_tm_rec k u q.
+
+Definition open_pred_tm (p : qualifier) (u : tm) : qualifier :=
+  open_pred_tm_rec 0 u p.
+
+Definition open_qualifier_tm (ps : qualifier) (u : tm) : qualifier :=
+  open_qualifier_tm_rec 0 u ps.
+
+Fixpoint open_pred_ty_rec (k : nat) (U : ty) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
+  | Pred_And p1 p2 =>
+      Pred_And (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
+  | Pred_Not p1 => Pred_Not (open_pred_ty_rec k U p1)
+  end.
+
+Definition open_qualifier_ty_rec (k : nat) (U : ty) (q : qualifier) : qualifier :=
+  open_pred_ty_rec k U q.
+
+Fixpoint pred_subst (x : atom) (s : tm) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 => Pred_Eq (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_Lt t1 t2 => Pred_Lt (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_Le t1 t2 => Pred_Le (tm_subst x s t1) (tm_subst x s t2)
+  | Pred_And p1 p2 => Pred_And (pred_subst x s p1) (pred_subst x s p2)
+  | Pred_Or p1 p2 => Pred_Or (pred_subst x s p1) (pred_subst x s p2)
+  | Pred_Not p1 => Pred_Not (pred_subst x s p1)
+  end.
+
+Definition qualifier_subst (x : atom) (s : tm) (q : qualifier) : qualifier :=
+  pred_subst x s q.
+
+Fixpoint pred_ty_subst (X : atom) (U : ty) (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_Lt t1 t2 =>
+      Pred_Lt (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_Le t1 t2 =>
+      Pred_Le (tm_ty_subst X U t1) (tm_ty_subst X U t2)
+  | Pred_And p1 p2 =>
+      Pred_And (pred_ty_subst X U p1) (pred_ty_subst X U p2)
+  | Pred_Or p1 p2 =>
+      Pred_Or (pred_ty_subst X U p1) (pred_ty_subst X U p2)
+  | Pred_Not p1 => Pred_Not (pred_ty_subst X U p1)
+  end.
+
+Definition qualifier_ty_subst (X : atom) (U : ty) (q : qualifier) : qualifier :=
+  pred_ty_subst X U q.
+
+Inductive lc_pred_at : nat -> nat -> qualifier -> Prop :=
+  | LCP_True : forall K k, lc_pred_at K k Pred_True
+  | LCP_False : forall K k, lc_pred_at K k Pred_False
+  | LCP_Eq : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Eq t1 t2)
+  | LCP_Lt : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Lt t1 t2)
+  | LCP_Le : forall K k t1 t2,
+      lc_tm_at K k t1 ->
+      lc_tm_at K k t2 ->
+      lc_pred_at K k (Pred_Le t1 t2)
+  | LCP_And : forall K k p1 p2,
+      lc_pred_at K k p1 ->
+      lc_pred_at K k p2 ->
+      lc_pred_at K k (Pred_And p1 p2)
+  | LCP_Or : forall K k p1 p2,
+      lc_pred_at K k p1 ->
+      lc_pred_at K k p2 ->
+      lc_pred_at K k (Pred_Or p1 p2)
+  | LCP_Not : forall K k p,
+      lc_pred_at K k p ->
+      lc_pred_at K k (Pred_Not p).
+
+Definition lc_qualifier_at (K k : nat) (q : qualifier) : Prop :=
+  lc_pred_at K k q.
+
+Inductive predicate_wf : ty_context -> context -> qualifier -> Prop :=
+  | PWF_True : forall Delta Gamma,
+      predicate_wf Delta Gamma Pred_True
+  | PWF_False : forall Delta Gamma,
+      predicate_wf Delta Gamma Pred_False
+  | PWF_Eq : forall Delta Gamma t1 t2 T,
+      has_type Delta Gamma t1 T ->
+      has_type Delta Gamma t2 T ->
+      predicate_wf Delta Gamma (Pred_Eq t1 t2)
+  | PWF_Lt : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      predicate_wf Delta Gamma (Pred_Lt t1 t2)
+  | PWF_Le : forall Delta Gamma t1 t2,
+      has_type Delta Gamma t1 Ty_Int ->
+      has_type Delta Gamma t2 Ty_Int ->
+      predicate_wf Delta Gamma (Pred_Le t1 t2)
+  | PWF_And : forall Delta Gamma p1 p2,
+      predicate_wf Delta Gamma p1 ->
+      predicate_wf Delta Gamma p2 ->
+      predicate_wf Delta Gamma (Pred_And p1 p2)
+  | PWF_Or : forall Delta Gamma p1 p2,
+      predicate_wf Delta Gamma p1 ->
+      predicate_wf Delta Gamma p2 ->
+      predicate_wf Delta Gamma (Pred_Or p1 p2)
+  | PWF_Not : forall Delta Gamma p,
+      predicate_wf Delta Gamma p ->
+      predicate_wf Delta Gamma (Pred_Not p).
+
+Definition qualifier_wf (Delta : ty_context) (Gamma : context)
+    (q : qualifier) : Prop := predicate_wf Delta Gamma q.
+
+Inductive predicate_multistep : tm -> tm -> Prop :=
+  | PMS_Refl : forall t,
+      predicate_multistep t t
+  | PMS_Step : forall t1 t2 t3,
+      t1 --> t2 ->
+      predicate_multistep t2 t3 ->
+      predicate_multistep t1 t3.
+
+Record atom_interpretation := {
+  interpret_eq : tm -> tm -> Prop;
+  interpret_lt : tm -> tm -> Prop;
+  interpret_le : tm -> tm -> Prop
+}.
+
+Fixpoint interpret_qualifier (atoms : atom_interpretation) (p : qualifier) : Prop :=
+  match p with
+  | Pred_True => True
+  | Pred_False => False
+  | Pred_Eq t1 t2 => atoms.(interpret_eq) t1 t2
+  | Pred_Lt t1 t2 => atoms.(interpret_lt) t1 t2
+  | Pred_Le t1 t2 => atoms.(interpret_le) t1 t2
+  | Pred_And p1 p2 =>
+      interpret_qualifier atoms p1 /\ interpret_qualifier atoms p2
+  | Pred_Or p1 p2 =>
+      interpret_qualifier atoms p1 \/ interpret_qualifier atoms p2
+  | Pred_Not p1 => ~ interpret_qualifier atoms p1
+  end.
+
+Definition operational_atoms : atom_interpretation := {|
+  interpret_eq := fun t1 t2 =>
+    exists v, predicate_multistep t1 v /\
+              predicate_multistep t2 v /\ value v;
+  interpret_lt := fun t1 t2 =>
+    exists n1 n2 : Z,
+      predicate_multistep t1 (tm_int n1) /\
+      predicate_multistep t2 (tm_int n2) /\ (n1 < n2)%Z;
+  interpret_le := fun t1 t2 =>
+    exists n1 n2 : Z,
+      predicate_multistep t1 (tm_int n1) /\
+      predicate_multistep t2 (tm_int n2) /\ (n1 <= n2)%Z
+|}.
+
+Definition predicate_holds (p : qualifier) : Prop :=
+  interpret_qualifier operational_atoms p.
+
+Definition qualifier_holds (q : qualifier) : Prop := predicate_holds q.
+
+Fixpoint predicate_closed (p : qualifier) : Prop :=
+  match p with
+  | Pred_True | Pred_False => True
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 =>
+      locally_closed_tm t1 /\ fv_tm t1 = [] /\ ftv_tm t1 = [] /\
+      locally_closed_tm t2 /\ fv_tm t2 = [] /\ ftv_tm t2 = []
+  | Pred_And p1 p2 | Pred_Or p1 p2 =>
+      predicate_closed p1 /\ predicate_closed p2
+  | Pred_Not p1 => predicate_closed p1
+  end.
+
+End SystemFRefinementIfLogic.
+
+From Stdlib Require Import Arith.PeanoNat Lists.List Lia ZArith.BinInt.
 Module SystemFRefinementIfTyping.
 Import ListNotations.
 Import SystemFRefinementIf.
-
-Inductive predicate : Type :=
-  | Pred_True : predicate
-  | Pred_False : predicate
-  | Pred_Eq : tm -> tm -> predicate
-  | Pred_And : predicate -> predicate -> predicate.
-
-Inductive predicates : Type :=
-  | PEmpty : predicates
-  | PCons : predicate -> predicates -> predicates.
+Export SystemFRefinementIfLogic.
 
 Inductive rty : Type :=
-  | R_Refine : ty -> predicates -> rty
+  | R_Refine : ty -> qualifier -> rty
   | R_Func : rty -> rty -> rty
   | R_Exists : rty -> rty -> rty
   | R_Poly : rty -> rty.
@@ -369,26 +712,9 @@ Fixpoint erase (R : rty) : ty :=
   | R_Poly R => Ty_All (erase R)
   end.
 
-Fixpoint open_pred_tm_rec (k : nat) (u : tm) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (open_tm_rec k u t1) (open_tm_rec k u t2)
-  | Pred_And p1 p2 =>
-      Pred_And (open_pred_tm_rec k u p1) (open_pred_tm_rec k u p2)
-  end.
-
-Fixpoint open_preds_tm_rec (k : nat) (u : tm) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (open_pred_tm_rec k u p) (open_preds_tm_rec k u ps')
-  end.
-
 Fixpoint open_rty_tm_rec (k : nat) (u : tm) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine T (open_preds_tm_rec (S k) u ps)
+  | R_Refine T ps => R_Refine T (open_qualifier_tm_rec (S k) u ps)
   | R_Func R1 R2 =>
       R_Func (open_rty_tm_rec k u R1) (open_rty_tm_rec (S k) u R2)
   | R_Exists R1 R2 =>
@@ -396,36 +722,13 @@ Fixpoint open_rty_tm_rec (k : nat) (u : tm) (R : rty) : rty :=
   | R_Poly R1 => R_Poly (open_rty_tm_rec k u R1)
   end.
 
-Definition open_pred_tm (p : predicate) (u : tm) : predicate :=
-  open_pred_tm_rec 0 u p.
-
-Definition open_preds_tm (ps : predicates) (u : tm) : predicates :=
-  open_preds_tm_rec 0 u ps.
-
 Definition open_rty_tm (R : rty) (u : tm) : rty :=
   open_rty_tm_rec 0 u R.
-
-Fixpoint open_pred_ty_rec (k : nat) (U : ty) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (open_tm_ty_rec k U t1) (open_tm_ty_rec k U t2)
-  | Pred_And p1 p2 =>
-      Pred_And (open_pred_ty_rec k U p1) (open_pred_ty_rec k U p2)
-  end.
-
-Fixpoint open_preds_ty_rec (k : nat) (U : ty) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (open_pred_ty_rec k U p) (open_preds_ty_rec k U ps')
-  end.
 
 Fixpoint open_rty_ty_rec (k : nat) (U : ty) (R : rty) : rty :=
   match R with
   | R_Refine T ps =>
-      R_Refine (open_ty_rec k U T) (open_preds_ty_rec k U ps)
+      R_Refine (open_ty_rec k U T) (open_qualifier_ty_rec k U ps)
   | R_Func R1 R2 =>
       R_Func (open_rty_ty_rec k U R1) (open_rty_ty_rec k U R2)
   | R_Exists R1 R2 =>
@@ -436,48 +739,17 @@ Fixpoint open_rty_ty_rec (k : nat) (U : ty) (R : rty) : rty :=
 Definition open_rty_ty (R : rty) (U : ty) : rty :=
   open_rty_ty_rec 0 U R.
 
-Fixpoint pred_subst (x : atom) (s : tm) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 => Pred_Eq (tm_subst x s t1) (tm_subst x s t2)
-  | Pred_And p1 p2 => Pred_And (pred_subst x s p1) (pred_subst x s p2)
-  end.
-
-Fixpoint preds_subst (x : atom) (s : tm) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' => PCons (pred_subst x s p) (preds_subst x s ps')
-  end.
-
 Fixpoint rty_subst (x : atom) (s : tm) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine T (preds_subst x s ps)
+  | R_Refine T ps => R_Refine T (qualifier_subst x s ps)
   | R_Func R1 R2 => R_Func (rty_subst x s R1) (rty_subst x s R2)
   | R_Exists R1 R2 => R_Exists (rty_subst x s R1) (rty_subst x s R2)
   | R_Poly R1 => R_Poly (rty_subst x s R1)
   end.
 
-Fixpoint pred_ty_subst (X : atom) (U : ty) (p : predicate) : predicate :=
-  match p with
-  | Pred_True => Pred_True
-  | Pred_False => Pred_False
-  | Pred_Eq t1 t2 =>
-      Pred_Eq (tm_ty_subst X U t1) (tm_ty_subst X U t2)
-  | Pred_And p1 p2 =>
-      Pred_And (pred_ty_subst X U p1) (pred_ty_subst X U p2)
-  end.
-
-Fixpoint preds_ty_subst (X : atom) (U : ty) (ps : predicates) : predicates :=
-  match ps with
-  | PEmpty => PEmpty
-  | PCons p ps' =>
-      PCons (pred_ty_subst X U p) (preds_ty_subst X U ps')
-  end.
-
 Fixpoint rty_ty_subst (X : atom) (U : ty) (R : rty) : rty :=
   match R with
-  | R_Refine T ps => R_Refine (ty_subst X U T) (preds_ty_subst X U ps)
+  | R_Refine T ps => R_Refine (ty_subst X U T) (qualifier_ty_subst X U ps)
   | R_Func R1 R2 =>
       R_Func (rty_ty_subst X U R1) (rty_ty_subst X U R2)
   | R_Exists R1 R2 =>
@@ -485,29 +757,10 @@ Fixpoint rty_ty_subst (X : atom) (U : ty) (R : rty) : rty :=
   | R_Poly R1 => R_Poly (rty_ty_subst X U R1)
   end.
 
-Inductive lc_pred_at : nat -> nat -> predicate -> Prop :=
-  | LCP_True : forall K k, lc_pred_at K k Pred_True
-  | LCP_False : forall K k, lc_pred_at K k Pred_False
-  | LCP_Eq : forall K k t1 t2,
-      lc_tm_at K k t1 ->
-      lc_tm_at K k t2 ->
-      lc_pred_at K k (Pred_Eq t1 t2)
-  | LCP_And : forall K k p1 p2,
-      lc_pred_at K k p1 ->
-      lc_pred_at K k p2 ->
-      lc_pred_at K k (Pred_And p1 p2).
-
-Inductive lc_preds_at : nat -> nat -> predicates -> Prop :=
-  | LCPS_Empty : forall K k, lc_preds_at K k PEmpty
-  | LCPS_Cons : forall K k p ps,
-      lc_pred_at K k p ->
-      lc_preds_at K k ps ->
-      lc_preds_at K k (PCons p ps).
-
 Inductive lc_rty_at : nat -> nat -> rty -> Prop :=
   | LCR_Refine : forall K k T ps,
       lc_ty_at K T ->
-      lc_preds_at K (S k) ps ->
+      lc_qualifier_at K (S k) ps ->
       lc_rty_at K k (R_Refine T ps)
   | LCR_Func : forall K k R1 R2,
       lc_rty_at K k R1 ->
@@ -542,36 +795,14 @@ Fixpoint erase_context (RGamma : rcontext) : context :=
   | (x, R) :: RGamma' => update (erase_context RGamma') x (erase R)
   end.
 
-Inductive predicate_wf : ty_context -> context -> predicate -> Prop :=
-  | PWF_True : forall Delta Gamma,
-      predicate_wf Delta Gamma Pred_True
-  | PWF_False : forall Delta Gamma,
-      predicate_wf Delta Gamma Pred_False
-  | PWF_Eq : forall Delta Gamma t1 t2 T,
-      has_type Delta Gamma t1 T ->
-      has_type Delta Gamma t2 T ->
-      predicate_wf Delta Gamma (Pred_Eq t1 t2)
-  | PWF_And : forall Delta Gamma p1 p2,
-      predicate_wf Delta Gamma p1 ->
-      predicate_wf Delta Gamma p2 ->
-      predicate_wf Delta Gamma (Pred_And p1 p2).
-
-Inductive predicates_wf : ty_context -> context -> predicates -> Prop :=
-  | PSWF_Empty : forall Delta Gamma,
-      predicates_wf Delta Gamma PEmpty
-  | PSWF_Cons : forall Delta Gamma p ps,
-      predicate_wf Delta Gamma p ->
-      predicates_wf Delta Gamma ps ->
-      predicates_wf Delta Gamma (PCons p ps).
-
 Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
 
   | RWF_Refine : forall (L : list atom) Delta RGamma T ps,
       wf_ty Delta T ->
       (forall x, ~ In x L ->
-        predicates_wf Delta
+        qualifier_wf Delta
           (update (erase_context RGamma) x T)
-          (open_preds_tm ps (tm_fvar x))) ->
+          (open_qualifier_tm ps (tm_fvar x))) ->
       wf_rty Delta RGamma (R_Refine T ps)
 
   | RWF_Func : forall (L : list atom) Delta RGamma R1 R2,
@@ -592,53 +823,42 @@ Inductive wf_rty : ty_context -> rcontext -> rty -> Prop :=
         wf_rty (X :: Delta) RGamma (open_rty_ty R (Ty_FVar X))) ->
       wf_rty Delta RGamma (R_Poly R).
 
-Inductive entails : ty_context -> rcontext -> predicates -> predicates -> Prop :=
+Inductive entails : ty_context -> rcontext -> qualifier -> qualifier -> Prop :=
   | Entails_Refl : forall Delta RGamma ps,
       entails Delta RGamma ps ps
   | Entails_True : forall Delta RGamma ps,
-      entails Delta RGamma ps PEmpty
+      entails Delta RGamma ps Pred_True
   | Entails_Trans : forall Delta RGamma ps qs rs,
       entails Delta RGamma ps qs ->
       entails Delta RGamma qs rs ->
       entails Delta RGamma ps rs
-  | Entails_Head : forall Delta RGamma p ps,
-      entails Delta RGamma (PCons p ps) (PCons p PEmpty)
-  | Entails_Tail : forall Delta RGamma p ps,
-      entails Delta RGamma (PCons p ps) ps
-  | Entails_Cons : forall Delta RGamma ps p qs,
-      entails Delta RGamma ps (PCons p PEmpty) ->
+  | Entails_AndLeft : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) p
+  | Entails_AndRight : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) q
+  | Entails_AndIntro : forall Delta RGamma ps p qs,
+      entails Delta RGamma ps p ->
       entails Delta RGamma ps qs ->
-      entails Delta RGamma ps (PCons p qs)
+      entails Delta RGamma ps (Pred_And p qs)
+  | Entails_OrLeft : forall Delta RGamma p q,
+      entails Delta RGamma p (Pred_Or p q)
+  | Entails_OrRight : forall Delta RGamma p q,
+      entails Delta RGamma q (Pred_Or p q)
+  | Entails_OrElim : forall Delta RGamma p q r,
+      entails Delta RGamma p r ->
+      entails Delta RGamma q r ->
+      entails Delta RGamma (Pred_Or p q) r
+  | Entails_NotIntro : forall Delta RGamma p q,
+      entails Delta RGamma (Pred_And p q) Pred_False ->
+      entails Delta RGamma p (Pred_Not q)
+  | Entails_NotElim : forall Delta RGamma p,
+      entails Delta RGamma (Pred_And p (Pred_Not p)) Pred_False
+  | Entails_Context : forall Delta RGamma x T p q,
+      lookup_rcontext x RGamma = Some (R_Refine T p) ->
+      entails Delta RGamma q (open_qualifier_tm p (tm_fvar x))
 
-  | Entails_False : forall Delta RGamma ps qs,
-      entails Delta RGamma (PCons Pred_False ps) qs.
-
-Inductive predicate_multistep : tm -> tm -> Prop :=
-  | PMS_Refl : forall t,
-      predicate_multistep t t
-  | PMS_Step : forall t1 t2 t3,
-      t1 --> t2 ->
-      predicate_multistep t2 t3 ->
-      predicate_multistep t1 t3.
-
-Inductive predicate_holds : predicate -> Prop :=
-  | PH_True : predicate_holds Pred_True
-  | PH_Eq : forall t1 t2 v,
-      predicate_multistep t1 v ->
-      predicate_multistep t2 v ->
-      value v ->
-      predicate_holds (Pred_Eq t1 t2)
-  | PH_And : forall p1 p2,
-      predicate_holds p1 ->
-      predicate_holds p2 ->
-      predicate_holds (Pred_And p1 p2).
-
-Inductive predicates_hold : predicates -> Prop :=
-  | PHS_Empty : predicates_hold PEmpty
-  | PHS_Cons : forall p ps,
-      predicate_holds p ->
-      predicates_hold ps ->
-      predicates_hold (PCons p ps).
+  | Entails_False : forall Delta RGamma q,
+      entails Delta RGamma Pred_False q.
 
 Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
   | RT_Var : forall Delta RGamma x R,
@@ -667,21 +887,35 @@ Inductive has_rtype : ty_context -> rcontext -> tm -> rty -> Prop :=
       has_rtype Delta RGamma t (R_Poly R) ->
       wf_ty Delta U ->
       has_rtype Delta RGamma (tm_tapp t U) (open_rty_ty R U)
+  | RT_Int : forall Delta RGamma (n : Z),
+      has_rtype Delta RGamma (tm_int n)
+        (R_Refine Ty_Int (Pred_Eq (tm_bvar 0) (tm_int n)))
+  | RT_Div : forall Delta RGamma t1 t2,
+      has_rtype Delta RGamma t1 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma t2
+        (R_Refine Ty_Int (Pred_Ne (tm_bvar 0) (tm_int 0%Z))) ->
+      has_rtype Delta RGamma (tm_div t1 t2) (R_Refine Ty_Int Pred_True)
+  | RT_Arith : forall Delta RGamma op t1 t2,
+      has_rtype Delta RGamma t1 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma t2 (R_Refine Ty_Int Pred_True) ->
+      has_rtype Delta RGamma (tm_arith op t1 t2)
+        (R_Refine Ty_Int (Pred_Eq (tm_bvar 0) (tm_arith op t1 t2)))
+
+  | RT_True : forall Delta RGamma,
+      has_rtype Delta RGamma tm_true (R_Refine Ty_Bool Pred_True)
+  | RT_False : forall Delta RGamma,
+      has_rtype Delta RGamma tm_false (R_Refine Ty_Bool Pred_True)
   | RT_If : forall Delta RGamma t1 t2 t3 R,
-      has_rtype Delta RGamma t1 (R_Refine Ty_Bool PEmpty) ->
+      has_rtype Delta RGamma t1 (R_Refine Ty_Bool Pred_True) ->
       has_rtype Delta RGamma t2 R ->
       has_rtype Delta RGamma t3 R ->
       has_rtype Delta RGamma (tm_if t1 t2 t3) R
-
-  | RT_Core : forall Delta RGamma t T,
-      has_type Delta (erase_context RGamma) t T ->
-      has_rtype Delta RGamma t (R_Refine T PEmpty)
-
   | RT_RefineValue : forall Delta RGamma v T ps,
       has_type Delta (erase_context RGamma) v T ->
       value v ->
       wf_rty Delta RGamma (R_Refine T ps) ->
-      predicates_hold (open_preds_tm ps v) ->
+      predicate_closed (open_qualifier_tm ps v) ->
+      qualifier_holds (open_qualifier_tm ps v) ->
       has_rtype Delta RGamma v (R_Refine T ps)
 
   | RT_Sub : forall Delta RGamma t R S,
@@ -696,9 +930,9 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
   | S_Refine : forall (L : list atom) Delta RGamma T ps qs,
       (forall x, ~ In x L ->
         entails Delta
-          (update_rcontext RGamma x (R_Refine T PEmpty))
-          (open_preds_tm ps (tm_fvar x))
-          (open_preds_tm qs (tm_fvar x))) ->
+          (update_rcontext RGamma x (R_Refine T Pred_True))
+          (open_qualifier_tm ps (tm_fvar x))
+          (open_qualifier_tm qs (tm_fvar x))) ->
       subtype Delta RGamma (R_Refine T ps) (R_Refine T qs)
   | S_Func : forall (L : list atom) Delta RGamma R1 R2 S1 S2,
       subtype Delta RGamma S1 R1 ->
@@ -733,22 +967,23 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
 
 End SystemFRefinementIfTyping.
 
-From Stdlib Require Import Arith.PeanoNat Lists.List Lia Program.Wf.
-From Equations Require Import Equations.
-
-Module BenchmarkRefinementDenotations.
-Import ListNotations.
-Import SystemFRefinementIf.
-Import SystemFRefinementIfTyping.
+Module SystemFRefinementIfEvaluation.
+Import ListNotations SystemFRefinementIf SystemFRefinementIfLogic SystemFRefinementIfTyping.
 
 Inductive multi : tm -> tm -> Prop :=
-  | multi_refl : forall x, multi x x
-  | multi_step : forall x y z, x --> y -> multi y z -> multi x z.
+  | multi_refl : forall t, multi t t
+  | multi_step : forall t1 t2 t3,
+      t1 --> t2 -> multi t2 t3 -> multi t1 t3.
 Notation "t '-->*' u" := (multi t u) (at level 40).
+Definition halts (t : tm) : Prop :=
+  exists v, multi t v /\ value v.
 
-Inductive strongly_normalizing : tm -> Prop :=
-  | SN_intro : forall t,
-      (forall u, t --> u -> strongly_normalizing u) -> strongly_normalizing t.
+End SystemFRefinementIfEvaluation.
+
+From Stdlib Require Import Program.Wf.
+From Equations Require Import Equations.
+Module SystemFRefinementIfDenotations.
+Import ListNotations SystemFRefinementIf SystemFRefinementIfLogic SystemFRefinementIfTyping SystemFRefinementIfEvaluation.
 
 Fixpoint rty_size (R : rty) : nat :=
   match R with
@@ -787,7 +1022,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
 
       value v /\
       has_type [] empty v T /\
-      predicates_hold (open_preds_tm ps v);
+      qualifier_holds (open_qualifier_tm ps v);
   denotes (R_Func R1 R2) v :=
 
       value v /\
@@ -795,7 +1030,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       forall arg,
         denotes R1 arg ->
         locally_closed_tm (tm_app v arg) /\
-        strongly_normalizing (tm_app v arg) /\
+        halts (tm_app v arg) /\
         forall result,
           multi (tm_app v arg) result ->
           value result ->
@@ -812,7 +1047,7 @@ Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
       forall U,
         wf_ty [] U ->
         locally_closed_tm (tm_tapp v U) /\
-        strongly_normalizing (tm_tapp v U) /\
+        halts (tm_tapp v U) /\
         forall result,
           multi (tm_tapp v U) result ->
           value result ->
@@ -835,27 +1070,23 @@ Qed.
 
 Definition evals_denotes (R : rty) (t : tm) : Prop :=
   locally_closed_tm t /\
-  strongly_normalizing t /\
+  halts t /\
   forall v,
     multi t v ->
     value v ->
     denotes R v.
 
-End BenchmarkRefinementDenotations.
+End SystemFRefinementIfDenotations.
 
-Module SystemFRefinementSoundnessIfMediumTask.
-Import ListNotations.
-Import SystemFRefinementIf.
-Import SystemFRefinementIfTyping.
-Import BenchmarkRefinementDenotations.
+Module SystemFRefinementIfTask.
+Import ListNotations SystemFRefinementIf SystemFRefinementIfLogic SystemFRefinementIfTyping SystemFRefinementIfEvaluation SystemFRefinementIfDenotations.
 
-Theorem refinement_soundness : forall t T ps v,
-  has_rtype [] empty_rcontext t (R_Refine T ps) ->
-  multi t v ->
-  value v ->
-  predicates_hold (open_preds_tm ps v).
+Theorem never_stuck : forall (t t' : tm) (R : rty),
+  has_rtype [] empty_rcontext t R ->
+  multi t t' ->
+  value t' \/ exists t'' : tm, t' --> t''.
 Proof.
 
 Qed.
 
-End SystemFRefinementSoundnessIfMediumTask.
+End SystemFRefinementIfTask.
