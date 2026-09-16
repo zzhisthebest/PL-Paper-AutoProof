@@ -90,7 +90,7 @@ def isolated_command(workspace, command):
     if not bwrap:
         raise RuntimeError("bubblewrap (bwrap) is required for isolated runs")
     codex_home = private_codex_home(workspace)
-    codex_home_mount = str(Path.home() / ".codex")
+    codex_home_mount = "/mnt/codex-home"
     rocq_root = Path.home() / ".opam" / "rocq-dev"
     node_root = Path("/data1/zzh/node")
     args = [
@@ -99,6 +99,8 @@ def isolated_command(workspace, command):
         "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup",
         "--ro-bind", "/", "/",
         "--tmpfs", str(Path.home()),
+        "--tmpfs", "/tmp",
+        "--tmpfs", "/mnt",
         "--dir", codex_home_mount,
         "--bind", str(codex_home), codex_home_mount,
         "--setenv", "CODEX_HOME", codex_home_mount,
@@ -117,7 +119,6 @@ def isolated_command(workspace, command):
         ]
     args += [
         "--tmpfs", str(ROOT.parent),
-        "--tmpfs", "/tmp",
         "--bind", str(workspace), "/workspace",
         "--proc", "/proc", "--dev", "/dev",
         "--chdir", "/workspace",
@@ -152,8 +153,10 @@ def verify_isolation(workspace):
         "test -f /workspace/card.md && "
         f"test ! -e {ROOT} && "
         f"test ! -e {WORKSPACE_ROOT} && "
-        "test ! -e /home/zzh/.codex/history.jsonl && "
-        "test ! -e /home/zzh/.codex/sessions && "
+        "test \"$CODEX_HOME\" = /mnt/codex-home && "
+        "test ! -e /home/zzh/.codex && "
+        "test ! -e /mnt/codex-home/history.jsonl && "
+        "test ! -e /mnt/codex-home/sessions && "
         "touch /workspace/.isolation-write-test"
     ])
     subprocess.run(probe, check=True, stdout=subprocess.DEVNULL,
