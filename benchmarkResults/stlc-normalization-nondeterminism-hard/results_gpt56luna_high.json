@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-nondeterminism-hard": {
+    "status": "failed",
+    "time_s": 1807,
+    "input_tokens": 8188728,
+    "cached_input_tokens": 8011520,
+    "output_tokens": 69824,
+    "total_tokens": 8258552
+  }
+}

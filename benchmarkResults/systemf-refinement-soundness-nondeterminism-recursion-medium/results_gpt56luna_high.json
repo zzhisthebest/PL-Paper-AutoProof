@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-nondeterminism-recursion-medium": {
+    "status": "failed",
+    "time_s": 3188,
+    "input_tokens": 26866378,
+    "cached_input_tokens": 26426880,
+    "output_tokens": 86074,
+    "total_tokens": 26952452
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-recursion-easy": {
+    "status": "proved",
+    "time_s": 112,
+    "input_tokens": 327397,
+    "cached_input_tokens": 282624,
+    "output_tokens": 1718,
+    "total_tokens": 329115
+  }
+}

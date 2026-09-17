@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-if-nondeterminism-recursion-easy": {
+    "status": "proved",
+    "time_s": 345,
+    "input_tokens": 929577,
+    "cached_input_tokens": 872960,
+    "output_tokens": 4999,
+    "total_tokens": 934576
+  }
+}

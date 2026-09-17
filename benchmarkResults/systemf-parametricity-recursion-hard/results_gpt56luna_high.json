@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-recursion-hard": {
+    "status": "failed",
+    "time_s": 1432,
+    "input_tokens": 7620838,
+    "cached_input_tokens": 7472128,
+    "output_tokens": 69196,
+    "total_tokens": 7690034
+  }
+}

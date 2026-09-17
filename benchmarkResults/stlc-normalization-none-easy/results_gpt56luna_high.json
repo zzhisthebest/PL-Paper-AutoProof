@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-none-easy": {
+    "status": "proved",
+    "time_s": 255,
+    "input_tokens": 758230,
+    "cached_input_tokens": 697856,
+    "output_tokens": 10140,
+    "total_tokens": 768370
+  }
+}

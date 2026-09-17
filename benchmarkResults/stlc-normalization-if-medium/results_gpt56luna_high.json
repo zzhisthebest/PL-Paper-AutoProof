@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-if-medium": {
+    "status": "proved",
+    "time_s": 2401,
+    "input_tokens": 12224692,
+    "cached_input_tokens": 11826432,
+    "output_tokens": 57035,
+    "total_tokens": 12281727
+  }
+}

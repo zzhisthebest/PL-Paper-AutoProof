@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-recursion-medium": {
+    "status": "failed",
+    "time_s": 1753,
+    "input_tokens": 12674380,
+    "cached_input_tokens": 12350464,
+    "output_tokens": 52860,
+    "total_tokens": 12727240
+  }
+}

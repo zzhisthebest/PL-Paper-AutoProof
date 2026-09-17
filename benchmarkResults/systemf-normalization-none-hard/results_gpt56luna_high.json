@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-none-hard": {
+    "status": "failed",
+    "time_s": 2932,
+    "input_tokens": 34166037,
+    "cached_input_tokens": 33672192,
+    "output_tokens": 103758,
+    "total_tokens": 34269795
+  }
+}

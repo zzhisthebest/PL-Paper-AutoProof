@@ -1,0 +1,6 @@
+-R . AutoProof.SystemRF
+
+SystemRF
+Denotations
+
+-docroot user-contrib/SystemRF

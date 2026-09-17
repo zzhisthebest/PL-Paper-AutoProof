@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-none-medium": {
+    "status": "failed",
+    "time_s": 2401,
+    "input_tokens": 27702297,
+    "cached_input_tokens": 27242240,
+    "output_tokens": 86095,
+    "total_tokens": 27788392
+  }
+}

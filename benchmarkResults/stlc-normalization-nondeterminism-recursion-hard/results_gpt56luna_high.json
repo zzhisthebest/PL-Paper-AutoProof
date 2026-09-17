@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-nondeterminism-recursion-hard": {
+    "status": "failed",
+    "time_s": 3482,
+    "input_tokens": 53761148,
+    "cached_input_tokens": 53249536,
+    "output_tokens": 114890,
+    "total_tokens": 53876038
+  }
+}

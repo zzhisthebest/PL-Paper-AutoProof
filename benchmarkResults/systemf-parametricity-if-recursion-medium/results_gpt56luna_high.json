@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-if-recursion-medium": {
+    "status": "failed",
+    "time_s": 2812,
+    "input_tokens": 27512844,
+    "cached_input_tokens": 26970624,
+    "output_tokens": 90778,
+    "total_tokens": 27603622
+  }
+}

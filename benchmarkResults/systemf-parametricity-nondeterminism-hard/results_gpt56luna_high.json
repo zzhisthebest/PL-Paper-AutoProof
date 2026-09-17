@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-nondeterminism-hard": {
+    "status": "failed",
+    "time_s": 2716,
+    "input_tokens": 26075896,
+    "cached_input_tokens": 25477120,
+    "output_tokens": 83538,
+    "total_tokens": 26159434
+  }
+}

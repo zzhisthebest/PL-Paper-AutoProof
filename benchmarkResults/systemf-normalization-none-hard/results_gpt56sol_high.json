@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-none-hard": {
+    "status": "proved",
+    "time_s": 1753,
+    "input_tokens": 10409012,
+    "cached_input_tokens": 10182784,
+    "output_tokens": 51836,
+    "total_tokens": 10460848
+  }
+}

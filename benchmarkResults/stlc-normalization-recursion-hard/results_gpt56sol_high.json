@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-recursion-hard": {
+    "status": "proved",
+    "time_s": 1268,
+    "input_tokens": 6818754,
+    "cached_input_tokens": 6733952,
+    "output_tokens": 32693,
+    "total_tokens": 6851447
+  }
+}

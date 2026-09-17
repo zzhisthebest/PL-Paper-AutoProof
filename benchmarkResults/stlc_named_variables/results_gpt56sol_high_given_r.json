@@ -1,0 +1,10 @@
+{
+  "stlc": {
+    "status": "proved",
+    "time_s": 800,
+    "input_tokens": 2717016,
+    "cached_input_tokens": 2587904,
+    "output_tokens": 25932,
+    "total_tokens": 2742948
+  }
+}

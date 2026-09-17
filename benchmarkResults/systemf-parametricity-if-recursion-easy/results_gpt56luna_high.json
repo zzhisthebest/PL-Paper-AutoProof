@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-if-recursion-easy": {
+    "status": "proved",
+    "time_s": 412,
+    "input_tokens": 1213435,
+    "cached_input_tokens": 1117440,
+    "output_tokens": 8372,
+    "total_tokens": 1221807
+  }
+}

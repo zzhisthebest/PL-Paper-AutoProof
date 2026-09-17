@@ -5,9 +5,12 @@ Usage:
     python scripts/test.py --benchmark stlc --tag codex
     python scripts/test.py --benchmark systemf --tag codex \
         --model MODEL --reasoning-effort high
+    python scripts/test.py --benchmark stlc --tag qwen \
+        --model qwen3.8-27b-local \
+        --local-base-url http://127.0.0.1:8200/v1
 """
 
-import argparse, atexit, json, signal, subprocess, time, shutil, tempfile
+import argparse, atexit, json, os, signal, subprocess, time, shutil, tempfile
 from pathlib import Path
 
 ROOT = Path("/data0/zzh/PL-Paper-AutoProof")
@@ -18,6 +21,15 @@ _ACTIVE_WORKSPACES = set()
 def _save_trace(trace_dir, problem, raw_stdout):
     trace_dir.mkdir(parents=True, exist_ok=True)
     (trace_dir / f"{problem}.jsonl").write_text(raw_stdout)
+
+def _archive_failed_attempt(trace_dir, problem, attempt):
+    for suffix in ("jsonl", "stderr.log"):
+        source = trace_dir / f"{problem}.{suffix}"
+        if source.exists():
+            shutil.copy2(
+                source,
+                trace_dir / f"{problem}.attempt-{attempt}.{suffix}",
+            )
 
 def _parse_result(raw_stdout):
     for line in reversed(raw_stdout.strip().split('\n')):
@@ -145,6 +157,17 @@ def prepare_workspace(benchmark, problem):
         raise
     return workspace
 
+def reset_workspace(workspace):
+    """Restore a clean task before retrying an agent infrastructure error."""
+    for child in workspace.iterdir():
+        if child.name in {"Task.v.orig", "card.md"}:
+            continue
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    shutil.copy2(workspace / "Task.v.orig", workspace / "Task.v")
+
 def verify_isolation(workspace):
     """Fail closed if the private namespace exposes repository data."""
     probe = isolated_command(workspace, [
@@ -202,7 +225,7 @@ Fixpoint R (T : ty) (t : tm) : Prop :=
 
 def run_agent(problem, workspace, timeout, trace_dir,
               model=None, reasoning_effort=None, lr_first=False,
-              given_r=False):
+              given_r=False, local_base_url=None):
     """Run the agent and return the raw result. No formal check."""
     prompt = build_prompt(Path("/workspace/Task.v"), workspace / "card.md",
                           lr_first, given_r)
@@ -217,6 +240,15 @@ def run_agent(problem, workspace, timeout, trace_dir,
     ]
     if model:
         codex_cmd += ["--model", model]
+    if local_base_url:
+        codex_cmd += [
+            "--config", 'model_provider="qwen_local"',
+            "--config", 'model_providers.qwen_local.name="Qwen local"',
+            "--config", f'model_providers.qwen_local.base_url="{local_base_url}"',
+            "--config", 'model_providers.qwen_local.wire_api="responses"',
+            "--config", "model_providers.qwen_local.requires_openai_auth=false",
+            "--config", "model_providers.qwen_local.supports_websockets=false",
+        ]
     if reasoning_effort:
         codex_cmd += ["--config", f"model_reasoning_effort={reasoning_effort}"]
     codex_cmd.append("-")
@@ -224,9 +256,14 @@ def run_agent(problem, workspace, timeout, trace_dir,
 
     start_time = time.time()
     try:
+        env = None
+        if local_base_url:
+            env = os.environ.copy()
+            env["NO_PROXY"] = "127.0.0.1,localhost"
+            env["no_proxy"] = env["NO_PROXY"]
         r = subprocess.run(
             cmd, input=prompt, capture_output=True, text=True,
-            cwd=workspace, timeout=timeout,
+            cwd=workspace, timeout=timeout, env=env,
         )
         elapsed = time.time() - start_time
         _save_trace(trace_dir, problem, r.stdout)
@@ -246,6 +283,32 @@ def run_agent(problem, workspace, timeout, trace_dir,
             "metrics": _empty_metrics(),
             "returncode": None,
         }
+
+def run_agent_retrying_errors(problem, workspace, timeout, trace_dir,
+                              model=None, reasoning_effort=None,
+                              lr_first=False, given_r=False,
+                              local_base_url=None):
+    """Retry clean, full-time attempts when Codex exits with an error."""
+    attempt = 1
+    while True:
+        raw = run_agent(
+            problem, workspace, timeout, trace_dir,
+            model=model, reasoning_effort=reasoning_effort,
+            lr_first=lr_first, given_r=given_r,
+            local_base_url=local_base_url,
+        )
+        if raw["exit"] != "ok" or raw.get("returncode", 0) == 0:
+            return raw
+
+        _archive_failed_attempt(trace_dir, problem, attempt)
+        error_path = trace_dir / f"{problem}.attempt-{attempt}.stderr.log"
+        attempt += 1
+        print(
+            f"Agent error for {problem}; retrying with a fresh "
+            f"{timeout}s limit (attempt {attempt}). Error: {error_path}",
+            flush=True,
+        )
+        reset_workspace(workspace)
 
 def check(workspace):
     """Return whether Task.v compiles inside the isolated namespace."""
@@ -276,6 +339,10 @@ def main():
     parser.add_argument("--tag", required=True, help="Tag for results/proofs")
     parser.add_argument("--model", help="Codex model; default uses CLI config")
     parser.add_argument("--reasoning-effort")
+    parser.add_argument(
+        "--local-base-url",
+        help="OpenAI-compatible Responses API base URL for a local model",
+    )
     parser.add_argument("--lr-first", action="store_true")
     parser.add_argument("--given-r", action="store_true")
     parser.add_argument("--timeout", type=int, default=1800)
@@ -290,6 +357,15 @@ def main():
     results_file = result_dir / f"results_{args.tag}.json"
     proof_dir = result_dir / f"proofs_{args.tag}"
     trace_dir = result_dir / f"traces_{args.tag}"
+
+    previous = load_results(results_file).get(args.benchmark)
+    if previous is not None and previous.get("status") != "agent_error":
+        print(
+            f"[SKIP] {args.benchmark}: {previous.get('status', 'completed')}",
+            flush=True,
+        )
+        return
+
     result_dir.mkdir(parents=True, exist_ok=True)
     proof_dir.mkdir(parents=True, exist_ok=True)
     trace_dir.mkdir(parents=True, exist_ok=True)
@@ -298,6 +374,8 @@ def main():
     print(f"Results: {results_file}")
     print(f"Proofs:  {proof_dir}/")
     print(f"Traces:  {trace_dir}/")
+    if args.local_base_url:
+        print(f"Local API: {args.local_base_url}")
 
     workspace = prepare_workspace(benchmark, args.benchmark)
     task_file = workspace / "Task.v"
@@ -305,11 +383,12 @@ def main():
     print(f"Isolated workspace: {workspace}")
     try:
         verify_isolation(workspace)
-        raw = run_agent(
+        raw = run_agent_retrying_errors(
             args.benchmark, workspace, args.timeout, trace_dir,
             model=args.model, reasoning_effort=args.reasoning_effort,
             lr_first=args.lr_first,
             given_r=args.given_r,
+            local_base_url=args.local_base_url,
         )
         proof_path = proof_dir / f"{args.benchmark}.v"
         if task_file.exists():
@@ -334,6 +413,11 @@ def main():
         results = load_results(results_file)
         results[args.benchmark] = result
         save_results(results, results_file)
+        print(
+            f"[DONE] {args.benchmark}: {status} "
+            f"({int(raw['elapsed'])}s)",
+            flush=True,
+        )
     finally:
         cleanup_workspace(workspace)
 

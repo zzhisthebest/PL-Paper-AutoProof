@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-none-easy": {
+    "status": "proved",
+    "time_s": 96,
+    "input_tokens": 419201,
+    "cached_input_tokens": 357888,
+    "output_tokens": 2955,
+    "total_tokens": 422156
+  }
+}

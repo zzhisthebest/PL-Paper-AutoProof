@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-if-nondeterminism-hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "input_tokens": null,
+    "cached_input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null
+  }
+}

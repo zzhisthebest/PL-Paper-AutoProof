@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-if-recursion-easy": {
+    "status": "proved",
+    "time_s": 338,
+    "input_tokens": 1199365,
+    "cached_input_tokens": 1138176,
+    "output_tokens": 4479,
+    "total_tokens": 1203844
+  }
+}

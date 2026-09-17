@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-nondeterminism-easy": {
+    "status": "proved",
+    "time_s": 91,
+    "input_tokens": 135153,
+    "cached_input_tokens": 106752,
+    "output_tokens": 1048,
+    "total_tokens": 136201
+  }
+}
