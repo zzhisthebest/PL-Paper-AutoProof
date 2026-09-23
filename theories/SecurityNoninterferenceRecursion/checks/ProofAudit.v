@@ -1,0 +1,14 @@
+From AutoProof.SecurityNoninterferenceRecursion Require Import
+  Syntax Semantics Typing Evaluation Metatheory Substitution
+  LogicalRelation Noninterference Examples.
+
+Print Assumptions step_deterministic.
+Print Assumptions big_step_iff_evaluates.
+Print Assumptions preservation.
+Print Assumptions expression_relation_natrec.
+Print Assumptions fundamental_expressions.
+Print Assumptions noninterference.
+Print Assumptions runtime_count_typed.
+Print Assumptions runtime_count_evaluates.
+Print Assumptions changing_secret_count_preserves_public_result.
+Print Assumptions recursive_context_returns_seven.
