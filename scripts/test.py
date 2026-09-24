@@ -198,7 +198,15 @@ Edit Task.v directly and finish the target theorem. You may add definitions
 and helper lemmas to Task.v. Do not modify Task.v.orig. Do not create a
 separate solution file. Do not use Admitted, admit, Abort, Axiom, Parameter,
 Conjecture, unsafe Rocq flags, or equivalent escape hatches. Compile Task.v
-with Rocq and continue fixing errors until it succeeds."""
+with Rocq and continue fixing errors until it succeeds.
+
+If you fail to produce a compiling Task.v, you must include a short failure
+analysis in your final response. Do not stop proof work early merely to
+write this report; continue trying until the proof succeeds or you cannot
+make further progress. The report should focus on the main capability
+bottleneck across the whole attempt. Explain how that
+bottleneck prevented completion and state what improved reasoning strategy or tool support
+would most likely have changed the outcome."""
     if lr_first:
         prompt += """
 

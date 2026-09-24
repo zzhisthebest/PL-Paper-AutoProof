@@ -6,7 +6,7 @@
 
 The language is locally nameless System F with integers, addition, subtraction, multiplication, and partial division. Its refinement layer uses Boolean formulas, refinement function, existential, and polymorphic types, subtyping, and refinement typing. Division requires a nonzero divisor. The feature configuration is the base language.
 
-The file supplies the language syntax, call-by-value small-step semantics, core and refinement typing rules, and the target theorem. It supplies the logical relation: `denotes R v` interprets refinement types at values, and `evals_denotes R t` requires termination and constrains every reachable value.
+This case uses the experimental LR-reconstruction Medium setting. The file supplies a proved fundamental theorem `fundamental`, the complete proof of `never_stuck`, and their auxiliary proofs. The LR definitions to reconstruct are `denotes` and `evals_denotes`; their interfaces are marked with `BEGIN LR` / `END LR`. The proofs impose constraints on the reconstructed LR.
 
 ## Target Theorem
 
@@ -21,4 +21,4 @@ Every state reachable from a closed refinement-typed program is a value or can t
 
 ## Expected Output
 
-Complete `Task.v`: use the supplied logical relation, define its context interpretation, prove a fundamental theorem, then prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+Complete only the marked LR blocks in `Task.v`, replacing each admitted placeholder with a concrete definition. Keep the displayed interfaces and every supplied statement and proof script unchanged. A placeholder declared with `Definition` may be implemented with `Fixpoint` or `Equations`, including any required termination obligations within that block. The completed file must compile with Rocq without admissions, added axioms, unsafe flags, or equivalent escape hatches. The supplied downstream proofs are not expected to check while the LR placeholders remain opaque.

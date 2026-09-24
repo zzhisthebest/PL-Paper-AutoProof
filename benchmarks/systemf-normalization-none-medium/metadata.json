@@ -4,5 +4,7 @@
   "references": [
     "references.bib"
   ],
-  "notes": []
+  "notes": [
+    "Experimental Medium: reconstruct LR while keeping supplied fundamental and target proof scripts unchanged."
+  ]
 }

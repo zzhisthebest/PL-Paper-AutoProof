@@ -47,6 +47,8 @@ latexmk -xelatex main.tex
 
 `N` = Normalization，`P` = Parametricity，`RS` = Refinement cases（当前目标为 Type Safety，沿用原列名），`NI` = Noninterference；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
 
+Medium 小规模实验例外：`stlc-normalization-recursion-medium`、`systemf-normalization-none-medium`、`systemf-parametricity-none-medium`、`systemf-refinement-soundness-none-medium` 改为挖空 LR，提供 fundamental theorem、目标定理及辅助引理的完整证明。Agent 只补 LR，保持给定证明不变。其余难度设置不变；新实验请使用新 tag，避免跳过旧结果或混淆两种 Medium。
+
 24 个 refinement cases 已统一升级为整数、公式 qualifier、部分除法下的 `never_stuck`；Recursion 使用非负、严格递减的整数度量，Non-determinism 覆盖所有归约路径，组合版本的度量比较也覆盖所有可能的整数结果。三个难度分别截止到语言定义、LR、已证明的 fundamental theorem。目录名暂保留 `refinement-soundness`；其余 72 个 cases 不变。
 
 Security Noninterference 已包含 None、If-then-else、Recursion 和 If-then-else + Recursion 的 12 个 cases，目前共 108 个。基础语言为无递归的 SLam 片段，包含 unit、sum、product、函数和安全标注；None 表示不加额外 feature。If-then-else 使用独立的条件构造；Recursion 加入带安全标注的自然数和结构递归。Easy 提供已证明的 `fundamental_expressions`。Non-determinism 不纳入这一组任务。
