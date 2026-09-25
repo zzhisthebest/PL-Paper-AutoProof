@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-nondeterminism-medium": {
+    "status": "proved",
+    "time_s": 1672,
+    "input_tokens": 10233516,
+    "cached_input_tokens": 10097792,
+    "output_tokens": 50953,
+    "total_tokens": 10284469
+  }
+}

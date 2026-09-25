@@ -9,9 +9,9 @@ if [[ "$BACKEND" == "qwen" ]]; then
   MODEL="${MODEL:-qwen3.8-27b-local}"
   PARALLEL="${PARALLEL:-6}"
 else
-  TAG="${TAG:-gpt56sol_high}"
-  MODEL="${MODEL:-gpt-5.6-sol}"
-  PARALLEL="${PARALLEL:-8}"
+  TAG="${TAG:-gpt6sol_high}"
+  MODEL="${MODEL:-gpt-6-sol}"
+  PARALLEL="${PARALLEL:-72}"
 fi
 REASONING_EFFORT="${REASONING_EFFORT:-high}"
 TIMEOUT="${TIMEOUT:-3600}"
@@ -36,16 +36,19 @@ if [[ "$BACKEND" == "qwen" ]]; then
   done
 fi
 
-BENCHMARKS=(
-  stlc-normalization-recursion-medium
-  stlc-normalization-recursion-hard
-  systemf-normalization-none-medium
-  systemf-normalization-none-hard
-  systemf-parametricity-none-medium
-  systemf-parametricity-none-hard
-  systemf-refinement-soundness-none-medium
-  systemf-refinement-soundness-none-hard
-)
+BENCHMARKS=()
+for card in benchmarks/*/card.md; do
+  benchmark="${card#benchmarks/}"
+  benchmark="${benchmark%/card.md}"
+  if [[ "$benchmark" == *-medium || "$benchmark" == *-hard ]]; then
+    BENCHMARKS+=("$benchmark")
+  fi
+done
+
+if (( ${#BENCHMARKS[@]} != 72 )); then
+  echo "Expected 72 Medium/Hard cases, found ${#BENCHMARKS[@]}." >&2
+  exit 1
+fi
 
 for benchmark in "${BENCHMARKS[@]}"; do
   if [[ ! -f "benchmarks/$benchmark/card.md" ||

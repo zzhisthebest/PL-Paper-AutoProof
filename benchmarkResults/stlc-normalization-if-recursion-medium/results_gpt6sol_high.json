@@ -1,0 +1,10 @@
+{
+  "stlc-normalization-if-recursion-medium": {
+    "status": "proved",
+    "time_s": 1184,
+    "input_tokens": 6565835,
+    "cached_input_tokens": 6454912,
+    "output_tokens": 32404,
+    "total_tokens": 6598239
+  }
+}

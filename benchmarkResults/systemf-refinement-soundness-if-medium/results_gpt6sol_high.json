@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-if-medium": {
+    "status": "failed",
+    "time_s": 538,
+    "input_tokens": 1818419,
+    "cached_input_tokens": 1739008,
+    "output_tokens": 16756,
+    "total_tokens": 1835175
+  }
+}

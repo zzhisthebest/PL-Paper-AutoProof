@@ -14,7 +14,7 @@ import argparse, atexit, json, os, signal, subprocess, time, shutil, tempfile
 from pathlib import Path
 
 ROOT = Path("/data0/zzh/PL-Paper-AutoProof")
-OUTPUT_ROOT = Path("/data0/zzh/benchmarkResults")
+OUTPUT_ROOT = ROOT / "benchmarkResults"
 WORKSPACE_ROOT = OUTPUT_ROOT / ".workspaces"
 _ACTIVE_WORKSPACES = set()
 

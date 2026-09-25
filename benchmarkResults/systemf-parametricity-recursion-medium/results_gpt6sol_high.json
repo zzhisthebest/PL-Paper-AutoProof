@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-recursion-medium": {
+    "status": "proved",
+    "time_s": 1542,
+    "input_tokens": 9278151,
+    "cached_input_tokens": 9152512,
+    "output_tokens": 54699,
+    "total_tokens": 9332850
+  }
+}

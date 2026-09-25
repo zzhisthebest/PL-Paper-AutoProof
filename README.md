@@ -43,11 +43,15 @@ latexmk -xelatex main.tex
 - **Solution（§4）**：Agent 迭代工作流（candidate denotation → 逐条证明 → 失败分析 → 修改）；关键技术挑战；证明框架负担比较的科学问题。
 - **路线图（§5）**：阶段 0–3 分工，以及与北京大学数学科学学院的远期合作。
 
+## 实验结果
+
+- [GPT-6 Sol High：72 道 Hard / Medium 的结果与 23 份失败报告总览](docs/gpt6sol-high-results.md)
+
 ## Benchmark Cases表
 
 `N` = Normalization，`P` = Parametricity，`RS` = Refinement cases（当前目标为 Type Safety，沿用原列名），`NI` = Noninterference；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
 
-Medium 小规模实验例外：`stlc-normalization-recursion-medium`、`systemf-normalization-none-medium`、`systemf-parametricity-none-medium`、`systemf-refinement-soundness-none-medium` 改为挖空 LR，提供 fundamental theorem、目标定理及辅助引理的完整证明。Agent 只补 LR，保持给定证明不变。其余难度设置不变；新实验请使用新 tag，避免跳过旧结果或混淆两种 Medium。
+曾在 `stlc-normalization-recursion-medium`、`systemf-normalization-none-medium`、`systemf-parametricity-none-medium`、`systemf-refinement-soundness-none-medium` 做过“挖空 LR、保留后续证明”的小规模实验，使用独立 tag；当前四张卡片已恢复为标准 Medium（提供 LR，由 Agent 证明后续定理）。
 
 24 个 refinement cases 已统一升级为整数、公式 qualifier、部分除法下的 `never_stuck`；Recursion 使用非负、严格递减的整数度量，Non-determinism 覆盖所有归约路径，组合版本的度量比较也覆盖所有可能的整数结果。三个难度分别截止到语言定义、LR、已证明的 fundamental theorem。目录名暂保留 `refinement-soundness`；其余 72 个 cases 不变。
 

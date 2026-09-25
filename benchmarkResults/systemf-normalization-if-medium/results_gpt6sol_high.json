@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-if-medium": {
+    "status": "proved",
+    "time_s": 1732,
+    "input_tokens": 8282988,
+    "cached_input_tokens": 8102272,
+    "output_tokens": 45761,
+    "total_tokens": 8328749
+  }
+}

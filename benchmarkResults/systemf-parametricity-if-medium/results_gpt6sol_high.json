@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-if-medium": {
+    "status": "proved",
+    "time_s": 1358,
+    "input_tokens": 5608649,
+    "cached_input_tokens": 5502592,
+    "output_tokens": 46958,
+    "total_tokens": 5655607
+  }
+}

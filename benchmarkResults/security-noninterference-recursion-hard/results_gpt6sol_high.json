@@ -1,0 +1,10 @@
+{
+  "security-noninterference-recursion-hard": {
+    "status": "proved",
+    "time_s": 1818,
+    "input_tokens": 15095360,
+    "cached_input_tokens": 14861312,
+    "output_tokens": 62597,
+    "total_tokens": 15157957
+  }
+}

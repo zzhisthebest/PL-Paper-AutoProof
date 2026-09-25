@@ -1,0 +1,10 @@
+{
+  "systemf-refinement-soundness-if-nondeterminism-hard": {
+    "status": "failed",
+    "time_s": 1092,
+    "input_tokens": 4592818,
+    "cached_input_tokens": 4474752,
+    "output_tokens": 35959,
+    "total_tokens": 4628777
+  }
+}

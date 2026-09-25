@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-if-recursion-medium": {
+    "status": "failed",
+    "time_s": 859,
+    "input_tokens": 2895253,
+    "cached_input_tokens": 2781568,
+    "output_tokens": 23729,
+    "total_tokens": 2918982
+  }
+}

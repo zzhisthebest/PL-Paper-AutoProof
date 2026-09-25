@@ -1,0 +1,10 @@
+{
+  "security-noninterference-if-hard": {
+    "status": "proved",
+    "time_s": 1796,
+    "input_tokens": 15042290,
+    "cached_input_tokens": 14901248,
+    "output_tokens": 57232,
+    "total_tokens": 15099522
+  }
+}

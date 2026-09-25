@@ -1,0 +1,10 @@
+{
+  "systemf-parametricity-if-nondeterminism-recursion-medium": {
+    "status": "proved",
+    "time_s": 2418,
+    "input_tokens": 11110107,
+    "cached_input_tokens": 10949376,
+    "output_tokens": 64096,
+    "total_tokens": 11174203
+  }
+}

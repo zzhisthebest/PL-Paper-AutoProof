@@ -1,0 +1,10 @@
+{
+  "systemf-normalization-if-nondeterminism-recursion-medium": {
+    "status": "proved",
+    "time_s": 1979,
+    "input_tokens": 12007922,
+    "cached_input_tokens": 11877760,
+    "output_tokens": 62480,
+    "total_tokens": 12070402
+  }
+}
