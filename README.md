@@ -63,11 +63,11 @@ latexmk -xelatex main.tex
 
 | 难度 | 提供的内容 | 需要完成 |
 |---|---|---|
-| Hard | 语言定义、目标定理陈述 | 自行构造 LR 和辅助证明，证明目标 |
-| Medium | Hard + 已证明的基础辅助引理（新鲜变量、环境查找、局部封闭、值、归约组合等） | 自行构造 LR，完成其余辅助证明、fundamental theorem 和目标 |
-| Easy | Medium + 替换、类型、求值等辅助证明 + 参考 LR、语义环境及基本性质 | 证明核心语义分支、fundamental theorem 和目标；允许采用其他 LR |
+| Hard | 语言定义、目标定理陈述 | 自行构造 LR 及其环境解释，提出并证明所需辅助引理和 fundamental theorem，证明目标定理 |
+| Medium | Hard 的全部内容 + 已证明的基础辅助引理（新鲜变量、环境查找、局部封闭、值、归约组合等） | 自行构造 LR 及其环境解释，提出并证明其余辅助引理和 fundamental theorem，证明目标定理 |
+| Easy | Medium 的全部内容 + 替换、类型、求值等辅助证明 + 参考 LR、语义环境及基本性质 | 补全所需辅助证明，证明核心语义分支、fundamental theorem 和目标定理；可使用参考 LR，也可自行构造其他 LR |
 
-Easy 中的 fundamental theorem 陈述仅作为注释提示，不提供证明；唯一待完成的定理是目标定理。三个难度的信息逐层包含，目标定理保持一致。
+三个难度均需证明 fundamental theorem 和目标定理，区别在于提供多少定义及已证明的辅助引理。Easy 中的参考 fundamental theorem 陈述仅作为注释提示，可按所选 LR 调整；其证明仍由 Agent 完成。输入文件只为目标定理预留证明位置，所需的中间定义和定理由 Agent 补入。三个难度的信息逐层包含，目标定理保持一致。
 
 完整运行108个 cases：`bash scripts/run_test.sh`。默认 GPT-6 Luna high、每题3600秒、并行100；提前结束但未通过检查时续接原会话，共用剩余预算。新结果使用 tag `gpt6luna_high_difficulty_v4_full_r1`，保留历史结果。输入及已提供引理清单见 [difficulty-manifest.json](benchmarks/difficulty-manifest.json)。
 
