@@ -8,7 +8,7 @@ The base language is locally nameless System F with function and universal types
 
 Additional features: binary non-deterministic choice (`tm_choice`).
 
-The file additionally supplies the logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies, and a proved fundamental theorem `binary_fundamental`. Only the target theorem remains unproved.
+The file supplies the language syntax, call-by-value small-step semantics, typing rules, and target theorem.
 
 ## Target Theorem
 
@@ -27,4 +27,13 @@ Every closed term of type `forall X, X -> X`, instantiated at a closed well-form
 
 ## Expected Output
 
-Complete `Task.v`: use the supplied proved fundamental theorem to prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+The input includes all Medium support, proved substitution/opening,
+typing and evaluation infrastructure, and a reference semantic framework.
+The reference logical relation is `value_relation` and `expression_relation`.
+Reference fundamental theorem statements are optional suggestions in comments.
+Prove the core semantic cases and fundamental theorem using the reference
+framework or another logical relation of your choice.
+
+Prove `polymorphic_identity_theorem_for_free` in `Task.v`. You may add definitions and helper lemmas.
+Keep the supplied definitions, proved lemmas, and target statement unchanged.
+The final file must compile without Admitted, added axioms, or unsafe flags.

@@ -10,7 +10,7 @@ Usage:
         --local-base-url http://127.0.0.1:8200/v1
 """
 
-import argparse, atexit, json, os, signal, subprocess, time, shutil, tempfile
+import argparse, atexit, json, os, re, signal, subprocess, time, shutil, tempfile
 from pathlib import Path
 
 ROOT = Path("/data0/zzh/PL-Paper-AutoProof")
@@ -20,16 +20,20 @@ _ACTIVE_WORKSPACES = set()
 
 def _save_trace(trace_dir, problem, raw_stdout):
     trace_dir.mkdir(parents=True, exist_ok=True)
-    (trace_dir / f"{problem}.jsonl").write_text(raw_stdout)
+    with (trace_dir / f"{problem}.jsonl").open("a") as stream:
+        stream.write(raw_stdout)
+        if raw_stdout and not raw_stdout.endswith("\n"):
+            stream.write("\n")
 
-def _archive_failed_attempt(trace_dir, problem, attempt):
-    for suffix in ("jsonl", "stderr.log"):
-        source = trace_dir / f"{problem}.{suffix}"
-        if source.exists():
-            shutil.copy2(
-                source,
-                trace_dir / f"{problem}.attempt-{attempt}.{suffix}",
-            )
+def _thread_id(raw_stdout):
+    for line in raw_stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "thread.started":
+            return event.get("thread_id")
+    return None
 
 def _parse_result(raw_stdout):
     for line in reversed(raw_stdout.strip().split('\n')):
@@ -157,17 +161,6 @@ def prepare_workspace(benchmark, problem):
         raise
     return workspace
 
-def reset_workspace(workspace):
-    """Restore a clean task before retrying an agent infrastructure error."""
-    for child in workspace.iterdir():
-        if child.name in {"Task.v.orig", "card.md"}:
-            continue
-        if child.is_dir():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
-    shutil.copy2(workspace / "Task.v.orig", workspace / "Task.v")
-
 def verify_isolation(workspace):
     """Fail closed if the private namespace exposes repository data."""
     probe = isolated_command(workspace, [
@@ -200,13 +193,24 @@ separate solution file. Do not use Admitted, admit, Abort, Axiom, Parameter,
 Conjecture, unsafe Rocq flags, or equivalent escape hatches. Compile Task.v
 with Rocq and continue fixing errors until it succeeds.
 
-If you fail to produce a compiling Task.v, you must include a short failure
-analysis in your final response. Do not stop proof work early merely to
-write this report; continue trying until the proof succeeds or you cannot
-make further progress. The report should focus on the main capability
-bottleneck across the whole attempt. Explain how that
-bottleneck prevented completion and state what improved reasoning strategy or tool support
-would most likely have changed the outcome."""
+Keep working until the target theorem is proved and Task.v compiles, or the
+external runner stops you. The runner manages the time limit; do not assume
+your budget is exhausted because the proof looks long or difficult.
+Difficulty, a failed approach, or uncertainty about
+the next step is not a reason to end the attempt. Make concrete proof edits,
+compile them, and use the resulting goals and errors to guide the next attempt.
+When stuck, isolate a smaller lemma, strengthen an induction hypothesis, or
+reconsider the logical relation and proof strategy. Do not finish with a plan
+or a failure report while the proof remains incomplete; continue proof work.
+Reading the task and compiling its unfinished skeleton is not a proof attempt.
+Turn your next proof idea into code and test it rather than merely describing
+the lemmas that would be needed. If an approach fails, try a different one
+instead of repeating the same unsuccessful commands.
+
+If you are explicitly asked to stop or notified that the execution budget is
+exhausted, report any unfinished proof honestly and briefly explain the main
+capability bottleneck across the attempt and what would help overcome it.
+Do not stop proof work merely to write this report."""
     if lr_first:
         prompt += """
 
@@ -233,15 +237,22 @@ Fixpoint R (T : ty) (t : tm) : Prop :=
 
 def run_agent(problem, workspace, timeout, trace_dir,
               model=None, reasoning_effort=None, lr_first=False,
-              given_r=False, local_base_url=None):
+              given_r=False, local_base_url=None, thread_id=None):
     """Run the agent and return the raw result. No formal check."""
     prompt = build_prompt(Path("/workspace/Task.v"), workspace / "card.md",
                           lr_first, given_r)
+    if thread_id:
+        prompt = f"""Continue the same proof attempt from your existing conversation and Task.v.
+The runner has not accepted a completed proof. You have about {int(timeout)} seconds
+remaining in the original budget. Preserve your progress; do not restart from
+Task.v.orig. Inspect the current goals, make concrete proof edits, and compile.
+Continue until the target is proved without proof escapes or the runner stops you.
+All original task constraints still apply."""
     codex = shutil.which("codex")
     if not codex:
         raise RuntimeError("codex binary not found")
     codex_cmd = [
-        codex, "exec", "--json", "--ephemeral", "--ignore-user-config",
+        codex, "exec", "--json", "--ignore-user-config",
         "--ignore-rules",
         "--skip-git-repo-check", "--sandbox", "workspace-write",
         "--cd", "/workspace",
@@ -259,10 +270,12 @@ def run_agent(problem, workspace, timeout, trace_dir,
         ]
     if reasoning_effort:
         codex_cmd += ["--config", f"model_reasoning_effort={reasoning_effort}"]
+    if thread_id:
+        codex_cmd += ["resume", thread_id]
     codex_cmd.append("-")
     cmd = isolated_command(workspace, codex_cmd)
 
-    start_time = time.time()
+    start_time = time.monotonic()
     try:
         env = None
         if local_base_url:
@@ -273,14 +286,16 @@ def run_agent(problem, workspace, timeout, trace_dir,
             cmd, input=prompt, capture_output=True, text=True,
             cwd=workspace, timeout=timeout, env=env,
         )
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         _save_trace(trace_dir, problem, r.stdout)
-        (trace_dir / f"{problem}.stderr.log").write_text(r.stderr)
+        with (trace_dir / f"{problem}.stderr.log").open("a") as stream:
+            stream.write(r.stderr)
         metrics = _parse_result(r.stdout)
         return {"exit": "ok", "elapsed": elapsed, "metrics": metrics,
-                "returncode": r.returncode}
+                "returncode": r.returncode,
+                "thread_id": _thread_id(r.stdout) or thread_id}
     except subprocess.TimeoutExpired as exc:
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         partial_stdout = exc.stdout or ""
         if isinstance(partial_stdout, bytes):
             partial_stdout = partial_stdout.decode(errors="replace")
@@ -288,43 +303,113 @@ def run_agent(problem, workspace, timeout, trace_dir,
         return {
             "exit": "timeout",
             "elapsed": elapsed,
-            "metrics": _empty_metrics(),
+            "metrics": _parse_result(partial_stdout),
             "returncode": None,
+            "thread_id": _thread_id(partial_stdout) or thread_id,
         }
 
-def run_agent_retrying_errors(problem, workspace, timeout, trace_dir,
-                              model=None, reasoning_effort=None,
-                              lr_first=False, given_r=False,
-                              local_base_url=None):
-    """Retry clean, full-time attempts when Codex exits with an error."""
-    attempt = 1
+def run_until_done(problem, workspace, timeout, trace_dir,
+                   model=None, reasoning_effort=None,
+                   lr_first=False, given_r=False,
+                   local_base_url=None, reject_admits=False):
+    """Resume one private session until verified success or the shared deadline."""
+    start = time.monotonic()
+    deadline = start + timeout
+    original = (workspace / "Task.v.orig").read_bytes()
+    thread_id = None
+    metrics = _empty_metrics()
+    raw = {"exit": "timeout", "returncode": None}
+    compiled = False
+    turns = 0
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    for suffix in ("jsonl", "stderr.log"):
+        (trace_dir / f"{problem}.{suffix}").write_text("")
     while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raw["exit"] = "timeout"
+            break
         raw = run_agent(
-            problem, workspace, timeout, trace_dir,
+            problem, workspace, remaining, trace_dir,
             model=model, reasoning_effort=reasoning_effort,
             lr_first=lr_first, given_r=given_r,
-            local_base_url=local_base_url,
+            local_base_url=local_base_url, thread_id=thread_id,
         )
-        if raw["exit"] != "ok" or raw.get("returncode", 0) == 0:
-            return raw
-
-        _archive_failed_attempt(trace_dir, problem, attempt)
-        error_path = trace_dir / f"{problem}.attempt-{attempt}.stderr.log"
-        attempt += 1
+        turns += 1
+        thread_id = raw["thread_id"] or thread_id
+        # Codex reports cumulative usage for the resumed thread, not a fresh run.
+        for key, value in raw["metrics"].items():
+            if value is not None:
+                metrics[key] = value
+        if (workspace / "Task.v.orig").read_bytes() != original:
+            break
+        remaining = deadline - time.monotonic()
+        if raw["exit"] == "timeout" or remaining <= 0:
+            raw["exit"] = "timeout"
+            break
+        compiled = check(workspace, reject_admits=reject_admits,
+                         timeout=min(300, remaining))
+        if compiled:
+            raw.update(exit="ok", returncode=0)
+            break
+        if raw["returncode"] == 0 and not thread_id:
+            # Never silently replace an existing conversation with a fresh one.
+            raw["returncode"] = 1
+            print(f"[ERROR] {problem}: no session ID to resume", flush=True)
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raw["exit"] = "timeout"
+            break
         print(
-            f"Agent error for {problem}; retrying with a fresh "
-            f"{timeout}s limit (attempt {attempt}). Error: {error_path}",
+            f"[CONTINUE] {problem}: turn {turns + 1}, "
+            f"{int(remaining)}s remaining; preserving proof and session",
             flush=True,
         )
-        reset_workspace(workspace)
+        if raw["returncode"] != 0:
+            time.sleep(min(1, remaining))
+    return {**raw, "elapsed": time.monotonic() - start,
+            "metrics": metrics, "compiled": compiled, "turns": turns}
 
-def check(workspace):
+def has_proof_holes(source):
+    """Reject explicit proof escapes, ignoring nested Rocq comments and strings."""
+    code = []
+    depth = 0
+    i = 0
+    while i < len(source):
+        if source.startswith('(*', i):
+            depth += 1
+            code.append(' ')
+            i += 2
+        elif depth and source.startswith('*)', i):
+            depth -= 1
+            i += 2
+        elif depth:
+            i += 1
+        elif source[i] == '"':
+            match = re.match(r'"(?:[^\"]|\"\")*"', source[i:])
+            i += len(match[0]) if match else 1
+            code.append(' ')
+        else:
+            code.append(source[i])
+            i += 1
+    return bool(re.search(
+        r'\b(?:Admitted|admit|give_up|Axioms?|Parameters?|Conjectures?)\b',
+        ''.join(code),
+    ))
+
+
+def check(workspace, reject_admits=False, timeout=300):
     """Return whether Task.v compiles inside the isolated namespace."""
+    if not (workspace / 'Task.v').is_file():
+        return False
+    if reject_admits and has_proof_holes((workspace / 'Task.v').read_text()):
+        return False
     rocq = Path.home() / ".opam" / "rocq-dev" / "bin" / "rocq"
     try:
         r = subprocess.run(
             isolated_command(workspace, [str(rocq), "compile", "-q", "Task.v"]),
-            capture_output=True, text=True, cwd=workspace, timeout=300,
+            capture_output=True, text=True, cwd=workspace, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return False
@@ -354,13 +439,17 @@ def main():
     parser.add_argument("--lr-first", action="store_true")
     parser.add_argument("--given-r", action="store_true")
     parser.add_argument("--timeout", type=int, default=1800)
+    parser.add_argument("--reject-admits", action="store_true",
+                        help="Also reject explicit admissions and added axiom/parameter commands")
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
+    parser.add_argument("--benchmark-root", type=Path, default=ROOT / "benchmarks",
+                        help="Input directory; defaults to the standard benchmark collection")
     args = parser.parse_args()
 
     if args.given_r and args.benchmark != "stlc":
         parser.error("--given-r is only defined for the stlc benchmark")
 
-    benchmark = ROOT / "benchmarks" / args.benchmark
+    benchmark = args.benchmark_root / args.benchmark
     result_dir = args.output_root / args.benchmark
     results_file = result_dir / f"results_{args.tag}.json"
     proof_dir = result_dir / f"proofs_{args.tag}"
@@ -391,17 +480,18 @@ def main():
     print(f"Isolated workspace: {workspace}")
     try:
         verify_isolation(workspace)
-        raw = run_agent_retrying_errors(
+        raw = run_until_done(
             args.benchmark, workspace, args.timeout, trace_dir,
             model=args.model, reasoning_effort=args.reasoning_effort,
             lr_first=args.lr_first,
             given_r=args.given_r,
             local_base_url=args.local_base_url,
+            reject_admits=args.reject_admits,
         )
-        proof_path = proof_dir / f"{args.benchmark}.v"
+        proof_path = proof_dir / "Task.v"
         if task_file.exists():
             shutil.copy2(task_file, proof_path)
-        compiled = check(workspace)
+        compiled = raw["compiled"]
         orig_untouched = (workspace / "Task.v.orig").read_bytes() == original
 
         if raw["exit"] == "timeout":
@@ -416,6 +506,7 @@ def main():
         result = {
             "status": status,
             "time_s": int(raw["elapsed"]),
+            "turns": raw["turns"],
             **raw["metrics"],
         }
         results = load_results(results_file)

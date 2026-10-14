@@ -16,6 +16,13 @@ Definition join (l1 l2 : label) : label :=
   | _, _ => High
   end.
 
+Lemma flows_to_refl : forall l, flows_to l l.
+Proof. destruct l; exact I. Qed.
+
+Lemma flows_to_trans : forall l1 l2 l3,
+  flows_to l1 l2 -> flows_to l2 l3 -> flows_to l1 l3.
+Proof. destruct l1, l2, l3; simpl; tauto. Qed.
+
 Record security : Type := {
   reader : label;
   indirect_reader : label
@@ -161,6 +168,67 @@ Fixpoint lc_at (k : nat) (t : tm) : Prop :=
 Definition locally_closed (t : tm) : Prop := lc_at 0 t.
 
 Definition closed (t : tm) : Prop := locally_closed t /\ fv t = [].
+
+Lemma fresh_atom : forall L : list atom, exists x, ~ In x L.
+Proof.
+  assert (forall (L : list atom) x,
+    In x L -> x <= fold_right Nat.max 0 L) as Hbound.
+  { intros L. induction L; simpl; intros x H.
+    - contradiction.
+    - destruct H as [-> | H].
+      + apply Nat.le_max_l.
+      + eapply Nat.le_trans; [apply IHL; exact H | apply Nat.le_max_r]. }
+  intros L. exists (S (fold_right Nat.max 0 L)).
+  intros H. apply Hbound in H. lia.
+Qed.
+
+Lemma lc_at_open_inv : forall t k u,
+  lc_at k (open_rec k u t) -> lc_at (S k) t.
+Proof.
+  induction t; intros k u H; simpl in *; try tauto.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. lia.
+    + simpl in H. lia.
+  - eapply IHt; exact H.
+  - destruct H. split; [eapply IHt1 | eapply IHt2]; eassumption.
+  - destruct H. split; [eapply IHt1 | eapply IHt2]; eassumption.
+  - eapply IHt; exact H.
+  - eapply IHt; exact H.
+  - eapply IHt; exact H.
+  - eapply IHt; exact H.
+  - destruct H as [H0 [H1 H2]]. repeat split;
+      [eapply IHt1 | eapply IHt2 | eapply IHt3]; eassumption.
+  - eapply IHt; exact H.
+  - eapply IHt; exact H.
+  - destruct H as [H0 [H1 H2]]. repeat split;
+      [eapply IHt1 | eapply IHt2 | eapply IHt3]; eassumption.
+  - destruct H as [H0 [H1 H2]]. repeat split;
+      [eapply IHt1 | eapply IHt2 | eapply IHt3]; eassumption.
+Qed.
+
+Lemma open_rec_lc_at : forall t d k u,
+  lc_at d t -> d <= k -> open_rec k u t = t.
+Proof.
+  induction t; intros d k u Hlc Hdk; simpl in *; try reflexivity.
+  - destruct (Nat.eqb k n) eqn:Heq; [apply Nat.eqb_eq in Heq; lia | reflexivity].
+  - f_equal. eapply IHt; [exact Hlc | lia].
+  - destruct Hlc. f_equal; [eapply IHt1 | eapply IHt2]; eassumption.
+  - destruct Hlc. f_equal; [eapply IHt1 | eapply IHt2]; eassumption.
+  - f_equal. eapply IHt; eassumption.
+  - f_equal. eapply IHt; eassumption.
+  - f_equal. eapply IHt; eassumption.
+  - f_equal. eapply IHt; eassumption.
+  - destruct Hlc as [H0 [H1 H2]]. f_equal.
+    + eapply IHt1; eassumption.
+    + eapply IHt2; [exact H1 | lia].
+    + eapply IHt3; [exact H2 | lia].
+  - f_equal. eapply IHt; eassumption.
+  - f_equal. eapply IHt; eassumption.
+  - destruct Hlc as [H0 [H1 H2]]. f_equal;
+      [eapply IHt1 | eapply IHt2 | eapply IHt3]; eassumption.
+  - destruct Hlc as [H0 [H1 H2]]. f_equal;
+      [eapply IHt1 | eapply IHt2 | eapply IHt3]; eassumption.
+Qed.
 
 Inductive value : tm -> Prop :=
   | v_unit : forall kappa, value (tm_unit kappa)
@@ -312,6 +380,31 @@ Notation "t '-->*' t'" := (multi t t') (at level 40).
 
 Definition evaluates (t v : tm) : Prop := t -->* v /\ value v.
 
+Lemma value_no_step : forall v,
+  value v -> forall t, ~ step v t.
+Proof.
+  intros v Hv. induction Hv; intros t Hstep; inversion Hstep; subst;
+    match goal with
+    | IH : forall u, ~ step ?v u, H : step ?v ?u |- False => exact (IH u H)
+    end.
+Qed.
+
+Lemma multi_trans : forall t1 t2 t3,
+  t1 -->* t2 -> t2 -->* t3 -> t1 -->* t3.
+Proof.
+  intros t1 t2 t3 H12 H23. induction H12.
+  - exact H23.
+  - eapply multi_step; [exact H | apply IHmulti; exact H23].
+Qed.
+
+Lemma value_multi_inv : forall v t,
+  value v -> v -->* t -> t = v.
+Proof.
+  intros v t Hv Hmulti. inversion Hmulti; subst.
+  - reflexivity.
+  - exfalso. eapply value_no_step; eassumption.
+Qed.
+
 Inductive subtype : ty -> ty -> Prop :=
   | S_Unit : forall kappa1 kappa2,
       wf_security kappa1 -> wf_security kappa2 -> security_le kappa1 kappa2 ->
@@ -388,45 +481,153 @@ Inductive has_type : context -> tm -> ty -> Prop :=
       has_type Gamma yes T -> has_type Gamma no T -> flows_to k.(reader) r ->
       has_type Gamma (tm_if c yes no r) (ty_protect k.(indirect_reader) T).
 
-Definition expression_lifting (R : tm -> tm -> Prop) (t1 t2 : tm) : Prop :=
-  forall v1 v2 : tm, evaluates t1 v1 -> evaluates t2 v2 -> R v1 v2.
+Lemma security_le_refl : forall k, security_le k k.
+Proof. intros [r ir]. split; apply flows_to_refl. Qed.
 
-Definition underlying_typed (T : ty) (t : tm) : Prop :=
-  has_type empty (erase_security t) (erase_type T).
+Lemma security_protect_mono : forall k1 k2 l1 l2,
+  security_le k1 k2 -> flows_to l1 l2 ->
+  security_le (protect_security k1 l1) (protect_security k2 l2).
+Proof.
+  intros [r1 ir1] [r2 ir2] l1 l2.
+  destruct r1, ir1, r2, ir2, l1, l2;
+    unfold security_le, protect_security; simpl; tauto.
+Qed.
 
-Fixpoint value_relation (observer : label) (T : ty) (v1 v2 : tm) : Prop :=
-  value v1 /\ value v2 /\
-  underlying_typed T v1 /\ underlying_typed T v2 /\
-  (flows_to (security_of T).(indirect_reader) observer ->
-    match T with
-    | Ty_Unit _ =>
-        exists kappa1 kappa2 : security,
-          v1 = tm_unit kappa1 /\ v2 = tm_unit kappa2
-    | Ty_Sum T1 T2 _ =>
-        (exists (u1 u2 : tm) (kappa1 kappa2 : security),
-          v1 = tm_inl u1 kappa1 /\ v2 = tm_inl u2 kappa2 /\
-          value_relation observer T1 u1 u2) \/
-        (exists (u1 u2 : tm) (kappa1 kappa2 : security),
-          v1 = tm_inr u1 kappa1 /\ v2 = tm_inr u2 kappa2 /\
-          value_relation observer T2 u1 u2)
-    | Ty_Prod T1 T2 _ =>
-        exists (a1 b1 a2 b2 : tm) (kappa1 kappa2 : security),
-          v1 = tm_pair a1 b1 kappa1 /\ v2 = tm_pair a2 b2 kappa2 /\
-          value_relation observer T1 a1 a2 /\
-          value_relation observer T2 b1 b2
-    | Ty_Arrow T1 T2 _ =>
-        exists (U1 U2 : ty) (body1 body2 : tm) (kappa1 kappa2 : security),
-          v1 = tm_abs U1 body1 kappa1 /\ v2 = tm_abs U2 body2 kappa2 /\
-          forall arg1 arg2 : tm,
-            value_relation observer T1 arg1 arg2 ->
-            expression_lifting (value_relation observer T2)
-              (tm_app v1 arg1 High) (tm_app v2 arg2 High)
-    | Ty_Nat _ => exists n k1 k2, v1 = tm_nat n k1 /\ v2 = tm_nat n k2
-    end).
+Lemma protect_security_wf : forall k l,
+  wf_security k -> wf_security (protect_security k l).
+Proof.
+  intros [r ir] l; destruct r, ir, l;
+    unfold wf_security, protect_security; simpl; tauto.
+Qed.
 
-Definition expression_relation (observer : label) (T : ty) (t1 t2 : tm) : Prop :=
-  underlying_typed T t1 /\ underlying_typed T t2 /\
-  expression_lifting (value_relation observer T) t1 t2.
+Lemma ty_protect_low : forall T, ty_protect Low T = T.
+Proof.
+  destruct T; destruct s as [r ir]; destruct r, ir; reflexivity.
+Qed.
+
+Inductive big_step : tm -> tm -> Prop :=
+  | B_Unit : forall k,
+      big_step (tm_unit k) (tm_unit k)
+  | B_Abs : forall A body k,
+      locally_closed (tm_abs A body k) ->
+      big_step (tm_abs A body k) (tm_abs A body k)
+  | B_App : forall f a r A body k v w,
+      big_step f (tm_abs A body k) -> big_step a v ->
+      flows_to k.(reader) r -> big_step (open body v) w ->
+      big_step (tm_app f a r) (protect_value w k.(indirect_reader))
+  | B_Pair : forall a b k v w,
+      big_step a v -> big_step b w ->
+      big_step (tm_pair a b k) (tm_pair v w k)
+  | B_Fst : forall t r a b k,
+      big_step t (tm_pair a b k) -> flows_to k.(reader) r ->
+      big_step (tm_fst t r) (protect_value a k.(indirect_reader))
+  | B_Snd : forall t r a b k,
+      big_step t (tm_pair a b k) -> flows_to k.(reader) r ->
+      big_step (tm_snd t r) (protect_value b k.(indirect_reader))
+  | B_Inl : forall t k v,
+      big_step t v -> big_step (tm_inl t k) (tm_inl v k)
+  | B_Inr : forall t k v,
+      big_step t v -> big_step (tm_inr t k) (tm_inr v k)
+  | B_CaseLeft : forall t b1 b2 r v k w,
+      big_step t (tm_inl v k) -> flows_to k.(reader) r ->
+      big_step (open b1 v) w ->
+      big_step (tm_case t b1 b2 r) (protect_value w k.(indirect_reader))
+  | B_CaseRight : forall t b1 b2 r v k w,
+      big_step t (tm_inr v k) -> flows_to k.(reader) r ->
+      big_step (open b2 v) w ->
+      big_step (tm_case t b1 b2 r) (protect_value w k.(indirect_reader))
+  | B_Protect : forall l t v,
+      big_step t v -> big_step (tm_protect l t) (protect_value v l)
+  | B_Nat : forall n k, big_step (tm_nat n k) (tm_nat n k)
+  | B_Succ : forall t n k r,
+      big_step t (tm_nat n k) -> flows_to k.(reader) r ->
+      big_step (tm_succ t r) (protect_value (tm_nat (S n) public) k.(indirect_reader))
+  | B_NatRec : forall n b s r m k vb vs result,
+      big_step n (tm_nat m k) -> big_step b vb -> big_step s vs ->
+      flows_to k.(reader) r -> big_step (natrec_unroll m vb vs r) result ->
+      big_step (tm_natrec n b s r) (protect_value result k.(indirect_reader))
+  | B_IfTrue : forall c yes no r v k result,
+      big_step c (tm_inl v k) -> flows_to k.(reader) r -> big_step yes result ->
+      big_step (tm_if c yes no r) (protect_value result k.(indirect_reader))
+  | B_IfFalse : forall c yes no r v k result,
+      big_step c (tm_inr v k) -> flows_to k.(reader) r -> big_step no result ->
+      big_step (tm_if c yes no r) (protect_value result k.(indirect_reader)).
+
+Lemma multi_congruence : forall (C : tm -> tm),
+  (forall t t', step t t' -> step (C t) (C t')) ->
+  forall t t', multi t t' -> multi (C t) (C t').
+Proof.
+  intros C HC t t' H. induction H.
+  - apply multi_refl.
+  - eapply multi_step; [apply HC; exact H | exact IHmulti].
+Qed.
+
+Lemma protect_value_compose : forall v l1 l2,
+  protect_value (protect_value v l1) l2 = protect_value v (join l1 l2).
+Proof.
+  intros v l1 l2. destruct v; simpl; try reflexivity;
+    match goal with k : security |- _ => destruct k as [r ir] end;
+    destruct r, ir, l1, l2; reflexivity.
+Qed.
+
+Lemma lookup_update_eq : forall Gamma x T,
+  lookup_context x (update Gamma x T) = Some T.
+Proof. intros. simpl. rewrite Nat.eqb_refl. reflexivity. Qed.
+
+Lemma lookup_update_neq : forall Gamma x y T,
+  x <> y -> lookup_context x (update Gamma y T) = lookup_context x Gamma.
+Proof.
+  intros Gamma x y T Hneq. simpl.
+  destruct (Nat.eqb x y) eqn:Heq; [apply Nat.eqb_eq in Heq; contradiction | reflexivity].
+Qed.
+
+Definition context_included (Gamma Gamma' : context) : Prop :=
+  forall x T, lookup_context x Gamma = Some T -> lookup_context x Gamma' = Some T.
+
+Definition erase_context (Gamma : context) : context :=
+  map (fun entry => (fst entry, erase_type (snd entry))) Gamma.
+
+Lemma protect_value_low : forall v, protect_value v Low = v.
+Proof.
+  destruct v; simpl; try reflexivity;
+    match goal with k : security |- _ => destruct k as [r ir] end;
+    destruct r, ir; reflexivity.
+Qed.
+
+Definition term_substitution := atom -> tm.
+
+Fixpoint instantiate (rho : term_substitution) (t : tm) : tm :=
+  match t with
+  | tm_bvar i => tm_bvar i
+  | tm_fvar x => rho x
+  | tm_unit k => tm_unit k
+  | tm_abs T body k => tm_abs T (instantiate rho body) k
+  | tm_app t1 t2 r => tm_app (instantiate rho t1) (instantiate rho t2) r
+  | tm_pair t1 t2 k => tm_pair (instantiate rho t1) (instantiate rho t2) k
+  | tm_fst t r => tm_fst (instantiate rho t) r
+  | tm_snd t r => tm_snd (instantiate rho t) r
+  | tm_inl t k => tm_inl (instantiate rho t) k
+  | tm_inr t k => tm_inr (instantiate rho t) k
+  | tm_case t b1 b2 r => tm_case (instantiate rho t)
+      (instantiate rho b1) (instantiate rho b2) r
+  | tm_protect l t => tm_protect l (instantiate rho t)
+  | tm_if c yes no r => tm_if (instantiate rho c) (instantiate rho yes) (instantiate rho no) r
+  | tm_nat n k => tm_nat n k
+  | tm_succ t r => tm_succ (instantiate rho t) r
+  | tm_natrec n b s r => tm_natrec (instantiate rho n) (instantiate rho b) (instantiate rho s) r
+  end.
+
+Definition substitution_update (rho : term_substitution) (x : atom) (u : tm)
+    : term_substitution := fun y => if Nat.eqb x y then u else rho y.
+
+Lemma lookup_context_key : forall Gamma x T,
+  lookup_context x Gamma = Some T -> In x (map fst Gamma).
+Proof.
+  induction Gamma as [|[y U] Gamma IH]; intros x T H; simpl in *; [discriminate |].
+  destruct (Nat.eqb x y) eqn:E.
+  - apply Nat.eqb_eq in E. auto.
+  - right. eapply IH; exact H.
+Qed.
 
 Inductive program_context : Type :=
   | C_Hole : program_context
@@ -513,4 +714,5 @@ Theorem noninterference : forall (C : program_context) (t1 t2 : tm)
       (security_of T_result).(indirect_reader) ->
   same_result (plug C t1) (plug C t2).
 Proof.
-Admitted.
+  (* Complete this proof. *)
+Qed.

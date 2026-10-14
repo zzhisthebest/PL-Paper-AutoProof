@@ -8,8 +8,6 @@ The base language is a locally nameless, recursion-free fragment of the SLam cal
 
 The feature configuration is the base language.
 
-The file additionally supplies the logical relation formed by `value_relation` and `expression_relation`, together with its dependencies, and a proved fundamental theorem `fundamental_expressions`. Only the target theorem remains unproved.
-
 ## Target Theorem
 
 ```coq
@@ -29,4 +27,13 @@ Two closed terms of the same secret type are placed in the same typed program co
 
 ## Expected Output
 
-Complete `Task.v`: use the supplied proved fundamental theorem to prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+The input includes all Medium support, proved substitution/opening,
+typing and evaluation infrastructure, and a reference semantic framework.
+The reference logical relation is `value_relation` and `expression_relation`.
+Reference fundamental theorem statements are optional suggestions in comments.
+Prove the core semantic cases and fundamental theorem using the reference
+framework or another logical relation of your choice.
+
+Prove `noninterference` in `Task.v`. You may add definitions and helper lemmas.
+Keep the supplied definitions, proved lemmas, and target statement unchanged.
+The final file must compile without Admitted, added axioms, or unsafe flags.

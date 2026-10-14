@@ -45,17 +45,21 @@ latexmk -xelatex main.tex
 
 ## 实验结果
 
-- [GPT-6 Sol High：72 道 Hard / Medium 的结果与 23 份失败报告总览](docs/gpt6sol-high-results.md)
+- [GPT-6 Sol High 结果与失败分析](docs/gpt6sol-high-results.md)
 
 ## Benchmark Cases表
 
-`N` = Normalization，`P` = Parametricity，`RS` = Refinement cases（当前目标为 Type Safety，沿用原列名），`NI` = Noninterference；`Hard` = 不给 LR，`Medium` = 给 LR，`Easy` = 给 LR 和 fundamental theorem；`✔` = 已完成，空白 = 还没做完。
+`N` = Normalization，`P` = Parametricity，`RS` = Refinement cases（当前目标为 Type Safety，沿用原列名），`NI` = Noninterference；`✔` = case 已制作完成，空白 = 未提供。
 
-曾在 `stlc-normalization-recursion-medium`、`systemf-normalization-none-medium`、`systemf-parametricity-none-medium`、`systemf-refinement-soundness-none-medium` 做过“挖空 LR、保留后续证明”的小规模实验，使用独立 tag；当前四张卡片已恢复为标准 Medium（提供 LR，由 Agent 证明后续定理）。
+| 难度 | 提供的内容 | 需要完成 |
+|---|---|---|
+| Hard | 语言定义、目标定理陈述 | 自行构造 LR 和辅助证明，证明目标 |
+| Medium | Hard + 已证明的基础辅助引理（新鲜变量、环境查找、局部封闭、值、归约组合等） | 自行构造 LR，完成其余辅助证明、fundamental theorem 和目标 |
+| Easy | Medium + 替换、类型、求值等辅助证明 + 参考 LR、语义环境及基本性质 | 证明核心语义分支、fundamental theorem 和目标；允许采用其他 LR |
 
-24 个 refinement cases 已统一升级为整数、公式 qualifier、部分除法下的 `never_stuck`；Recursion 使用非负、严格递减的整数度量，Non-determinism 覆盖所有归约路径，组合版本的度量比较也覆盖所有可能的整数结果。三个难度分别截止到语言定义、LR、已证明的 fundamental theorem。目录名暂保留 `refinement-soundness`；其余 72 个 cases 不变。
+Easy 中的 fundamental theorem 陈述仅作为注释提示，不提供证明；唯一待完成的定理是目标定理。三个难度的信息逐层包含，目标定理保持一致。
 
-Security Noninterference 已包含 None、If-then-else、Recursion 和 If-then-else + Recursion 的 12 个 cases，目前共 108 个。基础语言为无递归的 SLam 片段，包含 unit、sum、product、函数和安全标注；None 表示不加额外 feature。If-then-else 使用独立的条件构造；Recursion 加入带安全标注的自然数和结构递归。Easy 提供已证明的 `fundamental_expressions`。Non-determinism 不纳入这一组任务。
+完整运行108个 cases：`bash scripts/run_test.sh`。默认 GPT-6 Luna high、每题3600秒、并行100；提前结束但未通过检查时续接原会话，共用剩余预算。新结果使用 tag `gpt6luna_high_difficulty_v4_full_r1`，保留历史结果。输入及已提供引理清单见 [difficulty-manifest.json](benchmarks/difficulty-manifest.json)。
 
 | Feature | STLC-N-Hard | STLC-N-Medium | STLC-N-Easy | SystemF-N-Hard | SystemF-N-Medium | SystemF-N-Easy | SystemF-P-Hard | SystemF-P-Medium | SystemF-P-Easy | SystemF-RS-Hard | SystemF-RS-Medium | SystemF-RS-Easy | Security-NI-Hard | Security-NI-Medium | Security-NI-Easy |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

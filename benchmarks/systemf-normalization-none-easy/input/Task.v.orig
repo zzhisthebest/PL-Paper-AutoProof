@@ -1216,53 +1216,7 @@ Proof.
     + destruct (Hnext y H) as [_ [_ Hall]]. eapply Hall; eauto.
 Qed.
 
-Lemma strong_expression_app : forall T1 T2 t1 t2,
-  strong_expression_relation (Ty_Arrow T1 T2) t1 ->
-  strong_expression_relation T1 t2 ->
-  strong_expression_relation T2 (tm_app t1 t2).
-Proof.
-  intros T1 T2 t1 t2 [Hlc1 [Hsn1 Hall1]] HE2.
-  revert T1 T2 Hlc1 Hall1 t2 HE2.
-  induction Hsn1 as [t1 Hnext1 IH1]. intros T1 T2 Hlc1 Hall1 t2 [Hlc2 [Hsn2 Hall2]].
-  revert Hlc2 Hall2. induction Hsn2 as [t2 Hnext2 IH2]. intros Hlc2 Hall2.
-  apply strong_expression_of_reducts.
-  - apply lc_tm_app; assumption.
-  - intros Hv. inversion Hv; subst.
-  - intros u Hstep. inversion Hstep; subst.
-    + pose proof (Hall1 (tm_abs T t) (multi_refl _) (v_abs T t H1)) as HVfun.
-      pose proof (Hall2 t2 (multi_refl _) H3) as HVarg.
-      destruct HVfun as [_ [U [body [Heq Hmap]]]].
-      injection Heq as E1 E2. subst U body. apply Hmap. exact HVarg.
-    + apply (IH1 t1' H1 T1 T2).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall1 v); auto. eapply multi_step; eauto.
-      * split. exact Hlc2. split. apply SN_intro. exact Hnext2. exact Hall2.
-    + apply (IH2 t2' H3).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall2 v); auto. eapply multi_step; eauto.
-Qed.
-
 End Compatibility.
-
-Lemma strong_expression_tapp : forall eta rho T t U a,
-  expression_relation eta rho (Ty_All T) t -> locally_closed_ty U ->
-  expression_relation (a :: eta) rho T (tm_tapp t U).
-Proof.
-  intros eta rho T t U a [Hlc [Hsn Hall]] HU.
-  revert Hlc Hall. induction Hsn as [t Hnext IH]. intros Hlc Hall.
-  apply (strong_expression_of_reducts (a :: eta) rho T).
-  - apply lc_tm_tapp; assumption.
-  - intros Hv. inversion Hv; subst.
-  - intros u Hstep. inversion Hstep; subst.
-    + match goal with H : locally_closed_tm (tm_tabs ?b) |- _ =>
-        pose proof (Hall _ (multi_refl _) (v_tabs b H)) as HV end.
-      destruct HV as [_ [body [Heq Hmap]]]. injection Heq as ->.
-      apply Hmap. exact HU.
-    + eapply IH.
-      * eassumption.
-      * eapply step_preserves_lc; eauto.
-      * intros v Hm Hv. apply (Hall v); auto. eapply multi_step; eauto.
-Qed.
 
 Definition related_substitution (rho : relation_env) (Gamma : context)
     (gamma : term_substitution) : Prop :=
@@ -1302,88 +1256,19 @@ Proof.
   apply Hrel. exact Hlookup.
 Qed.
 
+(* Optional reference theorem statement.
 Theorem fundamental : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   forall theta rho gamma,
     type_substitution_closed theta -> term_substitution_closed gamma ->
     related_substitution rho Gamma gamma ->
     expression_relation [] rho T (instantiate theta gamma t).
-Proof.
-  intros Delta Gamma t T Hty.
-  induction Hty as
-      [Delta Gamma x T Hlookup Hwf
-      | L Delta Gamma T1 body T2 Hwf Hbody IHbody
-      | Delta Gamma t1 t2 T1 T2 Ht1 IHt1 Ht2 IHt2
-      | L Delta Gamma body T Hbody IHbody
-      | Delta Gamma t T U Ht IHt HU
-      ];
-    intros theta rho gamma Htheta Hgamma Hterms.
-  - apply strong_value_is_expression. apply Hterms. exact Hlookup.
-  - assert (Hwhole : has_type Delta Gamma (tm_abs T1 body) (Ty_Arrow T1 T2)).
-    { eapply T_Abs; eauto. }
-    assert (Hvlc : locally_closed_tm (instantiate theta gamma (tm_abs T1 body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply strong_value_is_expression. cbn [value_relation instantiate].
-    split. apply v_abs. exact Hvlc.
-    exists (instantiate_ty theta T1), (instantiate theta gamma body).
-    split. reflexivity. intros arg Harg.
-    assert (Harglc : locally_closed_tm arg).
-    { apply value_regular. eapply value_relation_value. exact Harg. }
-    set (x := fresh (L ++ fv_tm body)).
-    assert (Hxall : ~ In x (L ++ fv_tm body)) by (subst x; apply fresh_notin).
-    rewrite in_app_iff in Hxall.
-    assert (HxL : ~ In x L) by tauto.
-    assert (Hxbody : ~ In x (fv_tm body)) by tauto.
-    pose proof (IHbody x HxL theta rho (term_subst_update gamma x arg)
-      Htheta (term_subst_update_closed gamma x arg Hgamma Harglc)
-      (related_substitution_update rho Gamma gamma x T1 arg Hterms Harg)) as IH.
-    rewrite (instantiate_open_tm body theta gamma x arg Hxbody Htheta Hgamma Harglc) in IH.
-    exact IH.
-  - apply strong_expression_app with (T1 := T1); [apply IHt1|apply IHt2]; assumption.
-  - assert (Hwhole : has_type Delta Gamma (tm_tabs body) (Ty_All T)).
-    { eapply T_TAbs; eauto. }
-    assert (Hvlc : locally_closed_tm (instantiate theta gamma (tm_tabs body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply strong_value_is_expression. cbn [value_relation instantiate].
-    split. apply v_tabs. exact Hvlc.
-    exists (instantiate theta gamma body). split. reflexivity.
-    intros U a HU.
-    set (X := fresh (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma)).
-    assert (HXall : ~ In X (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma))
-      by (subst X; apply fresh_notin).
-    repeat rewrite in_app_iff in HXall.
-    assert (HXL : ~ In X L) by tauto.
-    assert (HXT : ~ In X (fv_ty T)) by tauto.
-    assert (HXbody : ~ In X (ftv_tm body)) by tauto.
-    assert (HXGamma : ~ In X (ftv_context Gamma)) by tauto.
-    pose proof (IHbody X HXL (type_subst_update theta X U)
-      (relation_update rho X a) gamma
-      (type_subst_update_closed theta X U Htheta HU) Hgamma
-      (related_substitution_relation_update rho Gamma gamma X a Hterms HXGamma)) as IH.
-    rewrite (instantiate_open_ty body theta gamma X U HXbody Htheta Hgamma HU) in IH.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Hwhole) as HH. inversion HH; assumption. }
-    apply (proj2 (expression_lifting_equiv _ _
-      (value_relation_open_relation T 0 [] rho X a eq_refl HTlc HXT) _)).
-    exact IH.
-  - cbn [instantiate].
-    pose proof (IHt theta rho gamma Htheta Hgamma Hterms) as HE.
-    assert (HUlc : locally_closed_ty U) by (eapply wf_ty_lc; eauto).
-    assert (HUinst : locally_closed_ty (instantiate_ty theta U)).
-    { apply instantiate_ty_closed; assumption. }
-    pose proof (strong_expression_tapp [] rho T _ (instantiate_ty theta U)
-      (interpreted_candidate [] rho U) HE HUinst) as Hout.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Ht) as HH. inversion HH; assumption. }
-    apply (proj1 (expression_lifting_equiv _ _
-      (value_relation_open_type T 0 [] rho U eq_refl HTlc HUlc) _)). exact Hout.
-
-Qed.
+*)
 
 Theorem normalization : forall t T,
   has_type [] empty t T -> strongly_normalizing t.
 Proof.
-  (* Complete the proof of normalization. *)
+  (* Complete this proof. *)
 Qed.
 
 End SystemFNormalizationNoneEasyTask.

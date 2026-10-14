@@ -102,7 +102,6 @@ Fixpoint open_rec (k : nat) (u : tm) (t : tm) : tm :=
 
 Definition open (t u : tm) : tm := open_rec 0 u t.
 
-
 Inductive lc_at : nat -> tm -> Prop :=
   | lc_bvar : forall k i,
       i < k ->
@@ -133,7 +132,6 @@ Hint Constructors lc_at : core.
 Inductive numeric_value : tm -> Prop :=
   | nv_zero : numeric_value tm_zero
   | nv_succ : forall (t : tm), numeric_value t -> numeric_value (tm_succ t).
-
 
 Inductive value : tm -> Prop :=
   | v_abs : forall T t,
@@ -209,7 +207,6 @@ Notation "x '|->' v" := (update empty x v)
    v custom stlc_ty) : stlc_scope.
 Notation "'empty'" := empty
   (in custom stlc_tm) : stlc_scope.
-
 
 Reserved Notation "<{ Gamma '|--' t '\in' T }>"
   (at level 0,
@@ -807,38 +804,6 @@ Proof.
   - exact HV.
 Qed.
 
-Lemma expression_app : forall T1 T2 t1 t2,
-  expression_relation (Ty_Arrow T1 T2) t1 ->
-  expression_relation T1 t2 ->
-  expression_relation T2 (tm_app t1 t2).
-Proof.
-  intros T1 T2 t1 t2 [Ht1 [vf [Hs1 HVf]]] [Ht2 [va [Hs2 HVa]]].
-  destruct HVf as [HVf_value [body [Heq Hbody]]]. subst vf.
-  assert (Hfun_lc : locally_closed (tm_abs T1 body)).
-  { apply value_regular. exact HVf_value. }
-  destruct (Hbody va HVa) as [Hbody_lc [vr [Hsbody HVr]]].
-  split.
-  - apply lc_app; assumption.
-  - exists vr. split.
-    + eapply multi_trans.
-      * apply multi_app1; eauto.
-      * eapply multi_trans.
-        -- apply multi_app2; eauto.
-        -- eapply multi_step.
-           ++ apply ST_AppAbs. exact Hfun_lc.
-              eapply value_relation_value. exact HVa.
-           ++ exact Hsbody.
-    + exact HVr.
-Qed.
-
-Lemma numeral_relation : forall n,
-  value_relation Ty_Nat (numeral n).
-Proof.
-  intros n. simpl. split.
-  - apply v_nat. apply numeral_numeric.
-  - apply numeral_numeric.
-Qed.
-
 Lemma multi_succ : forall t u,
   t -->* u -> tm_succ t -->* tm_succ u.
 Proof.
@@ -847,19 +812,6 @@ Proof.
   - eapply multi_step.
     + apply ST_Succ. exact H.
     + exact IHmulti.
-Qed.
-
-Lemma expression_succ : forall t,
-  expression_relation Ty_Nat t ->
-  expression_relation Ty_Nat (tm_succ t).
-Proof.
-  intros t [Hlc [v [Hs [Hv Hnum]]]].
-  split. apply lc_succ. exact Hlc.
-  exists (tm_succ v). split.
-  - apply multi_succ. exact Hs.
-  - simpl. split.
-    + apply v_nat. apply nv_succ. exact Hnum.
-    + apply nv_succ. exact Hnum.
 Qed.
 
 Lemma multi_rec_arg : forall n n' b s,
@@ -895,133 +847,19 @@ Proof.
     + exact IHmulti.
 Qed.
 
-Lemma expression_rec_numeral : forall T n b s,
-  value_relation Ty_Nat n ->
-  value_relation T b ->
-  value_relation (Ty_Arrow Ty_Nat (Ty_Arrow T T)) s ->
-  expression_relation T (tm_natrec n b s).
-Proof.
-  intros T n b s [_ Hnum] Hb Hs.
-  destruct (numeric_numeral n Hnum) as [k ->].
-  clear Hnum.
-  revert T b s Hb Hs.
-  induction k as [|n IH]; intros T b s Hb Hs.
-  - eapply expression_expansion with (u := b).
-    + apply lc_rec.
-      * apply lc_zero.
-      * eapply value_relation_term. exact Hb.
-      * eapply value_relation_term. exact Hs.
-    + eapply multi_step.
-      * apply ST_RecZero; eapply value_relation_value; eassumption.
-      * apply multi_refl.
-    + apply value_is_expression. exact Hb.
-  - eapply expression_expansion with
-      (u := tm_app (tm_app s (numeral n)) (tm_natrec (numeral n) b s)).
-    + apply lc_rec.
-      * apply numeric_value_lc. apply numeral_numeric.
-      * eapply value_relation_term. exact Hb.
-      * eapply value_relation_term. exact Hs.
-    + eapply multi_step.
-      * apply ST_RecSucc.
-        -- apply numeral_numeric.
-        -- eapply value_relation_value. exact Hb.
-        -- eapply value_relation_value. exact Hs.
-      * apply multi_refl.
-    + apply expression_app with (T1 := T).
-      * apply expression_app with (T1 := Ty_Nat).
-        -- apply value_is_expression. exact Hs.
-        -- apply value_is_expression. apply numeral_relation.
-      * apply IH; assumption.
-Qed.
-
-Lemma expression_rec : forall T n b s,
-  expression_relation Ty_Nat n ->
-  expression_relation T b ->
-  expression_relation (Ty_Arrow Ty_Nat (Ty_Arrow T T)) s ->
-  expression_relation T (tm_natrec n b s).
-Proof.
-  intros T n b s [Hn [vn [Hsn [Hvn Hnum]]]]
-    [Hb [vb [Hsb HVb]]] [Hs [vs [Hss HVs]]].
-  eapply expression_expansion with (u := tm_natrec vn vb vs).
-  - apply lc_rec; assumption.
-  - eapply multi_trans.
-    + apply multi_rec_arg; eassumption.
-    + eapply multi_trans.
-      * apply multi_rec_base; eassumption.
-      * apply multi_rec_step.
-        -- exact Hnum.
-        -- eapply value_relation_value. exact HVb.
-        -- exact Hss.
-  - apply expression_rec_numeral.
-    + split; assumption.
-    + exact HVb.
-    + exact HVs.
-Qed.
-
+(* Optional reference theorem statement.
 Theorem fundamental : forall Gamma t T,
   <{ Gamma |-- t \in T }> ->
   forall rho,
     proper_substitution rho ->
     related_substitution Gamma rho ->
     expression_relation T (msubst rho t).
-Proof.
-  intros Gamma t T Htyping.
-  induction Htyping; intros rho Hproper Hrel.
-  - apply value_is_expression.
-    apply Hrel with (x := x). exact H.
-  - assert (Habs_lc : locally_closed (msubst rho (tm_abs T1 t1))).
-    {
-      apply msubst_preserves_term.
-      - exact Hproper.
-      - apply typing_regular with (Gamma := Gamma) (T := Ty_Arrow T1 T2).
-        apply T_Abs with (L := L). exact H.
-    }
-    apply value_is_expression. simpl. split.
-    + apply v_abs. exact Habs_lc.
-    + exists (msubst rho t1). split.
-      * reflexivity.
-      * intros arg HVarg.
-        pose (x := fresh (L ++ free_vars t1)).
-        assert (HxL : ~ In x L).
-        {
-          intro Hin. unfold x in Hin.
-          apply (fresh_notin (L ++ free_vars t1)).
-          apply in_or_app. left. exact Hin.
-        }
-        assert (Hxfv : ~ In x (free_vars t1)).
-        {
-          intro Hin. unfold x in Hin.
-          apply (fresh_notin (L ++ free_vars t1)).
-          apply in_or_app. right. exact Hin.
-        }
-        assert (Harg_lc : locally_closed arg).
-        { eapply value_relation_term. exact HVarg. }
-        specialize (H0 x HxL (subst_update rho x arg)).
-        specialize (H0 (proper_update rho x arg Hproper Harg_lc)).
-        specialize (H0 (related_update Gamma rho x T1 arg Hrel HVarg)).
-        rewrite (msubst_open_update t1 rho x arg Hxfv Hproper Harg_lc) in H0.
-        exact H0.
-  - apply expression_app with (T1 := T1).
-    + apply IHHtyping1; assumption.
-    + apply IHHtyping2; assumption.
-  - apply value_is_expression. simpl. split.
-    + apply v_true.
-    + left. reflexivity.
-  - apply value_is_expression. simpl. split.
-    + apply v_false.
-    + right. reflexivity.
-  - apply value_is_expression. apply (numeral_relation 0).
-  - apply expression_succ. apply IHHtyping; assumption.
-  - apply expression_rec.
-    + apply IHHtyping1; assumption.
-    + apply IHHtyping2; assumption.
-    + apply IHHtyping3; assumption.
-Qed.
+*)
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> -> strongly_normalizing t.
 Proof.
-  (* Complete the proof of normalization. *)
+  (* Complete this proof. *)
 Qed.
 
 End STLCNormalizationRecursionEasyTask.

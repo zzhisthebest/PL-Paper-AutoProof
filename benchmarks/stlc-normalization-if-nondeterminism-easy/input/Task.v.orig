@@ -667,67 +667,6 @@ Proof.
       eapply Hall; eauto.
 Qed.
 
-Lemma strong_expression_app : forall T1 T2 t1 t2,
-  strong_expression_relation (Ty_Arrow T1 T2) t1 ->
-  strong_expression_relation T1 t2 ->
-  strong_expression_relation T2 (tm_app t1 t2).
-Proof.
-  intros T1 T2 t1 t2 HE1 HE2.
-  destruct HE1 as [Hlc1 [Hsn1 Hall1]].
-  revert T1 T2 Hlc1 Hall1 t2 HE2.
-  induction Hsn1 as [t1 Hnext1 IH1].
-  intros T1 T2 Hlc1 Hall1 t2 HE2.
-  destruct HE2 as [Hlc2 [Hsn2 Hall2]].
-  revert Hlc2 Hall2.
-  induction Hsn2 as [t2 Hnext2 IH2].
-  intros Hlc2 Hall2.
-  apply strong_expression_of_reducts.
-  - apply lc_app; assumption.
-  - intro Hvalue. inversion Hvalue.
-  - intros u Hstep.
-    inversion Hstep; subst.
-    + assert (Hrefl1 : tm_abs T t -->* tm_abs T t) by apply multi_refl.
-      assert (Hrefl2 : t2 -->* t2) by apply multi_refl.
-      pose proof
-        (Hall1 (tm_abs T t) Hrefl1 (v_abs T t H1)) as HVfun.
-      pose proof (Hall2 t2 Hrefl2 H3) as HVarg.
-      simpl in HVfun.
-      destruct HVfun as [_ [body [Heq Hbody]]].
-      injection Heq as HeqT Heqbody.
-      subst T. subst body.
-      exact (Hbody t2 HVarg).
-    + apply (IH1 t1' H1 T1 T2).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hmulti Hv.
-        apply Hall1 with (v := v); auto.
-        eapply multi_step; eauto.
-      * split. exact Hlc2.
-        split.
-        -- apply SN_intro. exact Hnext2.
-        -- exact Hall2.
-    + apply (IH2 t2' H3).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hmulti Hv.
-        apply Hall2 with (v := v); auto.
-        eapply multi_step; eauto.
-Qed.
-
-Lemma strong_expression_choice : forall T t1 t2,
-  strong_expression_relation T t1 ->
-  strong_expression_relation T t2 ->
-  strong_expression_relation T (tm_choice t1 t2).
-Proof.
-  intros T t1 t2 HE1 HE2.
-  destruct HE1 as [Hlc1 [Hsn1 Hall1]].
-  destruct HE2 as [Hlc2 [Hsn2 Hall2]].
-  apply strong_expression_of_reducts.
-  - apply lc_choice; assumption.
-  - intro Hvalue. inversion Hvalue.
-  - intros u Hstep. inversion Hstep; subst.
-    + exact (conj Hlc1 (conj Hsn1 Hall1)).
-    + exact (conj Hlc2 (conj Hsn2 Hall2)).
-Qed.
-
 Lemma strong_related_update : forall Gamma rho x T v,
   strong_related_substitution Gamma rho ->
   strong_value_relation T v ->
@@ -764,103 +703,20 @@ Proof.
     + destruct (Hnext y H) as [_ [_ Hall]]. eapply Hall; eauto.
 Qed.
 
-Lemma strong_expression_if : forall T t1 t2 t3,
-  strong_expression_relation Ty_Bool t1 ->
-  strong_expression_relation T t2 ->
-  strong_expression_relation T t3 ->
-  strong_expression_relation T (tm_if t1 t2 t3).
-Proof.
-  intros T t1 t2 t3 [Hlc [Hsn Hall]] H2 H3.
-  revert Hlc Hall. induction Hsn as [t1 Hnext IH]. intros Hlc Hall.
-  apply strong_expression_of_reducts.
-  - apply lc_if.
-    + exact Hlc.
-    + exact (proj1 H2).
-    + exact (proj1 H3).
-  - intro Hv. inversion Hv.
-  - intros u Hstep. inversion Hstep; subst.
-    + exact H2.
-    + exact H3.
-    + apply (IH t1' H4).
-      * eapply step_preserves_lc; eauto.
-      * intros v Hsteps Hv. apply Hall with (v := v); auto.
-        eapply multi_step; eauto.
-Qed.
-
+(* Optional reference theorem statement.
 Theorem strong_fundamental : forall Gamma t T,
   <{ Gamma |-- t \in T }> ->
   forall rho,
     proper_substitution rho ->
     strong_related_substitution Gamma rho ->
     strong_expression_relation T (msubst rho t).
-Proof.
-  intros Gamma t T Htyping.
-  induction Htyping; intros rho Hproper Hrel.
-  - simpl. apply strong_value_is_expression.
-    apply Hrel with (x := x). exact H.
-  - assert (Habs_lc : locally_closed (msubst rho (tm_abs T1 t1))).
-    {
-      apply msubst_preserves_term.
-      - exact Hproper.
-      - apply typing_regular with
-          (Gamma := Gamma) (T := Ty_Arrow T1 T2).
-        apply T_Abs with (L := L). exact H.
-    }
-    apply strong_value_is_expression.
-    simpl. split.
-    + apply v_abs. exact Habs_lc.
-    + exists (msubst rho t1). split.
-      * reflexivity.
-      * intros arg HVarg.
-        pose (x := fresh (L ++ free_vars t1)).
-        assert (HxL : ~ In x L).
-        {
-          intro Hin. unfold x in Hin.
-          apply (fresh_notin (L ++ free_vars t1)).
-          apply in_or_app. left. exact Hin.
-        }
-        assert (Hxfv : ~ In x (free_vars t1)).
-        {
-          intro Hin. unfold x in Hin.
-          apply (fresh_notin (L ++ free_vars t1)).
-          apply in_or_app. right. exact Hin.
-        }
-        specialize (H0 x HxL (subst_update rho x arg)).
-        assert (Harg_lc : locally_closed arg).
-        {
-          eapply strong_value_relation_lc. exact HVarg.
-        }
-        specialize (H0 (proper_update rho x arg Hproper Harg_lc)).
-        specialize
-          (H0 (strong_related_update Gamma rho x T1 arg Hrel HVarg)).
-        rewrite
-          (msubst_open_update t1 rho x arg Hxfv Hproper Harg_lc) in H0.
-        exact H0.
-  - apply strong_expression_app with (T1 := T1).
-    + apply IHHtyping1; assumption.
-    + apply IHHtyping2; assumption.
-  - apply strong_value_is_expression.
-    simpl. split.
-    + apply v_true.
-    + left. reflexivity.
-  - apply strong_value_is_expression.
-    simpl. split.
-    + apply v_false.
-    + right. reflexivity.
-  - apply strong_expression_if.
-    + apply IHHtyping1; assumption.
-    + apply IHHtyping2; assumption.
-    + apply IHHtyping3; assumption.
-  - apply strong_expression_choice.
-    + apply IHHtyping1; assumption.
-    + apply IHHtyping2; assumption.
-Qed.
+*)
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->
   strongly_normalizing t.
 Proof.
-  (* Complete the proof of normalization. *)
+  (* Complete this proof. *)
 Qed.
 
 End STLCNormalizationIfNondeterminismEasyTask.

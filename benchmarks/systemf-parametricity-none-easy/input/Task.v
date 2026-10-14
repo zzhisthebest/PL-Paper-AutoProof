@@ -322,7 +322,6 @@ Inductive multi : tm -> tm -> Prop :=
   | multi_step : forall x y z, x --> y -> multi y z -> multi x z.
 Notation "t '-->*' u" := (multi t u) (at level 40).
 
-
 Hint Constructors lc_ty_at lc_tm_at value : core.
 
 Fixpoint fv_ty (T : ty) : list atom :=
@@ -1178,37 +1177,6 @@ Proof.
   exists v, w. repeat split; eauto using EvalValue.
 Qed.
 
-Lemma expression_app : forall eta rho A B f1 f2 t1 t2,
-  expression_relation eta rho (Ty_Arrow A B) f1 f2 ->
-  expression_relation eta rho A t1 t2 ->
-  expression_relation eta rho B (tm_app f1 t1) (tm_app f2 t2).
-Proof.
-  intros eta rho A B f1 f2 t1 t2
-    [Hf1 [Hf2 [vf1 [vf2 [Ef1 [Ef2 HRf]]]]]]
-    [Ht1 [Ht2 [va1 [va2 [Ea1 [Ea2 HRa]]]]]].
-  split. apply lc_tm_app; assumption.
-  split. apply lc_tm_app; assumption.
-  destruct HRf as [_ [_ [U1 [body1 [U2 [body2 [E1 [E2 Hmap]]]]]]]].
-  subst vf1 vf2.
-  destruct (Hmap va1 va2 HRa) as [_ [_ [v1 [v2 [Ebody1 [Ebody2 HR]]]]]].
-  exists v1, v2. repeat split; eauto using EvalApp.
-Qed.
-
-Lemma expression_tapp : forall eta rho T t1 t2 U1 U2 a,
-  expression_relation eta rho (Ty_All T) t1 t2 ->
-  locally_closed_ty U1 -> locally_closed_ty U2 ->
-  expression_relation (a :: eta) rho T (tm_tapp t1 U1) (tm_tapp t2 U2).
-Proof.
-  intros eta rho T t1 t2 U1 U2 a
-    [H1 [H2 [v1 [v2 [E1 [E2 HR]]]]]] HU1 HU2.
-  split. apply lc_tm_tapp; assumption.
-  split. apply lc_tm_tapp; assumption.
-  destruct HR as [_ [_ [body1 [body2 [Ev1 [Ev2 Hmap]]]]]].
-  subst v1 v2.
-  destruct (Hmap U1 U2 a HU1 HU2) as [_ [_ [w1 [w2 [Ebody1 [Ebody2 HR]]]]]].
-  exists w1, w2. repeat split; eauto using EvalTApp.
-Qed.
-
 Definition related_substitutions (rho : binary_env) (Gamma : context)
     (gamma1 gamma2 : term_substitution) : Prop :=
   forall x T, lookup_context x Gamma = Some T ->
@@ -1240,6 +1208,7 @@ Proof.
   apply Hrel. exact Hlookup.
 Qed.
 
+(* Optional reference theorem statement.
 Theorem binary_fundamental : forall Delta Gamma t T,
   has_type Delta Gamma t T ->
   forall theta1 theta2 rho gamma1 gamma2,
@@ -1248,93 +1217,7 @@ Theorem binary_fundamental : forall Delta Gamma t T,
     related_substitutions rho Gamma gamma1 gamma2 ->
     expression_relation [] rho T
       (instantiate theta1 gamma1 t) (instantiate theta2 gamma2 t).
-Proof.
-  intros Delta Gamma t T Hty.
-  induction Hty as
-      [Delta Gamma x T Hlookup Hwf
-      | L Delta Gamma T1 body T2 Hwf Hbody IHbody
-      | Delta Gamma t1 t2 T1 T2 Ht1 IHt1 Ht2 IHt2
-      | L Delta Gamma body T Hbody IHbody
-      | Delta Gamma t T U Ht IHt HU];
-    intros theta1 theta2 rho gamma1 gamma2 Htheta1 Htheta2 Hgamma1 Hgamma2 Hterms.
-  - apply value_is_expression. apply Hterms. exact Hlookup.
-  - assert (Hwhole : has_type Delta Gamma (tm_abs T1 body) (Ty_Arrow T1 T2)).
-    { eapply T_Abs; eauto. }
-    assert (Hlc1 : locally_closed_tm (instantiate theta1 gamma1 (tm_abs T1 body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    assert (Hlc2 : locally_closed_tm (instantiate theta2 gamma2 (tm_abs T1 body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply value_is_expression. cbn [value_relation instantiate].
-    split. apply v_abs. exact Hlc1.
-    split. apply v_abs. exact Hlc2.
-    exists (instantiate_ty theta1 T1), (instantiate theta1 gamma1 body),
-      (instantiate_ty theta2 T1), (instantiate theta2 gamma2 body).
-    split. reflexivity. split. reflexivity. intros arg1 arg2 Harg.
-    destruct (value_relation_values _ _ _ _ _ Harg) as [Hv1 Hv2].
-    pose proof (value_regular _ Hv1) as Ha1.
-    pose proof (value_regular _ Hv2) as Ha2.
-    set (x := fresh (L ++ fv_tm body)).
-    assert (Hxall : ~ In x (L ++ fv_tm body)) by (subst x; apply fresh_notin).
-    rewrite in_app_iff in Hxall.
-    assert (HxL : ~ In x L) by tauto.
-    assert (Hxb : ~ In x (fv_tm body)) by tauto.
-    pose proof (IHbody x HxL theta1 theta2 rho
-      (term_subst_update gamma1 x arg1) (term_subst_update gamma2 x arg2)
-      Htheta1 Htheta2
-      (term_subst_update_closed _ _ _ Hgamma1 Ha1)
-      (term_subst_update_closed _ _ _ Hgamma2 Ha2)
-      (related_substitutions_update _ _ _ _ _ _ _ _ Hterms Harg)) as IH.
-    rewrite (instantiate_open_tm body theta1 gamma1 x arg1 Hxb Htheta1 Hgamma1 Ha1),
-      (instantiate_open_tm body theta2 gamma2 x arg2 Hxb Htheta2 Hgamma2 Ha2) in IH.
-    exact IH.
-  - apply expression_app with (A := T1); [apply IHt1|apply IHt2]; assumption.
-  - assert (Hwhole : has_type Delta Gamma (tm_tabs body) (Ty_All T)).
-    { eapply T_TAbs; eauto. }
-    assert (Hlc1 : locally_closed_tm (instantiate theta1 gamma1 (tm_tabs body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    assert (Hlc2 : locally_closed_tm (instantiate theta2 gamma2 (tm_tabs body))).
-    { apply instantiate_closed; try assumption. eapply typing_lc; eauto. }
-    apply value_is_expression. cbn [value_relation instantiate].
-    split. apply v_tabs. exact Hlc1.
-    split. apply v_tabs. exact Hlc2.
-    exists (instantiate theta1 gamma1 body), (instantiate theta2 gamma2 body).
-    split. reflexivity. split. reflexivity. intros U1 U2 a HU1 HU2.
-    set (X := fresh (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma)).
-    assert (HXall : ~ In X (L ++ fv_ty T ++ ftv_tm body ++ ftv_context Gamma))
-      by (subst X; apply fresh_notin).
-    repeat rewrite in_app_iff in HXall.
-    assert (HXL : ~ In X L) by tauto.
-    assert (HXT : ~ In X (fv_ty T)) by tauto.
-    assert (HXb : ~ In X (ftv_tm body)) by tauto.
-    assert (HXG : ~ In X (ftv_context Gamma)) by tauto.
-    pose proof (IHbody X HXL
-      (type_subst_update theta1 X U1) (type_subst_update theta2 X U2)
-      (relation_update rho X a) gamma1 gamma2
-      (type_subst_update_closed _ _ _ Htheta1 HU1)
-      (type_subst_update_closed _ _ _ Htheta2 HU2) Hgamma1 Hgamma2
-      (related_substitutions_relation_update _ _ _ _ _ _ Hterms HXG)) as IH.
-    rewrite (instantiate_open_ty body theta1 gamma1 X U1 HXb Htheta1 Hgamma1 HU1),
-      (instantiate_open_ty body theta2 gamma2 X U2 HXb Htheta2 Hgamma2 HU2) in IH.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Hwhole) as HH. inversion HH; assumption. }
-    apply (proj2 (expression_lifting_equiv _ _
-      (value_relation_open_relation T 0 [] rho X a eq_refl HTlc HXT) _ _)). exact IH.
-  - cbn [instantiate].
-    pose proof (IHt theta1 theta2 rho gamma1 gamma2
-      Htheta1 Htheta2 Hgamma1 Hgamma2 Hterms) as HE.
-    assert (HUlc : locally_closed_ty U) by (eapply wf_ty_lc; eauto).
-    assert (HU1 : locally_closed_ty (instantiate_ty theta1 U)).
-    { apply instantiate_ty_closed; assumption. }
-    assert (HU2 : locally_closed_ty (instantiate_ty theta2 U)).
-    { apply instantiate_ty_closed; assumption. }
-    pose proof (expression_tapp [] rho T _ _ _ _
-      (interpreted_candidate [] rho U) HE HU1 HU2) as Hout.
-    assert (HTlc : lc_ty_at 1 T).
-    { pose proof (typing_type_lc _ _ _ _ Ht) as HH. inversion HH; assumption. }
-    apply (proj1 (expression_lifting_equiv _ _
-      (value_relation_open_type T 0 [] rho U eq_refl HTlc HUlc) _ _)). exact Hout.
-
-Qed.
+*)
 
 Theorem polymorphic_identity_theorem_for_free : forall t,
   has_type [] empty t
@@ -1345,7 +1228,7 @@ Theorem polymorphic_identity_theorem_for_free : forall t,
     has_type [] empty v U ->
     tm_app (tm_tapp t U) v -->* v.
 Proof.
-  (* Complete the proof of the free theorem. *)
+  (* Complete this proof. *)
 Qed.
 
 End SystemFParametricityNoneEasyTask.

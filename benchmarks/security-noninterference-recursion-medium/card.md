@@ -8,8 +8,6 @@ The base language is a locally nameless, recursion-free fragment of the SLam cal
 
 The feature configuration adds security-labeled natural numbers, successor, and System T-style natural-number recursion. The recursion count is evaluated at runtime; each step receives the predecessor and the previous result. The result is protected by the count's indirect-reader level.
 
-The file additionally supplies the logical relation formed by `value_relation` and `expression_relation`, together with its direct dependencies.
-
 ## Target Theorem
 
 ```coq
@@ -29,4 +27,11 @@ Two closed terms of the same secret type are placed in the same typed program co
 
 ## Expected Output
 
-Complete `Task.v`: use the supplied logical relation to formulate and prove its fundamental theorem, and prove the target theorem. The completed file must compile with Rocq and must not use `Admitted`, added axioms, unsafe flags, or changes to the supplied language definitions and theorem statements.
+The input includes proved local helpers for fresh names, context lookup,
+local closure, values, and basic reduction composition where applicable.
+Design a logical relation and its context interpretation, and formulate
+and prove the fundamental theorem needed for the target.
+
+Prove `noninterference` in `Task.v`. You may add definitions and helper lemmas.
+Keep the supplied definitions, proved lemmas, and target statement unchanged.
+The final file must compile without Admitted, added axioms, or unsafe flags.

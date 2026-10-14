@@ -5,13 +5,13 @@ cd /data0/zzh/PL-Paper-AutoProof
 
 BACKEND="${BACKEND:-codex}"
 if [[ "$BACKEND" == "qwen" ]]; then
-  TAG="${TAG:-qwen38_27b_high}"
+  TAG="${TAG:-qwen38_27b_high_difficulty_v4_full_r1}"
   MODEL="${MODEL:-qwen3.8-27b-local}"
   PARALLEL="${PARALLEL:-6}"
 else
-  TAG="${TAG:-gpt6sol_high}"
-  MODEL="${MODEL:-gpt-6-sol}"
-  PARALLEL="${PARALLEL:-72}"
+  TAG="${TAG:-gpt6luna_high_difficulty_v4_full_r1}"
+  MODEL="${MODEL:-gpt-6-luna}"
+  PARALLEL="${PARALLEL:-100}"
 fi
 REASONING_EFFORT="${REASONING_EFFORT:-high}"
 TIMEOUT="${TIMEOUT:-3600}"
@@ -40,13 +40,13 @@ BENCHMARKS=()
 for card in benchmarks/*/card.md; do
   benchmark="${card#benchmarks/}"
   benchmark="${benchmark%/card.md}"
-  if [[ "$benchmark" == *-medium || "$benchmark" == *-hard ]]; then
+  if [[ "$benchmark" == *-easy || "$benchmark" == *-medium || "$benchmark" == *-hard ]]; then
     BENCHMARKS+=("$benchmark")
   fi
 done
 
-if (( ${#BENCHMARKS[@]} != 72 )); then
-  echo "Expected 72 Medium/Hard cases, found ${#BENCHMARKS[@]}." >&2
+if (( ${#BENCHMARKS[@]} != 108 )); then
+  echo "Expected 108 Hard/Medium/Easy cases, found ${#BENCHMARKS[@]}." >&2
   exit 1
 fi
 
@@ -62,6 +62,7 @@ echo "Running ${#BENCHMARKS[@]} cases with parallelism $PARALLEL."
 echo "Backend: $BACKEND"
 echo "Model: $MODEL ($REASONING_EFFORT)"
 echo "Tag:   $TAG"
+echo "Budget: ${TIMEOUT}s per case, shared across continuation turns."
 
 export TAG MODEL REASONING_EFFORT TIMEOUT BACKEND QWEN_START_PORT
 
@@ -69,9 +70,6 @@ printf '%s\0' "${BENCHMARKS[@]}" | xargs -0 -n 1 -P "$PARALLEL" \
   --process-slot-var=WORKER_SLOT bash -c '
   benchmark="$1"
   extra_args=()
-  if [[ "$benchmark" == *-hard ]]; then
-    extra_args+=(--lr-first)
-  fi
   if [[ "$BACKEND" == "qwen" ]]; then
     port=$((QWEN_START_PORT + WORKER_SLOT))
     extra_args+=(--local-base-url "http://127.0.0.1:$port/v1")
@@ -82,5 +80,6 @@ printf '%s\0' "${BENCHMARKS[@]}" | xargs -0 -n 1 -P "$PARALLEL" \
     --model "$MODEL" \
     --reasoning-effort "$REASONING_EFFORT" \
     --timeout "$TIMEOUT" \
+    --lr-first --reject-admits \
     "${extra_args[@]}"
 ' _

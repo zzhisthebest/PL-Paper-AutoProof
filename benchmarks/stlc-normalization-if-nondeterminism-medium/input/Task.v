@@ -1,10 +1,10 @@
-(** STLC CBV strong-normalization benchmark, Medium variant.
+(** STLC CBV strong-normalization benchmark, Easy variant.
     Features: if-nondeterminism. *)
 
 From Stdlib Require Import Arith.PeanoNat Lists.List Relations.Relation_Definitions Lia.
 Import ListNotations.
 
-Module STLCNormalizationIfNondeterminismMediumTask.
+Module STLCNormalizationIfNondeterminismEasyTask.
 
 Inductive multi {X : Type} (R : relation X) : relation X :=
   | multi_refl : forall (x : X), multi R x x
@@ -260,43 +260,201 @@ Fixpoint msubst (rho : term_substitution) (t : tm) : tm :=
 Definition proper_substitution (rho : term_substitution) : Prop :=
   forall x, locally_closed (rho x).
 
-Fixpoint strong_value_relation (T : ty) (v : tm) : Prop :=
-  value v /\
-  match T with
-  | Ty_Bool =>
-      v = tm_true \/ v = tm_false
-  | Ty_Arrow T1 T2 =>
-      exists body,
-        v = tm_abs T1 body /\
-        forall arg,
-          strong_value_relation T1 arg ->
-          locally_closed (open body arg) /\
-          strongly_normalizing (open body arg) /\
-          forall result,
-            open body arg -->* result ->
-            value result ->
-            strong_value_relation T2 result
+Fixpoint free_vars (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_app t1 t2 => free_vars t1 ++ free_vars t2
+  | tm_abs _ t1 => free_vars t1
+  | tm_true => []
+  | tm_false => []
+  | tm_if t1 t2 t3 => free_vars t1 ++ free_vars t2 ++ free_vars t3
+  | tm_choice t1 t2 => free_vars t1 ++ free_vars t2
   end.
 
-Definition strong_expression_relation (T : ty) (t : tm) : Prop :=
-  locally_closed t /\
-  strongly_normalizing t /\
-  forall v,
-    t -->* v ->
-    value v ->
-    strong_value_relation T v.
+Lemma update_eq : forall Gamma x T,
+  update Gamma x T x = Some T.
+Proof.
+  intros. unfold update. rewrite Nat.eqb_refl. reflexivity.
+Qed.
 
-Definition strong_related_substitution
-    (Gamma : context) (rho : term_substitution) : Prop :=
-  forall x T,
-    Gamma x = Some T ->
-    strong_value_relation T (rho x).
+Lemma update_neq : forall Gamma x y T,
+  x <> y ->
+  update Gamma x T y = Gamma y.
+Proof.
+  intros. unfold update.
+  destruct (Nat.eqb x y) eqn:Heq.
+  - apply Nat.eqb_eq in Heq. contradiction.
+  - reflexivity.
+Qed.
+
+Fixpoint max_atom (L : list atom) : atom :=
+  match L with
+  | [] => 0
+  | x :: L' => Nat.max x (max_atom L')
+  end.
+
+Definition fresh (L : list atom) : atom := S (max_atom L).
+
+Lemma in_le_max_atom : forall x L,
+  In x L -> x <= max_atom L.
+Proof.
+  induction L; simpl; intros.
+  - contradiction.
+  - destruct H as [H | H].
+    + subst. lia.
+    + specialize (IHL H). lia.
+Qed.
+
+Lemma fresh_notin : forall L,
+  ~ In (fresh L) L.
+Proof.
+  unfold fresh. intros L H.
+  pose proof (in_le_max_atom _ _ H). lia.
+Qed.
+
+Lemma lc_at_weaken : forall k j t,
+  lc_at k t ->
+  k <= j ->
+  lc_at j t.
+Proof.
+  intros k j t H.
+  generalize dependent j.
+  induction H; intros j Hle; eauto using lc_at.
+  - apply lc_bvar. lia.
+  - apply lc_abs. apply IHlc_at. lia.
+Qed.
+
+Lemma term_lc_at : forall k t,
+  locally_closed t ->
+  lc_at k t.
+Proof.
+  unfold locally_closed. intros. eapply lc_at_weaken; eauto. lia.
+Qed.
+
+Lemma value_regular : forall v,
+  value v -> locally_closed v.
+Proof.
+  intros v H. destruct H.
+  - assumption.
+  - apply lc_true.
+  - apply lc_false.
+Qed.
+
+Lemma open_rec_preserves_lc_at : forall t k u,
+  lc_at (S k) t ->
+  locally_closed u ->
+  lc_at k (open_rec k u t).
+Proof.
+  induction t; intros k u Hlc Hu; simpl in *; inversion Hlc; subst; eauto using lc_at.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply term_lc_at. exact Hu.
+    + apply Nat.eqb_neq in Heq. apply lc_bvar. lia.
+Qed.
+
+Lemma open_preserves_term : forall t u,
+  lc_at 1 t ->
+  locally_closed u ->
+  locally_closed (open t u).
+Proof.
+  unfold open, locally_closed. intros.
+  apply open_rec_preserves_lc_at; assumption.
+Qed.
+
+Lemma lc_at_open_inv : forall t k u,
+  lc_at k (open_rec k u t) ->
+  lc_at (S k) t.
+Proof.
+  induction t; intros k u Hlc; simpl in *.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. subst. apply lc_bvar. lia.
+    + inversion Hlc; subst. apply lc_bvar. lia.
+  - apply lc_fvar.
+  - inversion Hlc; subst. eauto using lc_at.
+  - inversion Hlc; subst. apply lc_abs. apply (IHt (S k) u). assumption.
+  - apply lc_true.
+  - apply lc_false.
+  - inversion Hlc; subst. eauto using lc_at.
+  - inversion Hlc; subst. eauto using lc_at.
+Qed.
+
+Lemma value_no_step : forall v,
+  value v -> forall t, ~ (v --> t).
+Proof.
+  intros v Hv t Hs. destruct Hv; inversion Hs.
+Qed.
+
+Lemma open_rec_lc_at : forall k t j u,
+  lc_at k t ->
+  k <= j ->
+  open_rec j u t = t.
+Proof.
+  intros k t j u Hlc.
+  generalize dependent j.
+  induction Hlc; intros j Hle; simpl.
+  - destruct (Nat.eqb j i) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. lia.
+    + reflexivity.
+  - reflexivity.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
+    reflexivity.
+  - rewrite IHHlc by lia. reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - rewrite IHHlc1, IHHlc2, IHHlc3 by assumption. reflexivity.
+  - rewrite IHHlc1, IHHlc2 by assumption. reflexivity.
+Qed.
+
+Lemma open_rec_term : forall t j u,
+  locally_closed t ->
+  open_rec j u t = t.
+Proof.
+  unfold locally_closed. intros.
+  eapply open_rec_lc_at; eauto. lia.
+Qed.
+
+Lemma proper_update : forall rho x v,
+  proper_substitution rho ->
+  locally_closed v ->
+  proper_substitution (subst_update rho x v).
+Proof.
+  unfold proper_substitution, subst_update.
+  intros rho x v Hproper Hv y.
+  destruct (Nat.eqb x y); auto.
+Qed.
+
+Lemma notin_app_split : forall (x : atom) L1 L2,
+  ~ In x (L1 ++ L2) ->
+  ~ In x L1 /\ ~ In x L2.
+Proof.
+  intros x L1 L2 H.
+  split; intro Hin; apply H; apply in_app_iff; auto.
+Qed.
+
+Lemma id_substitution_proper :
+  proper_substitution id_substitution.
+Proof.
+  unfold proper_substitution, id_substitution, locally_closed.
+  intros. apply lc_fvar.
+Qed.
+
+Lemma value_multi_eq : forall v t,
+  value v ->
+  v -->* t ->
+  t = v.
+Proof.
+  intros v t Hv Hmulti.
+  inversion Hmulti; subst.
+  - reflexivity.
+  - exfalso. eapply value_no_step; eauto.
+Qed.
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->
   strongly_normalizing t.
 Proof.
-  (* Complete the proof of normalization. *)
+  (* Complete this proof. *)
 Qed.
 
-End STLCNormalizationIfNondeterminismMediumTask.
+End STLCNormalizationIfNondeterminismEasyTask.

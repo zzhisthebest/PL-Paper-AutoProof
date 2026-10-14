@@ -1,10 +1,10 @@
-(** STLC call-by-value strong-normalization benchmark, Medium variant.
+(** STLC call-by-value strong-normalization benchmark, Easy variant.
     System T-style natural-number recursion; no if-then-else or choice. *)
 
 From Stdlib Require Import Arith.PeanoNat Lists.List Relations.Relation_Definitions Lia.
 Import ListNotations.
 
-Module STLCNormalizationRecursionMediumTask.
+Module STLCNormalizationRecursionEasyTask.
 
 Inductive multi {X : Type} (R : relation X) : relation X :=
   | multi_refl : forall (x : X), multi R x x
@@ -102,7 +102,6 @@ Fixpoint open_rec (k : nat) (u : tm) (t : tm) : tm :=
 
 Definition open (t u : tm) : tm := open_rec 0 u t.
 
-
 Inductive lc_at : nat -> tm -> Prop :=
   | lc_bvar : forall k i,
       i < k ->
@@ -133,7 +132,6 @@ Hint Constructors lc_at : core.
 Inductive numeric_value : tm -> Prop :=
   | nv_zero : numeric_value tm_zero
   | nv_succ : forall (t : tm), numeric_value t -> numeric_value (tm_succ t).
-
 
 Inductive value : tm -> Prop :=
   | v_abs : forall T t,
@@ -210,7 +208,6 @@ Notation "x '|->' v" := (update empty x v)
 Notation "'empty'" := empty
   (in custom stlc_tm) : stlc_scope.
 
-
 Reserved Notation "<{ Gamma '|--' t '\in' T }>"
   (at level 0,
    Gamma custom stlc_tm at level 200,
@@ -278,37 +275,311 @@ Fixpoint msubst (rho : term_substitution) (t : tm) : tm :=
 Definition proper_substitution (rho : term_substitution) : Prop :=
   forall x, locally_closed (rho x).
 
-Fixpoint value_relation (T : ty) (v : tm) : Prop :=
-  value v /\
-  match T with
-  | Ty_Nat => numeric_value v
-  | Ty_Bool =>
-      v = tm_true \/ v = tm_false
-  | Ty_Arrow T1 T2 =>
-      exists body,
-        v = tm_abs T1 body /\
-        forall arg,
-          value_relation T1 arg ->
-          locally_closed (open body arg) /\
-          exists v',
-            open body arg -->* v' /\
-            value_relation T2 v'
+Fixpoint free_vars (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_app t1 t2 => free_vars t1 ++ free_vars t2
+  | tm_abs _ t1 => free_vars t1
+  | tm_true => []
+  | tm_false => []
+  | tm_zero => []
+  | tm_succ t1 => free_vars t1
+  | tm_natrec n b s => free_vars n ++ free_vars b ++ free_vars s
   end.
 
-Definition expression_relation (T : ty) (t : tm) : Prop :=
-  locally_closed t /\
-  exists v,
-    t -->* v /\
-    value_relation T v.
+Fixpoint numeral (n : nat) : tm :=
+  match n with
+  | O => tm_zero
+  | S m => tm_succ (numeral m)
+  end.
 
-Definition related_substitution
-    (Gamma : context) (rho : term_substitution) : Prop :=
-  forall x T, Gamma x = Some T -> value_relation T (rho x).
+Lemma update_eq : forall Gamma x T,
+  update Gamma x T x = Some T.
+Proof.
+  intros. unfold update. rewrite Nat.eqb_refl. reflexivity.
+Qed.
+
+Lemma update_neq : forall Gamma x y T,
+  x <> y ->
+  update Gamma x T y = Gamma y.
+Proof.
+  intros. unfold update.
+  destruct (Nat.eqb x y) eqn:Heq.
+  - apply Nat.eqb_eq in Heq. contradiction.
+  - reflexivity.
+Qed.
+
+Fixpoint max_atom (L : list atom) : atom :=
+  match L with
+  | [] => 0
+  | x :: L' => Nat.max x (max_atom L')
+  end.
+
+Definition fresh (L : list atom) : atom := S (max_atom L).
+
+Lemma in_le_max_atom : forall x L,
+  In x L -> x <= max_atom L.
+Proof.
+  induction L; simpl; intros.
+  - contradiction.
+  - destruct H as [H | H].
+    + subst. lia.
+    + specialize (IHL H). lia.
+Qed.
+
+Lemma fresh_notin : forall L,
+  ~ In (fresh L) L.
+Proof.
+  unfold fresh. intros L H.
+  pose proof (in_le_max_atom _ _ H). lia.
+Qed.
+
+Lemma lc_at_weaken : forall k j t,
+  lc_at k t ->
+  k <= j ->
+  lc_at j t.
+Proof.
+  intros k j t H.
+  generalize dependent j.
+  induction H; intros j Hle; eauto using lc_at.
+  - apply lc_bvar. lia.
+  - apply lc_abs. apply IHlc_at. lia.
+Qed.
+
+Lemma term_lc_at : forall k t,
+  locally_closed t ->
+  lc_at k t.
+Proof.
+  unfold locally_closed. intros. eapply lc_at_weaken; eauto. lia.
+Qed.
+
+Lemma numeric_value_lc : forall n,
+  numeric_value n -> locally_closed n.
+Proof.
+  intros n H. induction H; constructor; assumption.
+Qed.
+
+Lemma value_regular : forall v,
+  value v -> locally_closed v.
+Proof.
+  intros v H. destruct H.
+  - assumption.
+  - apply lc_true.
+  - apply lc_false.
+  - apply numeric_value_lc. assumption.
+Qed.
+
+Lemma numeral_numeric : forall n, numeric_value (numeral n).
+Proof.
+  induction n; simpl; constructor; assumption.
+Qed.
+
+Lemma numeric_numeral : forall t,
+  numeric_value t -> exists n : nat, t = numeral n.
+Proof.
+  intros t H. induction H.
+  - exists 0. reflexivity.
+  - destruct IHnumeric_value as [m ->]. exists (S m). reflexivity.
+Qed.
+
+Lemma open_rec_preserves_lc_at : forall t k u,
+  lc_at (S k) t ->
+  locally_closed u ->
+  lc_at k (open_rec k u t).
+Proof.
+  induction t; intros k u Hlc Hu; simpl in *; inversion Hlc; subst; eauto using lc_at.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply term_lc_at. exact Hu.
+    + apply Nat.eqb_neq in Heq. apply lc_bvar. lia.
+Qed.
+
+Lemma open_preserves_term : forall t u,
+  lc_at 1 t ->
+  locally_closed u ->
+  locally_closed (open t u).
+Proof.
+  unfold open, locally_closed. intros.
+  apply open_rec_preserves_lc_at; assumption.
+Qed.
+
+Lemma lc_at_open_inv : forall t k u,
+  lc_at k (open_rec k u t) ->
+  lc_at (S k) t.
+Proof.
+  induction t; intros k u Hlc; simpl in *.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. subst. apply lc_bvar. lia.
+    + inversion Hlc; subst. apply lc_bvar. lia.
+  - apply lc_fvar.
+  - inversion Hlc; subst. eauto using lc_at.
+  - inversion Hlc; subst. apply lc_abs. apply (IHt (S k) u). assumption.
+  - apply lc_true.
+  - apply lc_false.
+  - apply lc_zero.
+  - inversion Hlc; subst. eauto using lc_at.
+  - inversion Hlc; subst. eauto using lc_at.
+Qed.
+
+Lemma numeric_no_step : forall n,
+  numeric_value n -> forall t, ~ (n --> t).
+Proof.
+  intros n Hn. induction Hn; intros u Hs; inversion Hs; subst.
+  eapply IHHn. eassumption.
+Qed.
+
+Lemma value_no_step : forall v,
+  value v -> forall t, ~ (v --> t).
+Proof.
+  intros v Hv t Hs. destruct Hv; try solve [inversion Hs].
+  eapply numeric_no_step; eauto.
+Qed.
+
+Lemma open_rec_lc_at : forall k t j u,
+  lc_at k t ->
+  k <= j ->
+  open_rec j u t = t.
+Proof.
+  intros k t j u Hlc.
+  generalize dependent j.
+  induction Hlc; intros j Hle; simpl.
+  - destruct (Nat.eqb j i) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. lia.
+    + reflexivity.
+  - reflexivity.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
+    reflexivity.
+  - rewrite IHHlc by lia. reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - rewrite IHHlc by assumption. reflexivity.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
+    rewrite IHHlc3 by assumption. reflexivity.
+Qed.
+
+Lemma open_rec_term : forall t j u,
+  locally_closed t ->
+  open_rec j u t = t.
+Proof.
+  unfold locally_closed. intros.
+  eapply open_rec_lc_at; eauto. lia.
+Qed.
+
+Lemma proper_update : forall rho x v,
+  proper_substitution rho ->
+  locally_closed v ->
+  proper_substitution (subst_update rho x v).
+Proof.
+  unfold proper_substitution, subst_update.
+  intros rho x v Hproper Hv y.
+  destruct (Nat.eqb x y); auto.
+Qed.
+
+Lemma notin_app_split : forall (x : atom) L1 L2,
+  ~ In x (L1 ++ L2) ->
+  ~ In x L1 /\ ~ In x L2.
+Proof.
+  intros x L1 L2 H.
+  split; intro Hin; apply H; apply in_app_iff; auto.
+Qed.
+
+Lemma id_substitution_proper :
+  proper_substitution id_substitution.
+Proof.
+  unfold proper_substitution, id_substitution, locally_closed.
+  intros. apply lc_fvar.
+Qed.
+
+Definition halts (t : tm) : Prop :=
+  exists v, t -->* v /\ value v.
+
+Lemma multi_trans : forall t u v,
+  t -->* u ->
+  u -->* v ->
+  t -->* v.
+Proof.
+  intros t u v Htu Huv.
+  induction Htu.
+  - exact Huv.
+  - eapply multi_step; eauto.
+Qed.
+
+Lemma multi_app1 : forall t1 t1' t2,
+  t1 -->* t1' ->
+  locally_closed t2 ->
+  tm_app t1 t2 -->* tm_app t1' t2.
+Proof.
+  intros t1 t1' t2 Hs Ht2.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_App1; eauto.
+    + exact IHHs.
+Qed.
+
+Lemma multi_app2 : forall v1 t2 t2',
+  value v1 ->
+  t2 -->* t2' ->
+  tm_app v1 t2 -->* tm_app v1 t2'.
+Proof.
+  intros v1 t2 t2' Hv Hs.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_App2; eauto.
+    + exact IHHs.
+Qed.
+
+Lemma multi_succ : forall t u,
+  t -->* u -> tm_succ t -->* tm_succ u.
+Proof.
+  intros t u H. induction H.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_Succ. exact H.
+    + exact IHmulti.
+Qed.
+
+Lemma multi_rec_arg : forall n n' b s,
+  n -->* n' -> locally_closed b -> locally_closed s ->
+  tm_natrec n b s -->* tm_natrec n' b s.
+Proof.
+  intros n n' b s H Hb Hs. induction H.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_RecArg; eassumption.
+    + exact IHmulti.
+Qed.
+
+Lemma multi_rec_base : forall n b b' s,
+  numeric_value n -> b -->* b' -> locally_closed s ->
+  tm_natrec n b s -->* tm_natrec n b' s.
+Proof.
+  intros n b b' s Hn H Hs. induction H.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_RecBase; eassumption.
+    + exact IHmulti.
+Qed.
+
+Lemma multi_rec_step : forall n b s s',
+  numeric_value n -> value b -> s -->* s' ->
+  tm_natrec n b s -->* tm_natrec n b s'.
+Proof.
+  intros n b s s' Hn Hb H. induction H.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_RecStep; eassumption.
+    + exact IHmulti.
+Qed.
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> -> strongly_normalizing t.
 Proof.
-  (* Complete the proof of normalization. *)
+  (* Complete this proof. *)
 Qed.
 
-End STLCNormalizationRecursionMediumTask.
+End STLCNormalizationRecursionEasyTask.

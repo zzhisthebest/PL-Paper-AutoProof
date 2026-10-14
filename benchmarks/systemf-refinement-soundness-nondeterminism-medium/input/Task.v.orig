@@ -427,7 +427,328 @@ Fixpoint max_atom (L : list atom) : atom :=
 
 Definition fresh (L : list atom) : atom := S (max_atom L).
 
+Lemma in_le_max_atom : forall x L,
+  In x L -> x <= max_atom L.
+Proof.
+  induction L; simpl; intros.
+  - contradiction.
+  - destruct H as [H | H].
+    + subst. lia.
+    + specialize (IHL H). lia.
+Qed.
+
+Lemma fresh_notin : forall L,
+  ~ In (fresh L) L.
+Proof.
+  unfold fresh. intros L H.
+  pose proof (in_le_max_atom _ _ H). lia.
+Qed.
+
 End SystemFRefinementNonDeterminism.
+
+From Stdlib Require Import Arith.PeanoNat.
+From Stdlib Require Import Lists.List.
+From Stdlib Require Import Lia.
+Module SystemFRefinementNonDeterminismInfrastructure.
+Import ListNotations.
+Import SystemFRefinementNonDeterminism.
+
+Fixpoint ftv_context (Gamma : context) : list atom :=
+  match Gamma with
+  | [] => []
+  | (_, T) :: Gamma' => fv_ty T ++ ftv_context Gamma'
+  end.
+
+Fixpoint dom_context (Gamma : context) : list atom :=
+  match Gamma with
+  | [] => []
+  | (x, _) :: Gamma' => x :: dom_context Gamma'
+  end.
+
+Lemma lookup_context_update_eq : forall Gamma x T,
+  lookup_context x <{ x |-> $(T); Gamma }> = Some T.
+Proof.
+  intros. unfold update. simpl. rewrite Nat.eqb_refl. reflexivity.
+Qed.
+
+Lemma lookup_context_update_neq : forall Gamma x y T,
+  x <> y ->
+  lookup_context y <{ x |-> $(T); Gamma }> = lookup_context y Gamma.
+Proof.
+  intros. unfold update. simpl.
+  destruct (Nat.eqb y x) eqn:E.
+  - apply Nat.eqb_eq in E. exfalso. apply H. symmetry. exact E.
+  - reflexivity.
+Qed.
+
+Lemma lc_ty_at_monotone : forall k k' T,
+  lc_ty_at k T ->
+  k <= k' ->
+  lc_ty_at k' T.
+Proof.
+  intros k k' T Hlc. generalize dependent k'.
+  induction Hlc; intros k' Hle.
+  - apply lc_ty_bvar. lia.
+  - apply lc_ty_fvar.
+  - apply lc_ty_arrow; eauto.
+  - apply lc_ty_all. apply IHHlc. lia.
+  - apply lc_ty_int.
+Qed.
+
+Lemma lc_tm_at_monotone : forall K k K' k' t,
+  lc_tm_at K k t ->
+  K <= K' ->
+  k <= k' ->
+  lc_tm_at K' k' t.
+Proof.
+  intros K k K' k' t Hlc. generalize dependent K'. generalize dependent k'.
+  induction Hlc; intros k' Hk K' HK.
+  - apply lc_tm_bvar. lia.
+  - apply lc_tm_fvar.
+  - apply lc_tm_abs.
+    + eapply lc_ty_at_monotone; eauto.
+    + apply IHHlc; lia.
+  - apply lc_tm_app; eauto.
+  - apply lc_tm_tabs. apply IHHlc; lia.
+  - apply lc_tm_tapp.
+    + apply IHHlc; assumption.
+    + eapply lc_ty_at_monotone; eauto.
+  - apply lc_tm_int.
+  - apply lc_tm_div; eauto.
+  - apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
+Qed.
+
+Lemma open_ty_rec_lc_at : forall T k U,
+  lc_ty_at k T ->
+  open_ty_rec k U T = T.
+Proof.
+  intros T k U Hlc. induction Hlc; simpl; try rewrite ?IHHlc1, ?IHHlc2;
+    try reflexivity.
+  - destruct (Nat.eqb k i) eqn:E.
+    + apply Nat.eqb_eq in E. lia.
+    + reflexivity.
+  - rewrite IHHlc. reflexivity.
+Qed.
+
+Lemma open_tm_rec_lc_at : forall t K k u,
+  lc_tm_at K k t ->
+  open_tm_rec k u t = t.
+Proof.
+  intros t K k u Hlc. induction Hlc; simpl;
+    try rewrite ?IHHlc, ?IHHlc1, ?IHHlc2; try reflexivity.
+  - destruct (Nat.eqb k i) eqn:E.
+    + apply Nat.eqb_eq in E. lia.
+    + reflexivity.
+Qed.
+
+Lemma open_tm_ty_rec_lc_at : forall t K k U,
+  lc_tm_at K k t ->
+  open_tm_ty_rec K U t = t.
+Proof.
+  intros t K k U Hlc. induction Hlc; simpl;
+    try rewrite ?IHHlc1, ?IHHlc2; try reflexivity.
+  - erewrite open_ty_rec_lc_at; eauto. rewrite IHHlc. reflexivity.
+  - rewrite IHHlc. reflexivity.
+  - rewrite IHHlc. erewrite open_ty_rec_lc_at; eauto.
+Qed.
+
+Lemma lc_ty_at_open_inv : forall T k X,
+  lc_ty_at k (open_ty_rec k (Ty_FVar X) T) ->
+  lc_ty_at (S k) T.
+Proof.
+  induction T; intros k X Hlc; simpl in Hlc.
+  - destruct (Nat.eqb k n) eqn:E.
+    + apply Nat.eqb_eq in E. subst. apply lc_ty_bvar. lia.
+    + inversion Hlc; subst. apply lc_ty_bvar. lia.
+  - apply lc_ty_fvar.
+  - inversion Hlc; subst. apply lc_ty_arrow; eauto.
+  - inversion Hlc; subst. apply lc_ty_all. eapply IHT; eauto.
+  - apply lc_ty_int.
+Qed.
+
+Lemma lc_ty_at_open : forall T k U,
+  lc_ty_at (S k) T ->
+  lc_ty_at k U ->
+  lc_ty_at k (open_ty_rec k U T).
+Proof.
+  induction T; intros k U HT HU; simpl.
+  - inversion HT; subst.
+    destruct (Nat.eqb k n) eqn:E.
+    + exact HU.
+    + apply lc_ty_bvar. apply Nat.eqb_neq in E. lia.
+  - apply lc_ty_fvar.
+  - inversion HT; subst. apply lc_ty_arrow; eauto.
+  - inversion HT; subst. apply lc_ty_all.
+    apply IHT.
+    + assumption.
+    + eapply lc_ty_at_monotone.
+      * exact HU.
+      * lia.
+  - apply lc_ty_int.
+Qed.
+
+Lemma lc_tm_at_open_tm_inv : forall t K k x,
+  lc_tm_at K k (open_tm_rec k (tm_fvar x) t) ->
+  lc_tm_at K (S k) t.
+Proof.
+  induction t; intros K k x Hlc; simpl in Hlc.
+  - destruct (Nat.eqb k n) eqn:E.
+    + apply Nat.eqb_eq in E. subst. apply lc_tm_bvar. lia.
+    + inversion Hlc; subst. apply lc_tm_bvar. lia.
+  - apply lc_tm_fvar.
+  - inversion Hlc; subst. apply lc_tm_abs; eauto.
+  - inversion Hlc; subst. apply lc_tm_app; eauto.
+  - inversion Hlc; subst. apply lc_tm_tabs; eauto.
+  - inversion Hlc; subst. apply lc_tm_tapp; eauto.
+  - apply lc_tm_int.
+  - inversion Hlc; subst. apply lc_tm_div; eauto.
+  - inversion Hlc; subst. apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
+Qed.
+
+Lemma lc_tm_at_open_ty_inv : forall t K k X,
+  lc_tm_at K k (open_tm_ty_rec K (Ty_FVar X) t) ->
+  lc_tm_at (S K) k t.
+Proof.
+  induction t; intros K k X Hlc; simpl in Hlc.
+  - inversion Hlc; subst. apply lc_tm_bvar. assumption.
+  - apply lc_tm_fvar.
+  - inversion Hlc; subst. apply lc_tm_abs.
+    + eapply lc_ty_at_open_inv; eauto.
+    + eapply IHt; eauto.
+  - inversion Hlc; subst. apply lc_tm_app; eauto.
+  - inversion Hlc; subst. apply lc_tm_tabs. eapply IHt; eauto.
+  - inversion Hlc; subst. apply lc_tm_tapp.
+    + eapply IHt; eauto.
+    + eapply lc_ty_at_open_inv; eauto.
+  - apply lc_tm_int.
+  - inversion Hlc; subst. apply lc_tm_div; eauto.
+  - inversion Hlc; subst. apply lc_tm_arith; eauto.
+  - try (inversion Hlc; subst). apply lc_tm_choice; eauto.
+Qed.
+
+Definition type_substitution := atom -> ty.
+
+Definition term_substitution := atom -> tm.
+
+Definition type_subst_update
+    (theta : type_substitution) (X : atom) (U : ty) : type_substitution :=
+  fun Y => if Nat.eqb X Y then U else theta Y.
+
+Definition term_subst_update
+    (gamma : term_substitution) (x : atom) (u : tm) : term_substitution :=
+  fun y => if Nat.eqb x y then u else gamma y.
+
+Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
+  match T with
+  | Ty_BVar i => Ty_BVar i
+  | Ty_FVar X => theta X
+  | Ty_Arrow T1 T2 =>
+      Ty_Arrow (instantiate_ty theta T1) (instantiate_ty theta T2)
+  | Ty_All T1 => Ty_All (instantiate_ty theta T1)
+  | Ty_Int => Ty_Int
+  end.
+
+Fixpoint instantiate
+    (theta : type_substitution) (gamma : term_substitution) (t : tm) : tm :=
+  match t with
+  | tm_bvar i => tm_bvar i
+  | tm_fvar x => gamma x
+  | tm_abs T t1 => tm_abs (instantiate_ty theta T) (instantiate theta gamma t1)
+  | tm_app t1 t2 => tm_app (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | tm_tabs t1 => tm_tabs (instantiate theta gamma t1)
+  | tm_tapp t1 T => tm_tapp (instantiate theta gamma t1) (instantiate_ty theta T)
+  | tm_int n => tm_int n
+  | tm_div t1 t2 => tm_div (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | tm_arith op t1 t2 => tm_arith op (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | tm_choice t1 t2 => tm_choice (instantiate theta gamma t1) (instantiate theta gamma t2)
+  end.
+
+Definition type_substitution_closed (theta : type_substitution) : Prop :=
+  forall X : atom, locally_closed_ty (theta X).
+
+Definition term_substitution_closed (gamma : term_substitution) : Prop :=
+  forall x : atom, locally_closed_tm (gamma x).
+
+Lemma type_subst_update_closed : forall theta X U,
+  type_substitution_closed theta ->
+  locally_closed_ty U ->
+  type_substitution_closed (type_subst_update theta X U).
+Proof.
+  intros theta X U Htheta HU Y. unfold type_subst_update.
+  destruct (Nat.eqb X Y); auto.
+Qed.
+
+Lemma term_subst_update_closed : forall gamma x u,
+  term_substitution_closed gamma ->
+  locally_closed_tm u ->
+  term_substitution_closed (term_subst_update gamma x u).
+Proof.
+  intros gamma x u Hgamma Hu y. unfold term_subst_update.
+  destruct (Nat.eqb x y); auto.
+Qed.
+
+Definition identity_type_substitution : type_substitution :=
+  fun X : atom => Ty_FVar X.
+
+Definition identity_term_substitution : term_substitution :=
+  fun x : atom => tm_fvar x.
+
+Lemma identity_type_substitution_closed :
+  type_substitution_closed identity_type_substitution.
+Proof.
+  intros X. apply lc_ty_fvar.
+Qed.
+
+Lemma identity_term_substitution_closed :
+  term_substitution_closed identity_term_substitution.
+Proof.
+  intros x. apply lc_tm_fvar.
+Qed.
+
+End SystemFRefinementNonDeterminismInfrastructure.
+
+From Stdlib Require Import Arith.PeanoNat.
+From Stdlib Require Import Lists.List.
+From Stdlib Require Import Lia.
+Module SystemFRefinementNonDeterminismCoreTyping.
+Import ListNotations.
+Import SystemFRefinementNonDeterminism.
+Import SystemFRefinementNonDeterminismInfrastructure.
+
+Definition ty_context_included (Delta Delta' : ty_context) : Prop :=
+  forall X, In X Delta -> In X Delta'.
+
+Definition context_included (Gamma Gamma' : context) : Prop :=
+  forall x T, lookup_context x Gamma = Some T ->
+    lookup_context x Gamma' = Some T.
+
+Definition type_substitution_wf
+    (Delta Delta' : ty_context) (theta : type_substitution) : Prop :=
+  forall X, In X Delta -> wf_ty Delta' (theta X).
+
+Definition context_wf (Delta : ty_context) (Gamma : context) : Prop :=
+  forall x T, lookup_context x Gamma = Some T -> wf_ty Delta T.
+
+Definition term_substitution_typed
+    (Gamma : context) (Delta' : ty_context) (Gamma' : context)
+    (theta : type_substitution) (gamma : term_substitution) : Prop :=
+  forall x T,
+    lookup_context x Gamma = Some T ->
+    has_type Delta' Gamma' (gamma x) (instantiate_ty theta T).
+
+Lemma notin_dom_lookup_none : forall x Gamma,
+  ~ In x (dom_context Gamma) -> lookup_context x Gamma = None.
+Proof.
+  intros x Gamma. induction Gamma as [|[y T] Gamma IH]; intros Hfresh; simpl in *.
+  - reflexivity.
+  - assert (Hxy : x <> y) by intuition.
+    rewrite (proj2 (Nat.eqb_neq x y)) by assumption.
+    apply IH. intuition.
+Qed.
+
+End SystemFRefinementNonDeterminismCoreTyping.
 
 From Stdlib Require Import Arith.PeanoNat Lists.List ZArith.BinInt.
 Module SystemFRefinementNonDeterminismLogic.
@@ -924,28 +1245,177 @@ with subtype : ty_context -> rcontext -> rty -> rty -> Prop :=
       subtype Delta RGamma S U ->
       subtype Delta RGamma R U.
 
+Fixpoint close_ty_rec (k : nat) (X : atom) (T : ty) : ty :=
+  match T with
+  | Ty_BVar i => Ty_BVar i
+  | Ty_FVar Y => if Nat.eqb X Y then Ty_BVar k else Ty_FVar Y
+  | Ty_Arrow T1 T2 =>
+      Ty_Arrow (close_ty_rec k X T1) (close_ty_rec k X T2)
+  | Ty_All T1 => Ty_All (close_ty_rec (S k) X T1)
+  | Ty_Int => Ty_Int
+  end.
+
 End SystemFRefinementNonDeterminismTyping.
 
+From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 Module SystemFRefinementNonDeterminismEvaluation.
-Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismLogic SystemFRefinementNonDeterminismTyping.
+Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure
+  SystemFRefinementNonDeterminismCoreTyping.
 
 Inductive multi : tm -> tm -> Prop :=
   | multi_refl : forall t, multi t t
   | multi_step : forall t1 t2 t3,
       t1 --> t2 -> multi t2 t3 -> multi t1 t3.
 Notation "t '-->*' u" := (multi t u) (at level 40).
+
+Definition halts (t : tm) : Prop :=
+  exists v, multi t v /\ value v.
+
 Inductive must_terminate : tm -> Prop :=
   | MT_intro : forall t,
       (value t \/ exists u, t --> u) ->
       (forall u, t --> u -> must_terminate u) ->
       must_terminate t.
 
+Lemma open_tm_preserves_lc_at : forall t K k u,
+  lc_tm_at K (S k) t -> locally_closed_tm u ->
+  lc_tm_at K k (open_tm_rec k u t).
+Proof.
+  induction t; intros K k u Hlc Hu; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  destruct (Nat.eqb k n) eqn:E.
+  - eapply lc_tm_at_monotone; [exact Hu|lia|lia].
+  - apply Nat.eqb_neq in E. apply lc_tm_bvar. lia.
+Qed.
+
+Lemma open_tm_ty_preserves_lc_at : forall t K k U,
+  lc_tm_at (S K) k t -> locally_closed_ty U ->
+  lc_tm_at K k (open_tm_ty_rec K U t).
+Proof.
+  induction t; intros K k U Hlc HU; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  - apply lc_tm_abs.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
+    + eapply IHt; eauto.
+  - apply lc_tm_tapp.
+    + eapply IHt; eauto.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
+Qed.
+
+Lemma value_regular : forall v, value v -> locally_closed_tm v.
+Proof. intros v H. destruct H; try assumption; constructor. Qed.
+
+Lemma value_no_step : forall v, value v -> forall t, ~ (v --> t).
+Proof. intros v Hv t Hs. destruct Hv; inversion Hs. Qed.
+
+Lemma value_multi_eq : forall v t,
+  value v ->
+  v -->* t ->
+  t = v.
+Proof.
+  intros v t Hv Hmulti.
+  inversion Hmulti; subst.
+  - reflexivity.
+  - exfalso. eapply value_no_step; eauto.
+Qed.
+
+Lemma multi_trans : forall t u v,
+  multi t u -> multi u v -> multi t v.
+Proof. intros t u v H. induction H; eauto using multi. Qed.
+
 End SystemFRefinementNonDeterminismEvaluation.
 
-From Stdlib Require Import Program.Wf.
+From Stdlib Require Import Arith.PeanoNat Lists.List Lia Program.Wf.
 From Equations Require Import Equations.
-Module SystemFRefinementNonDeterminismDenotations.
-Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismLogic SystemFRefinementNonDeterminismTyping SystemFRefinementNonDeterminismEvaluation.
+Module SystemFRefinementNonDeterminismSubstitution.
+Import ListNotations.
+Import SystemFRefinementNonDeterminism.
+Import SystemFRefinementNonDeterminismInfrastructure.
+Import SystemFRefinementNonDeterminismCoreTyping.
+Import SystemFRefinementNonDeterminismTyping.
+Import SystemFRefinementNonDeterminismEvaluation.
+
+Fixpoint fv_pred (p : qualifier) : list atom :=
+  match p with
+  | Pred_True | Pred_False => []
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 => fv_tm t1 ++ fv_tm t2
+  | Pred_And p1 p2 | Pred_Or p1 p2 => fv_pred p1 ++ fv_pred p2
+  | Pred_Not p => fv_pred p
+  end.
+
+Definition fv_qualifier := fv_pred.
+
+Fixpoint fv_rty (R : rty) : list atom :=
+  match R with
+  | R_Refine _ ps => fv_qualifier ps
+  | R_Func R1 R2 | R_Exists R1 R2 => fv_rty R1 ++ fv_rty R2
+  | R_Poly R1 => fv_rty R1
+  end.
+
+Fixpoint ftv_pred (p : qualifier) : list atom :=
+  match p with
+  | Pred_True | Pred_False => []
+  | Pred_Eq t1 t2 | Pred_Lt t1 t2 | Pred_Le t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | Pred_And p1 p2 | Pred_Or p1 p2 => ftv_pred p1 ++ ftv_pred p2
+  | Pred_Not p => ftv_pred p
+  end.
+
+Definition ftv_qualifier := ftv_pred.
+
+Fixpoint ftv_rty (R : rty) : list atom :=
+  match R with
+  | R_Refine T ps => fv_ty T ++ ftv_qualifier ps
+  | R_Func R1 R2 | R_Exists R1 R2 => ftv_rty R1 ++ ftv_rty R2
+  | R_Poly R1 => ftv_rty R1
+  end.
+
+Fixpoint fv_rcontext (RGamma : rcontext) : list atom :=
+  match RGamma with
+  | [] => []
+  | (_, R) :: RGamma' => fv_rty R ++ fv_rcontext RGamma'
+  end.
+
+Fixpoint ftv_rcontext (RGamma : rcontext) : list atom :=
+  match RGamma with
+  | [] => []
+  | (_, R) :: RGamma' => ftv_rty R ++ ftv_rcontext RGamma'
+  end.
+
+Fixpoint instantiate_pred
+    (theta : type_substitution) (gamma : term_substitution)
+    (p : qualifier) : qualifier :=
+  match p with
+  | Pred_True => Pred_True
+  | Pred_False => Pred_False
+  | Pred_Eq t1 t2 =>
+      Pred_Eq (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | Pred_Lt t1 t2 => Pred_Lt (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | Pred_Le t1 t2 => Pred_Le (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | Pred_And p1 p2 => Pred_And (instantiate_pred theta gamma p1) (instantiate_pred theta gamma p2)
+  | Pred_Not p => Pred_Not (instantiate_pred theta gamma p)
+  | Pred_Or p1 p2 =>
+      Pred_Or (instantiate_pred theta gamma p1)
+        (instantiate_pred theta gamma p2)
+  end.
+
+Definition instantiate_qualifier := instantiate_pred.
+
+Fixpoint instantiate_rty
+    (theta : type_substitution) (gamma : term_substitution)
+    (R : rty) : rty :=
+  match R with
+  | R_Refine T ps =>
+      R_Refine (instantiate_ty theta T) (instantiate_qualifier theta gamma ps)
+  | R_Func R1 R2 =>
+      R_Func (instantiate_rty theta gamma R1)
+        (instantiate_rty theta gamma R2)
+  | R_Exists R1 R2 =>
+      R_Exists (instantiate_rty theta gamma R1)
+        (instantiate_rty theta gamma R2)
+  | R_Poly R1 => R_Poly (instantiate_rty theta gamma R1)
+  end.
 
 Fixpoint rty_size (R : rty) : nat :=
   match R with
@@ -955,100 +1425,21 @@ Fixpoint rty_size (R : rty) : nat :=
   | R_Poly R1 => S (rty_size R1)
   end.
 
-Lemma rty_size_open_tm_rec : forall R k u,
-  rty_size (open_rty_tm_rec k u R) = rty_size R.
-Proof.
-  induction R; intros; simpl; rewrite ?IHR1, ?IHR2, ?IHR; reflexivity.
-Qed.
-
-Lemma rty_size_open_tm : forall R u,
-  rty_size (open_rty_tm R u) = rty_size R.
-Proof.
-  intros. apply rty_size_open_tm_rec.
-Qed.
-
-Lemma rty_size_open_ty_rec : forall R k U,
-  rty_size (open_rty_ty_rec k U R) = rty_size R.
-Proof.
-  induction R; intros; simpl; rewrite ?IHR1, ?IHR2, ?IHR; reflexivity.
-Qed.
-
-Lemma rty_size_open_ty : forall R U,
-  rty_size (open_rty_ty R U) = rty_size R.
-Proof.
-  intros. apply rty_size_open_ty_rec.
-Qed.
-
-Equations denotes (R : rty) (v : tm) : Prop by wf (rty_size R) lt :=
-  denotes (R_Refine T ps) v :=
-
-      value v /\
-      has_type [] empty v T /\
-      qualifier_holds (open_qualifier_tm ps v);
-  denotes (R_Func R1 R2) v :=
-
-      value v /\
-      has_type [] empty v (erase (R_Func R1 R2)) /\
-      forall arg,
-        denotes R1 arg ->
-        locally_closed_tm (tm_app v arg) /\
-        must_terminate (tm_app v arg) /\
-        forall result,
-          multi (tm_app v arg) result ->
-          value result ->
-          denotes (open_rty_tm R2 arg) result;
-  denotes (R_Exists R1 R2) v :=
-      value v /\
-      has_type [] empty v (erase (R_Exists R1 R2)) /\
-      exists witness,
-        denotes R1 witness /\
-        denotes (open_rty_tm R2 witness) v;
-  denotes (R_Poly R1) v :=
-      value v /\
-      has_type [] empty v (erase (R_Poly R1)) /\
-      forall U,
-        wf_ty [] U ->
-        locally_closed_tm (tm_tapp v U) /\
-        must_terminate (tm_tapp v U) /\
-        forall result,
-          multi (tm_tapp v U) result ->
-          value result ->
-          denotes (open_rty_ty R1 U) result.
-Next Obligation.
-  simpl. lia.
-Qed.
-Next Obligation.
-  rewrite rty_size_open_tm. simpl. lia.
-Qed.
-Next Obligation.
-  simpl. lia.
-Qed.
-Next Obligation.
-  rewrite rty_size_open_tm. simpl. lia.
-Qed.
-Next Obligation.
-  rewrite rty_size_open_ty. simpl. lia.
-Qed.
-
-Definition evals_denotes (R : rty) (t : tm) : Prop :=
-  locally_closed_tm t /\
-  must_terminate t /\
-  forall v,
-    multi t v ->
-    value v ->
-    denotes R v.
-
-End SystemFRefinementNonDeterminismDenotations.
+Scheme has_rtype_mut_ind := Induction for has_rtype Sort Prop
+with subtype_mut_ind := Induction for subtype Sort Prop.
+Combined Scheme refinement_typing_mutind
+  from has_rtype_mut_ind, subtype_mut_ind.
+End SystemFRefinementNonDeterminismSubstitution.
 
 Module SystemFRefinementNonDeterminismTask.
-Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismLogic SystemFRefinementNonDeterminismTyping SystemFRefinementNonDeterminismEvaluation SystemFRefinementNonDeterminismDenotations.
+Import ListNotations SystemFRefinementNonDeterminism SystemFRefinementNonDeterminismInfrastructure SystemFRefinementNonDeterminismCoreTyping SystemFRefinementNonDeterminismLogic SystemFRefinementNonDeterminismTyping SystemFRefinementNonDeterminismEvaluation SystemFRefinementNonDeterminismSubstitution .
 
 Theorem never_stuck : forall (t t' : tm) (R : rty),
   has_rtype [] empty_rcontext t R ->
   multi t t' ->
   value t' \/ exists t'' : tm, t' --> t''.
 Proof.
-
+  (* Complete this proof. *)
 Qed.
 
 End SystemFRefinementNonDeterminismTask.

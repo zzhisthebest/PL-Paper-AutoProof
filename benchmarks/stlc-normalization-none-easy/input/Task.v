@@ -542,107 +542,20 @@ Qed.
 
 (** Supplied fundamental theorem. *)
 
+(* Optional reference theorem statement.
 Theorem fundamental : forall Gamma t T,
   <{ Gamma |-- t \in T }> ->
   forall rho,
     proper_substitution rho ->
     related_substitution Gamma rho ->
     expression_relation T (msubst rho t).
-Proof.
-  intros Gamma t T Htyping.
-  induction Htyping; intros rho Hproper Hrel.
-  - split.
-    + apply Hproper.
-    + exists (rho x). split.
-      * apply multi_refl.
-      * apply Hrel with (x := x). exact H.
-  - split.
-    + change (locally_closed (msubst rho (tm_abs T1 t1))).
-      apply msubst_preserves_term.
-      * exact Hproper.
-      * apply typing_regular with (Gamma := Gamma) (T := Ty_Arrow T1 T2).
-        apply T_Abs with (L := L). exact H.
-    + exists (tm_abs T1 (msubst rho t1)).
-      split.
-      * apply multi_refl.
-      * simpl. repeat split.
-        -- apply v_abs.
-           change (locally_closed (msubst rho (tm_abs T1 t1))).
-           apply msubst_preserves_term.
-           ++ exact Hproper.
-           ++ apply typing_regular with (Gamma := Gamma) (T := Ty_Arrow T1 T2).
-              apply T_Abs with (L := L). exact H.
-        -- exists (msubst rho t1). split.
-           ++ reflexivity.
-           ++ intros arg HVarg.
-              pose (x := fresh (L ++ free_vars t1)).
-              assert (HxL : ~ In x L).
-              {
-                intro Hin. unfold x in Hin.
-                apply (fresh_notin (L ++ free_vars t1)).
-                apply in_or_app. left. exact Hin.
-              }
-              assert (Hxfv : ~ In x (free_vars t1)).
-              {
-                intro Hin. unfold x in Hin.
-                apply (fresh_notin (L ++ free_vars t1)).
-                apply in_or_app. right. exact Hin.
-              }
-              specialize (H0 x HxL (subst_update rho x arg)).
-              assert (Harg_term : locally_closed arg).
-              {
-                apply value_relation_term with (T := T1). exact HVarg.
-              }
-              specialize (H0 (proper_update rho x arg Hproper Harg_term)).
-              specialize (H0 (related_update Gamma rho x T1 arg Hrel HVarg)).
-              rewrite (msubst_open_update t1 rho x arg Hxfv Hproper Harg_term) in H0.
-              exact H0.
-  - destruct (IHHtyping1 rho Hproper Hrel) as [Ht1 [vf [Hs1 HVf]]].
-    destruct (IHHtyping2 rho Hproper Hrel) as [Ht2 [va [Hs2 HVa]]].
-    destruct HVf as [HVf_value [body [Heq Hbody]]].
-    subst vf.
-    assert (HVf_term : locally_closed (tm_abs T1 body)).
-    {
-      apply value_regular. exact HVf_value.
-    }
-    specialize (Hbody va HVa).
-    destruct Hbody as [Hbody_term [vr [Hsbody HVr]]].
-    split.
-    + simpl. apply lc_app; assumption.
-    + exists vr. split.
-      * eapply multi_trans.
-        -- apply multi_app1; eauto.
-        -- eapply multi_trans.
-           ++ apply multi_app2.
-              ** apply v_abs. exact HVf_term.
-              ** exact Hs2.
-           ++ eapply multi_step.
-              ** apply ST_AppAbs.
-                 --- exact HVf_term.
-                 --- apply value_relation_value with (T := T1). exact HVa.
-              ** exact Hsbody.
-      * exact HVr.
-  - split.
-    + unfold locally_closed. apply lc_true.
-    + exists tm_true. split.
-      * apply multi_refl.
-      * simpl. split.
-        -- apply v_true.
-        -- left. reflexivity.
-  - split.
-    + unfold locally_closed. apply lc_false.
-    + exists tm_false. split.
-      * apply multi_refl.
-      * simpl. split.
-        -- apply v_false.
-        -- right. reflexivity.
-Qed.
+*)
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->
   strongly_normalizing t.
 Proof.
-  (* Derive strong normalization from the supplied fundamental theorem. *)
+  (* Complete this proof. *)
 Qed.
 
 End STLCNormalizationNoneEasyTask.

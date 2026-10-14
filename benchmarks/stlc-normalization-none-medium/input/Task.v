@@ -1,11 +1,14 @@
-(** STLC call-by-value strong-normalization benchmark, Medium variant.
+(** STLC call-by-value strong-normalization benchmark, Easy variant.
     No if-then-else, non-determinism, or recursion is included. *)
 
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Relations.Relation_Definitions.
+From Stdlib Require Import Lia.
 
-Module STLCNormalizationNoneMediumTask.
+Import ListNotations.
+
+Module STLCNormalizationNoneEasyTask.
 
 Inductive multi {X : Type} (R : relation X) : relation X :=
   | multi_refl : forall (x : X), multi R x x
@@ -184,34 +187,47 @@ Inductive has_type : context -> tm -> ty -> Prop :=
 where "<{ Gamma '|--' t '\in' T }>" := (has_type Gamma t T)
   : stlc_scope.
 
+Fixpoint free_vars (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_app t1 t2 => free_vars t1 ++ free_vars t2
+  | tm_abs _ t1 => free_vars t1
+  | tm_true => []
+  | tm_false => []
+  end.
+
+Fixpoint max_atom (L : list atom) : atom :=
+  match L with
+  | [] => 0
+  | x :: L' => Nat.max x (max_atom L')
+  end.
+
+Definition fresh (L : list atom) : atom := S (max_atom L).
+
+Lemma in_le_max_atom : forall x L,
+  In x L -> x <= max_atom L.
+Proof.
+  induction L; simpl; intros.
+  - contradiction.
+  - destruct H as [H | H].
+    + subst. lia.
+    + specialize (IHL H). lia.
+Qed.
+
+Lemma fresh_notin : forall L,
+  ~ In (fresh L) L.
+Proof.
+  unfold fresh. intros L H.
+  pose proof (in_le_max_atom _ _ H). lia.
+Qed.
+
 (** Provided logical relation. *)
 
 Inductive strongly_normalizing : tm -> Prop :=
   | SN_intro : forall t,
       (forall t', t --> t' -> strongly_normalizing t') ->
       strongly_normalizing t.
-
-Fixpoint value_relation (T : ty) (v : tm) : Prop :=
-  value v /\
-  match T with
-  | Ty_Bool =>
-      v = tm_true \/ v = tm_false
-  | Ty_Arrow T1 T2 =>
-      exists body,
-        v = tm_abs T1 body /\
-        forall arg,
-          value_relation T1 arg ->
-          locally_closed (open body arg) /\
-          exists v',
-            open body arg -->* v' /\
-            value_relation T2 v'
-  end.
-
-Definition expression_relation (T : ty) (t : tm) : Prop :=
-  locally_closed t /\
-  exists v,
-    t -->* v /\
-    value_relation T v.
 
 Definition term_substitution := atom -> tm.
 
@@ -235,17 +251,147 @@ Fixpoint msubst (rho : term_substitution) (t : tm) : tm :=
 Definition proper_substitution (rho : term_substitution) : Prop :=
   forall x, locally_closed (rho x).
 
-Definition related_substitution
-    (Gamma : context) (rho : term_substitution) : Prop :=
-  forall x T,
-    Gamma x = Some T ->
-    value_relation T (rho x).
+Lemma multi_trans : forall t u v,
+  t -->* u ->
+  u -->* v ->
+  t -->* v.
+Proof.
+  intros t u v Htu Huv.
+  induction Htu.
+  - exact Huv.
+  - eapply multi_step; eauto.
+Qed.
+
+Lemma multi_app1 : forall t1 t1' t2,
+  t1 -->* t1' ->
+  locally_closed t2 ->
+  tm_app t1 t2 -->* tm_app t1' t2.
+Proof.
+  intros t1 t1' t2 Hs Ht2.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_App1; eauto.
+    + exact IHHs.
+Qed.
+
+Lemma multi_app2 : forall v1 t2 t2',
+  value v1 ->
+  t2 -->* t2' ->
+  tm_app v1 t2 -->* tm_app v1 t2'.
+Proof.
+  intros v1 t2 t2' Hv Hs.
+  induction Hs.
+  - apply multi_refl.
+  - eapply multi_step.
+    + apply ST_App2; eauto.
+    + exact IHHs.
+Qed.
+
+Lemma lc_at_weaken : forall k j t,
+  lc_at k t ->
+  k <= j ->
+  lc_at j t.
+Proof.
+  intros k j t H.
+  generalize dependent j.
+  induction H; intros j Hle; eauto using lc_at.
+  - apply lc_bvar. lia.
+  - apply lc_abs. apply IHlc_at. lia.
+Qed.
+
+Lemma term_lc_at : forall k t,
+  locally_closed t ->
+  lc_at k t.
+Proof.
+  unfold locally_closed. intros.
+  eapply lc_at_weaken; eauto. lia.
+Qed.
+
+Lemma value_regular : forall v,
+  value v -> locally_closed v.
+Proof.
+  intros v Hv. inversion Hv; subst.
+  - assumption.
+  - unfold locally_closed. apply lc_true.
+  - unfold locally_closed. apply lc_false.
+Qed.
+
+Lemma lc_at_open_inv : forall t k u,
+  lc_at k (open_rec k u t) ->
+  lc_at (S k) t.
+Proof.
+  induction t; intros k u Hlc; simpl in *.
+  - destruct (Nat.eqb k n) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. subst. apply lc_bvar. lia.
+    + inversion Hlc; subst. apply lc_bvar. lia.
+  - apply lc_fvar.
+  - inversion Hlc; subst. eauto using lc_at.
+  - inversion Hlc; subst. apply lc_abs. apply (IHt (S k) u). assumption.
+  - apply lc_true.
+  - apply lc_false.
+Qed.
+
+Lemma open_rec_lc_at : forall k t j u,
+  lc_at k t ->
+  k <= j ->
+  open_rec j u t = t.
+Proof.
+  intros k t j u Hlc.
+  generalize dependent j.
+  induction Hlc; intros j Hle; simpl.
+  - destruct (Nat.eqb j i) eqn:Heq.
+    + apply Nat.eqb_eq in Heq. lia.
+    + reflexivity.
+  - reflexivity.
+  - rewrite IHHlc1 by assumption.
+    rewrite IHHlc2 by assumption.
+    reflexivity.
+  - rewrite IHHlc by lia. reflexivity.
+  - reflexivity.
+  - reflexivity.
+Qed.
+
+Lemma open_rec_term : forall t j u,
+  locally_closed t ->
+  open_rec j u t = t.
+Proof.
+  unfold locally_closed. intros.
+  eapply open_rec_lc_at; eauto. lia.
+Qed.
+
+Lemma proper_update : forall rho x v,
+  proper_substitution rho ->
+  locally_closed v ->
+  proper_substitution (subst_update rho x v).
+Proof.
+  unfold proper_substitution, subst_update.
+  intros rho x v Hproper Hv y.
+  destruct (Nat.eqb x y); auto.
+Qed.
+
+Lemma notin_app_split : forall (x : atom) L1 L2,
+  ~ In x (L1 ++ L2) ->
+  ~ In x L1 /\ ~ In x L2.
+Proof.
+  intros x L1 L2 H.
+  split; intro Hin; apply H; apply in_app_iff; auto.
+Qed.
+
+Lemma id_substitution_proper :
+  proper_substitution id_substitution.
+Proof.
+  unfold proper_substitution, id_substitution, locally_closed.
+  intros. apply lc_fvar.
+Qed.
+
+(** Supplied fundamental theorem. *)
 
 Theorem normalization : forall t T,
   <{ empty |-- t \in T }> ->
   strongly_normalizing t.
 Proof.
-  (* Prove strong normalization using the supplied logical relation. *)
+  (* Complete this proof. *)
 Qed.
 
-End STLCNormalizationNoneMediumTask.
+End STLCNormalizationNoneEasyTask.

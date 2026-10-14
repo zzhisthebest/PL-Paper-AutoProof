@@ -1,10 +1,10 @@
-(** System F parametricity benchmark, Medium variant.
+(** System F parametricity benchmark, Easy variant.
     Features: if. *)
 
 From Stdlib Require Import Arith.PeanoNat Lists.List Lia.
 Import ListNotations.
 
-Module SystemFParametricityIfMediumTask.
+Module SystemFParametricityIfEasyTask.
 
 Definition atom := nat.
 
@@ -343,13 +343,358 @@ Inductive has_type : ty_context -> context -> tm -> ty -> Prop :=
       has_type Delta Gamma t2 T -> has_type Delta Gamma t3 T ->
       has_type Delta Gamma (tm_if t1 t2 t3) T.
 
+Fixpoint max_atom (L : list atom) : atom :=
+  match L with
+  | [] => 0
+  | x :: L' => Nat.max x (max_atom L')
+  end.
+
+Definition fresh (L : list atom) : atom := S (max_atom L).
+
+Lemma in_le_max_atom : forall x L,
+  In x L -> x <= max_atom L.
+Proof.
+  induction L; simpl; intros.
+  - contradiction.
+  - destruct H as [H | H].
+    + subst. lia.
+    + specialize (IHL H). lia.
+Qed.
+
+Lemma fresh_notin : forall L,
+  ~ In (fresh L) L.
+Proof.
+  unfold fresh. intros L H.
+  pose proof (in_le_max_atom _ _ H). lia.
+Qed.
+
 Inductive multi : tm -> tm -> Prop :=
   | multi_refl : forall x, multi x x
   | multi_step : forall x y z, x --> y -> multi y z -> multi x z.
 Notation "t '-->*' u" := (multi t u) (at level 40).
 
-
 Hint Constructors lc_ty_at lc_tm_at value : core.
+
+Fixpoint fv_ty (T : ty) : list atom :=
+  match T with
+  | Ty_BVar _ => []
+  | Ty_FVar X => [X]
+  | Ty_Arrow T1 T2 => fv_ty T1 ++ fv_ty T2
+  | Ty_All T1 => fv_ty T1
+  | Ty_Bool => []
+  end.
+
+Fixpoint fv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ => []
+  | tm_fvar x => [x]
+  | tm_abs _ t1 => fv_tm t1
+  | tm_app t1 t2 => fv_tm t1 ++ fv_tm t2
+  | tm_tabs t1 => fv_tm t1
+  | tm_tapp t1 _ => fv_tm t1
+  | tm_true => []
+  | tm_false => []
+  | tm_if t1 t2 t3 => fv_tm t1 ++ fv_tm t2 ++ fv_tm t3
+  end.
+
+Fixpoint ftv_tm (t : tm) : list atom :=
+  match t with
+  | tm_bvar _ | tm_fvar _ => []
+  | tm_abs T t1 => fv_ty T ++ ftv_tm t1
+  | tm_app t1 t2 => ftv_tm t1 ++ ftv_tm t2
+  | tm_tabs t1 => ftv_tm t1
+  | tm_tapp t1 T => ftv_tm t1 ++ fv_ty T
+  | tm_true => []
+  | tm_false => []
+  | tm_if t1 t2 t3 => ftv_tm t1 ++ ftv_tm t2 ++ ftv_tm t3
+  end.
+
+Fixpoint ftv_context (Gamma : context) : list atom :=
+  match Gamma with
+  | [] => []
+  | (_, T) :: Gamma' => fv_ty T ++ ftv_context Gamma'
+  end.
+
+Fixpoint dom_context (Gamma : context) : list atom :=
+  match Gamma with
+  | [] => []
+  | (x, _) :: Gamma' => x :: dom_context Gamma'
+  end.
+
+Lemma lookup_context_update_eq : forall Gamma x T,
+  lookup_context x <{ x |-> $(T); Gamma }> = Some T.
+Proof.
+  intros. unfold update. simpl. rewrite Nat.eqb_refl. reflexivity.
+Qed.
+
+Lemma lookup_context_update_neq : forall Gamma x y T,
+  x <> y ->
+  lookup_context y <{ x |-> $(T); Gamma }> = lookup_context y Gamma.
+Proof.
+  intros. unfold update. simpl.
+  destruct (Nat.eqb y x) eqn:E.
+  - apply Nat.eqb_eq in E. exfalso. apply H. symmetry. exact E.
+  - reflexivity.
+Qed.
+
+Lemma lc_ty_at_monotone : forall k k' T,
+  lc_ty_at k T ->
+  k <= k' ->
+  lc_ty_at k' T.
+Proof.
+  intros k k' T Hlc. generalize dependent k'.
+  induction Hlc; intros k' Hle.
+  - apply lc_ty_bvar. lia.
+  - apply lc_ty_fvar.
+  - apply lc_ty_arrow; eauto.
+  - apply lc_ty_all. apply IHHlc. lia.
+  - apply lc_ty_bool.
+
+Qed.
+
+Lemma lc_tm_at_monotone : forall K k K' k' t,
+  lc_tm_at K k t ->
+  K <= K' ->
+  k <= k' ->
+  lc_tm_at K' k' t.
+Proof.
+  intros K k K' k' t Hlc. generalize dependent K'. generalize dependent k'.
+  induction Hlc; intros k' Hk K' HK.
+  - apply lc_tm_bvar. lia.
+  - apply lc_tm_fvar.
+  - apply lc_tm_abs.
+    + eapply lc_ty_at_monotone; eauto.
+    + apply IHHlc; lia.
+  - apply lc_tm_app; eauto.
+  - apply lc_tm_tabs. apply IHHlc; lia.
+  - apply lc_tm_tapp.
+    + apply IHHlc; assumption.
+    + eapply lc_ty_at_monotone; eauto.
+  - apply lc_tm_true.
+  - apply lc_tm_false.
+  - eauto using lc_tm_at.
+
+Qed.
+
+Lemma open_ty_rec_lc_at : forall T k U,
+  lc_ty_at k T ->
+  open_ty_rec k U T = T.
+Proof.
+  intros T k U Hlc. induction Hlc; simpl; try rewrite ?IHHlc1, ?IHHlc2;
+    try reflexivity.
+  - destruct (Nat.eqb k i) eqn:E.
+    + apply Nat.eqb_eq in E. lia.
+    + reflexivity.
+  - rewrite IHHlc. reflexivity.
+Qed.
+
+Lemma open_tm_rec_lc_at : forall t K k u,
+  lc_tm_at K k t ->
+  open_tm_rec k u t = t.
+Proof.
+  intros t K k u Hlc. induction Hlc; simpl;
+    try rewrite ?IHHlc, ?IHHlc1, ?IHHlc2, ?IHHlc3; try reflexivity.
+  - destruct (Nat.eqb k i) eqn:E.
+    + apply Nat.eqb_eq in E. lia.
+    + reflexivity.
+Qed.
+
+Lemma open_tm_ty_rec_lc_at : forall t K k U,
+  lc_tm_at K k t ->
+  open_tm_ty_rec K U t = t.
+Proof.
+  intros t K k U Hlc. induction Hlc; simpl;
+    try rewrite ?IHHlc1, ?IHHlc2, ?IHHlc3; try reflexivity.
+  - erewrite open_ty_rec_lc_at; eauto. rewrite IHHlc. reflexivity.
+  - rewrite IHHlc. reflexivity.
+  - rewrite IHHlc. erewrite open_ty_rec_lc_at; eauto.
+
+Qed.
+
+Lemma lc_ty_at_open_inv : forall T k X,
+  lc_ty_at k (open_ty_rec k (Ty_FVar X) T) ->
+  lc_ty_at (S k) T.
+Proof.
+  induction T; intros k X Hlc; simpl in Hlc.
+  - destruct (Nat.eqb k n) eqn:E.
+    + apply Nat.eqb_eq in E. subst. apply lc_ty_bvar. lia.
+    + inversion Hlc; subst. apply lc_ty_bvar. lia.
+  - apply lc_ty_fvar.
+  - inversion Hlc; subst. apply lc_ty_arrow; eauto.
+  - inversion Hlc; subst. apply lc_ty_all. eapply IHT; eauto.
+  - apply lc_ty_bool.
+
+Qed.
+
+Lemma lc_ty_at_open : forall T k U,
+  lc_ty_at (S k) T ->
+  lc_ty_at k U ->
+  lc_ty_at k (open_ty_rec k U T).
+Proof.
+  induction T; intros k U HT HU; simpl.
+  - inversion HT; subst.
+    destruct (Nat.eqb k n) eqn:E.
+    + exact HU.
+    + apply lc_ty_bvar. apply Nat.eqb_neq in E. lia.
+  - apply lc_ty_fvar.
+  - inversion HT; subst. apply lc_ty_arrow; eauto.
+  - inversion HT; subst. apply lc_ty_all.
+    apply IHT.
+    + assumption.
+    + eapply lc_ty_at_monotone.
+      * exact HU.
+      * lia.
+  - apply lc_ty_bool.
+
+Qed.
+
+Lemma lc_tm_at_open_tm_inv : forall t K k x,
+  lc_tm_at K k (open_tm_rec k (tm_fvar x) t) ->
+  lc_tm_at K (S k) t.
+Proof.
+  induction t; intros K k x Hlc; simpl in Hlc.
+  - destruct (Nat.eqb k n) eqn:E.
+    + apply Nat.eqb_eq in E. subst. apply lc_tm_bvar. lia.
+    + inversion Hlc; subst. apply lc_tm_bvar. lia.
+  - apply lc_tm_fvar.
+  - inversion Hlc; subst. apply lc_tm_abs; eauto.
+  - inversion Hlc; subst. apply lc_tm_app; eauto.
+  - inversion Hlc; subst. apply lc_tm_tabs; eauto.
+  - inversion Hlc; subst. apply lc_tm_tapp; eauto.
+  - apply lc_tm_true.
+  - apply lc_tm_false.
+  - inversion Hlc; subst; eauto using lc_tm_at.
+
+Qed.
+
+Lemma lc_tm_at_open_ty_inv : forall t K k X,
+  lc_tm_at K k (open_tm_ty_rec K (Ty_FVar X) t) ->
+  lc_tm_at (S K) k t.
+Proof.
+  induction t; intros K k X Hlc; simpl in Hlc.
+  - inversion Hlc; subst. apply lc_tm_bvar. assumption.
+  - apply lc_tm_fvar.
+  - inversion Hlc; subst. apply lc_tm_abs.
+    + eapply lc_ty_at_open_inv; eauto.
+    + eapply IHt; eauto.
+  - inversion Hlc; subst. apply lc_tm_app; eauto.
+  - inversion Hlc; subst. apply lc_tm_tabs. eapply IHt; eauto.
+  - inversion Hlc; subst. apply lc_tm_tapp.
+    + eapply IHt; eauto.
+    + eapply lc_ty_at_open_inv; eauto.
+  - apply lc_tm_true.
+  - apply lc_tm_false.
+  - inversion Hlc; subst; eauto using lc_tm_at.
+
+Qed.
+
+Definition type_substitution := atom -> ty.
+
+Definition term_substitution := atom -> tm.
+
+Definition type_subst_update
+    (theta : type_substitution) (X : atom) (U : ty) : type_substitution :=
+  fun Y => if Nat.eqb X Y then U else theta Y.
+
+Definition term_subst_update
+    (gamma : term_substitution) (x : atom) (u : tm) : term_substitution :=
+  fun y => if Nat.eqb x y then u else gamma y.
+
+Fixpoint instantiate_ty (theta : type_substitution) (T : ty) : ty :=
+  match T with
+  | Ty_BVar i => Ty_BVar i
+  | Ty_FVar X => theta X
+  | Ty_Arrow T1 T2 =>
+      Ty_Arrow (instantiate_ty theta T1) (instantiate_ty theta T2)
+  | Ty_All T1 => Ty_All (instantiate_ty theta T1)
+  | Ty_Bool => Ty_Bool
+  end.
+
+Fixpoint instantiate
+    (theta : type_substitution) (gamma : term_substitution) (t : tm) : tm :=
+  match t with
+  | tm_bvar i => tm_bvar i
+  | tm_fvar x => gamma x
+  | tm_abs T t1 => tm_abs (instantiate_ty theta T) (instantiate theta gamma t1)
+  | tm_app t1 t2 => tm_app (instantiate theta gamma t1) (instantiate theta gamma t2)
+  | tm_tabs t1 => tm_tabs (instantiate theta gamma t1)
+  | tm_tapp t1 T => tm_tapp (instantiate theta gamma t1) (instantiate_ty theta T)
+  | tm_true => tm_true
+  | tm_false => tm_false
+  | tm_if t1 t2 t3 => tm_if (instantiate theta gamma t1) (instantiate theta gamma t2) (instantiate theta gamma t3)
+  end.
+
+Definition type_substitution_closed (theta : type_substitution) : Prop :=
+  forall X : atom, locally_closed_ty (theta X).
+
+Definition term_substitution_closed (gamma : term_substitution) : Prop :=
+  forall x : atom, locally_closed_tm (gamma x).
+
+Lemma type_subst_update_closed : forall theta X U,
+  type_substitution_closed theta ->
+  locally_closed_ty U ->
+  type_substitution_closed (type_subst_update theta X U).
+Proof.
+  intros theta X U Htheta HU Y. unfold type_subst_update.
+  destruct (Nat.eqb X Y); auto.
+Qed.
+
+Lemma term_subst_update_closed : forall gamma x u,
+  term_substitution_closed gamma ->
+  locally_closed_tm u ->
+  term_substitution_closed (term_subst_update gamma x u).
+Proof.
+  intros gamma x u Hgamma Hu y. unfold term_subst_update.
+  destruct (Nat.eqb x y); auto.
+Qed.
+
+Definition identity_type_substitution : type_substitution :=
+  fun X : atom => Ty_FVar X.
+
+Definition identity_term_substitution : term_substitution :=
+  fun x : atom => tm_fvar x.
+
+Lemma identity_type_substitution_closed :
+  type_substitution_closed identity_type_substitution.
+Proof.
+  intros X. apply lc_ty_fvar.
+Qed.
+
+Lemma identity_term_substitution_closed :
+  term_substitution_closed identity_term_substitution.
+Proof.
+  intros x. apply lc_tm_fvar.
+Qed.
+
+Lemma open_tm_preserves_lc_at : forall t K k u,
+  lc_tm_at K (S k) t -> locally_closed_tm u ->
+  lc_tm_at K k (open_tm_rec k u t).
+Proof.
+  induction t; intros K k u Hlc Hu; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  destruct (Nat.eqb k n) eqn:E.
+  - eapply lc_tm_at_monotone; [exact Hu|lia|lia].
+  - apply Nat.eqb_neq in E. apply lc_tm_bvar. lia.
+Qed.
+
+Lemma open_tm_ty_preserves_lc_at : forall t K k U,
+  lc_tm_at (S K) k t -> locally_closed_ty U ->
+  lc_tm_at K k (open_tm_ty_rec K U t).
+Proof.
+  induction t; intros K k U Hlc HU; simpl; inversion Hlc; subst;
+    eauto 8 using lc_tm_at.
+  - apply lc_tm_abs.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
+    + eapply IHt; eauto.
+  - apply lc_tm_tapp.
+    + eapply IHt; eauto.
+    + apply lc_ty_at_open; [assumption|].
+      eapply lc_ty_at_monotone; [exact HU|lia].
+Qed.
+
+Lemma value_regular : forall v, value v -> locally_closed_tm v.
+Proof. intros v H. destruct H; try assumption; constructor. Qed.
 
 Inductive evaluates : tm -> tm -> Prop :=
   | EvalValue : forall v, value v -> evaluates v v
@@ -366,51 +711,25 @@ Inductive evaluates : tm -> tm -> Prop :=
       evaluates c tm_false -> locally_closed_tm t -> evaluates u v ->
       evaluates (tm_if c t u) v.
 
-Definition binary_relation := tm -> tm -> Prop.
+Lemma multi_if : forall c c' t u,
+  c -->* c' -> locally_closed_tm t -> locally_closed_tm u ->
+  tm_if c t u -->* tm_if c' t u.
+Proof. intros c c' t u H. induction H; eauto using multi, step. Qed.
 
-Record binary_candidate := {
-  candidate_relation : binary_relation;
-  candidate_values : forall v1 v2, candidate_relation v1 v2 -> value v1 /\ value v2
-}.
+Lemma multi_trans : forall t u v, t -->* u -> u -->* v -> t -->* v.
+Proof. intros t u v H. induction H; eauto using multi. Qed.
 
-Definition binary_env := atom -> option binary_candidate.
-Definition relation_update (rho : binary_env) (X : atom) (a : binary_candidate) :=
-  fun Y => if Nat.eqb X Y then Some a else rho Y.
+Lemma multi_app_left : forall t u arg,
+  t -->* u -> locally_closed_tm arg -> tm_app t arg -->* tm_app u arg.
+Proof. intros t u arg H. induction H; eauto using multi, step. Qed.
 
-Definition results_match (R : binary_relation) (t1 t2 : tm) : Prop :=
-  exists v1 v2,
-    evaluates t1 v1 /\ evaluates t2 v2 /\ R v1 v2.
+Lemma multi_app_right : forall f t u,
+  value f -> t -->* u -> tm_app f t -->* tm_app f u.
+Proof. intros f t u Hv H. induction H; eauto using multi, step. Qed.
 
-Definition expression_lifting (R : binary_relation) (t1 t2 : tm) : Prop :=
-  locally_closed_tm t1 /\ locally_closed_tm t2 /\ results_match R t1 t2.
-
-Fixpoint value_relation (eta : list binary_candidate) (rho : binary_env)
-    (T : ty) (v1 v2 : tm) : Prop :=
-  match T with
-  | Ty_BVar i =>
-      match nth_error eta i with Some a => a.(candidate_relation) v1 v2 | None => False end
-  | Ty_FVar X =>
-      match rho X with Some a => a.(candidate_relation) v1 v2 | None => False end
-  | Ty_Arrow T1 T2 =>
-      value v1 /\ value v2 /\
-      exists U1 body1 U2 body2,
-        v1 = tm_abs U1 body1 /\ v2 = tm_abs U2 body2 /\
-        forall arg1 arg2, value_relation eta rho T1 arg1 arg2 ->
-          expression_lifting (value_relation eta rho T2)
-            (open_tm body1 arg1) (open_tm body2 arg2)
-  | Ty_All T =>
-      value v1 /\ value v2 /\
-      exists body1 body2,
-        v1 = tm_tabs body1 /\ v2 = tm_tabs body2 /\
-        forall (U1 U2 : ty) (a : binary_candidate),
-          locally_closed_ty U1 -> locally_closed_ty U2 ->
-          expression_lifting (value_relation (a :: eta) rho T)
-            (open_tm_ty body1 U1) (open_tm_ty body2 U2)
-  | Ty_Bool => (v1 = tm_true /\ v2 = tm_true) \/ (v1 = tm_false /\ v2 = tm_false)
-  end.
-
-Definition expression_relation eta rho T t1 t2 :=
-  expression_lifting (value_relation eta rho T) t1 t2.
+Lemma multi_tapp : forall t u U,
+  t -->* u -> locally_closed_ty U -> tm_tapp t U -->* tm_tapp u U.
+Proof. intros t u U H. induction H; eauto using multi, step. Qed.
 
 Theorem polymorphic_identity_theorem_for_free : forall t,
   has_type [] empty t
@@ -421,7 +740,7 @@ Theorem polymorphic_identity_theorem_for_free : forall t,
     has_type [] empty v U ->
     tm_app (tm_tapp t U) v -->* v.
 Proof.
-  (* Complete the proof of the free theorem. *)
+  (* Complete this proof. *)
 Qed.
 
-End SystemFParametricityIfMediumTask.
+End SystemFParametricityIfEasyTask.
