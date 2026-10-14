@@ -45,6 +45,16 @@ latexmk -xelatex main.tex
 
 ## 实验结果
 
+### 新难度标准：GPT-6 Luna high
+
+每个难度36题，每题预算60分钟，并行100；未完成时续接原会话，共用剩余预算。本轮 Hard 成功 **19/36**，Medium **25/36**，Easy **31/36**。
+
+![新难度标准下的累计证明成功数](benchmarkResults/figures/gpt6luna_high_difficulty_v4_full_r1_solved_over_time.png)
+
+横轴为每题耗时（分钟），纵轴为在该时间内累计证明成功的题数。结果 tag：`gpt6luna_high_difficulty_v4_full_r1`。
+
+### 历史实验
+
 - [GPT-6 Sol High 结果与失败分析](docs/gpt6sol-high-results.md)
 
 ## Benchmark Cases表
