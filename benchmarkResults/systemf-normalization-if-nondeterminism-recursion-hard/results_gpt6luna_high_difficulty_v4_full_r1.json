@@ -1,0 +1,11 @@
+{
+  "systemf-normalization-if-nondeterminism-recursion-hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 656373,
+    "cached_input_tokens": 599552,
+    "output_tokens": 11837,
+    "total_tokens": 668210
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "security-noninterference-recursion-medium": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 7,
+    "input_tokens": 46452276,
+    "cached_input_tokens": 45738496,
+    "output_tokens": 128638,
+    "total_tokens": 46580914
+  }
+}

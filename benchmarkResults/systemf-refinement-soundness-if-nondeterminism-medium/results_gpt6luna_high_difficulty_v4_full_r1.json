@@ -1,0 +1,11 @@
+{
+  "systemf-refinement-soundness-if-nondeterminism-medium": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 2377013,
+    "cached_input_tokens": 2295808,
+    "output_tokens": 23973,
+    "total_tokens": 2400986
+  }
+}

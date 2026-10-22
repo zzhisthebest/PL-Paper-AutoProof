@@ -1,0 +1,11 @@
+{
+  "systemf-refinement-soundness-nondeterminism-easy": {
+    "status": "proved",
+    "time_s": 2674,
+    "turns": 2,
+    "input_tokens": 48198946,
+    "cached_input_tokens": 47600640,
+    "output_tokens": 142257,
+    "total_tokens": 48341203
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "systemf-parametricity-if-nondeterminism-medium": {
+    "status": "proved",
+    "time_s": 1466,
+    "turns": 2,
+    "input_tokens": 21640160,
+    "cached_input_tokens": 21281792,
+    "output_tokens": 103816,
+    "total_tokens": 21743976
+  }
+}

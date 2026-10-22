@@ -1,0 +1,11 @@
+{
+  "systemf-normalization-if-recursion-hard": {
+    "status": "proved",
+    "time_s": 3515,
+    "turns": 2,
+    "input_tokens": 70730923,
+    "cached_input_tokens": 69969920,
+    "output_tokens": 223864,
+    "total_tokens": 70954787
+  }
+}

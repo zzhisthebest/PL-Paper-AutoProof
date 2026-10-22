@@ -13,5 +13,5 @@ Analysis model: `gpt-6-sol` (high)
 ## 关键证据
 
 - [result](/data0/zzh/PL-Paper-AutoProof/benchmarkResults/security-noninterference-recursion-medium/results_gpt6sol_high.json) 记录为 3600 秒超时。trace 曾显示基本定理有 15 个归纳目标；接近结束时仍在函数抽象目标中处理新变量、环境更新与 `close_term_open_update`。
-- [最终证明](/data0/zzh/PL-Paper-AutoProof/benchmarkResults/security-noninterference-recursion-medium/proofs_gpt6sol_high/security-noninterference-recursion-medium.v:2008) 已有大量辅助引理，包括擦除后的类型保持、替换和大小步求值桥接；但 `fundamental_low_lifting` 与 `noninterference` 均以 `Admitted` 结束。最后一次 `coqc` 在函数抽象分支第 2052 行失败，文件当时也未通过编译。
+- [最终证明](/data0/zzh/PL-Paper-AutoProof/benchmarkResults/security-noninterference-recursion-medium/proofs_gpt6sol_high/Task.v:2008) 已有大量辅助引理，包括擦除后的类型保持、替换和大小步求值桥接；但 `fundamental_low_lifting` 与 `noninterference` 均以 `Admitted` 结束。最后一次 `coqc` 在函数抽象分支第 2052 行失败，文件当时也未通过编译。
 - 当前 [Task.v.orig](/data0/zzh/PL-Paper-AutoProof/benchmarks/security-noninterference-recursion-medium/input/Task.v.orig) 与 trace 所示的 493 行起始输入、最终证明保留的原定义和目标陈述一致。当前 card 的目标陈述也一致；trace 未保存当时 card 全文，无法核实措辞是否曾变化。

@@ -1,0 +1,11 @@
+{
+  "systemf-parametricity-none-medium": {
+    "status": "proved",
+    "time_s": 1729,
+    "turns": 2,
+    "input_tokens": 32023763,
+    "cached_input_tokens": 31530496,
+    "output_tokens": 121109,
+    "total_tokens": 32144872
+  }
+}

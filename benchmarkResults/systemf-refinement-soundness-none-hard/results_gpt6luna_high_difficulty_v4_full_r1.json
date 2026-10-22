@@ -1,0 +1,11 @@
+{
+  "systemf-refinement-soundness-none-hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 4264403,
+    "cached_input_tokens": 4095232,
+    "output_tokens": 30316,
+    "total_tokens": 4294719
+  }
+}
