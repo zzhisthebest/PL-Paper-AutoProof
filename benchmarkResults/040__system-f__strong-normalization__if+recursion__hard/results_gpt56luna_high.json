@@ -1,0 +1,10 @@
+{
+  "040__system-f__strong-normalization__if+recursion__hard": {
+    "status": "failed",
+    "time_s": 3219,
+    "input_tokens": 23757847,
+    "cached_input_tokens": 23465216,
+    "output_tokens": 93300,
+    "total_tokens": 23851147
+  }
+}

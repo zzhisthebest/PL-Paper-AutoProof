@@ -1,0 +1,10 @@
+{
+  "087__system-f-refinement__type-safety__if+nondeterminism__easy": {
+    "status": "proved",
+    "time_s": 97,
+    "input_tokens": 725735,
+    "cached_input_tokens": 631808,
+    "output_tokens": 2010,
+    "total_tokens": 727745
+  }
+}

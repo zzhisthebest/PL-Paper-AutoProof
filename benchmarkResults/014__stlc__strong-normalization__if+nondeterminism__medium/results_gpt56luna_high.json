@@ -1,0 +1,10 @@
+{
+  "014__stlc__strong-normalization__if+nondeterminism__medium": {
+    "status": "failed",
+    "time_s": 1750,
+    "input_tokens": 8929738,
+    "cached_input_tokens": 8668416,
+    "output_tokens": 46062,
+    "total_tokens": 8975800
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "015__stlc__strong-normalization__if+nondeterminism__easy": {
+    "status": "proved",
+    "time_s": 498,
+    "turns": 1,
+    "input_tokens": 3205493,
+    "cached_input_tokens": 3050240,
+    "output_tokens": 19724,
+    "total_tokens": 3225217
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "084__system-f-refinement__type-safety__recursion__easy": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 2189207,
+    "cached_input_tokens": 2065408,
+    "output_tokens": 21267,
+    "total_tokens": 2210474
+  }
+}

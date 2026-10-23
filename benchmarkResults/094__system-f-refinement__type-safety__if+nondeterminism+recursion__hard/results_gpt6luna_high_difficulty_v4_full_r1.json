@@ -1,0 +1,11 @@
+{
+  "094__system-f-refinement__type-safety__if+nondeterminism+recursion__hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 2890614,
+    "cached_input_tokens": 2795520,
+    "output_tokens": 22426,
+    "total_tokens": 2913040
+  }
+}

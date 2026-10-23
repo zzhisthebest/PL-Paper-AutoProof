@@ -1,0 +1,11 @@
+{
+  "079__system-f-refinement__type-safety__nondeterminism__hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 477864,
+    "cached_input_tokens": 420608,
+    "output_tokens": 7783,
+    "total_tokens": 485647
+  }
+}

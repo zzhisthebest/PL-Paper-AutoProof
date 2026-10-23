@@ -1,0 +1,11 @@
+{
+  "066__system-f__polymorphic-identity__if+recursion__easy": {
+    "status": "proved",
+    "time_s": 932,
+    "turns": 1,
+    "input_tokens": 5990253,
+    "cached_input_tokens": 5837056,
+    "output_tokens": 40936,
+    "total_tokens": 6031189
+  }
+}

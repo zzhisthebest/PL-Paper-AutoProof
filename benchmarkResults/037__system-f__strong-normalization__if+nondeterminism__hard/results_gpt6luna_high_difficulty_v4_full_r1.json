@@ -1,0 +1,11 @@
+{
+  "037__system-f__strong-normalization__if+nondeterminism__hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 1861097,
+    "cached_input_tokens": 1784320,
+    "output_tokens": 22518,
+    "total_tokens": 1883615
+  }
+}

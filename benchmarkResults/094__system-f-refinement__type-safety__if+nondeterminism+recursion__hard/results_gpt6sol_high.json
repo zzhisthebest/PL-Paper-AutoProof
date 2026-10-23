@@ -1,0 +1,10 @@
+{
+  "094__system-f-refinement__type-safety__if+nondeterminism+recursion__hard": {
+    "status": "failed",
+    "time_s": 1089,
+    "input_tokens": 5276826,
+    "cached_input_tokens": 5194624,
+    "output_tokens": 36358,
+    "total_tokens": 5313184
+  }
+}

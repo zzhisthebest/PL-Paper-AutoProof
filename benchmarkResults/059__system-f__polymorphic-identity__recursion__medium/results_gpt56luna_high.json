@@ -1,0 +1,10 @@
+{
+  "059__system-f__polymorphic-identity__recursion__medium": {
+    "status": "failed",
+    "time_s": 2618,
+    "input_tokens": 48064972,
+    "cached_input_tokens": 47444224,
+    "output_tokens": 97210,
+    "total_tokens": 48162182
+  }
+}

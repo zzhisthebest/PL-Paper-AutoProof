@@ -1,0 +1,11 @@
+{
+  "106__security-stlc__noninterference__if+recursion__hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 2652637,
+    "cached_input_tokens": 2569472,
+    "output_tokens": 28443,
+    "total_tokens": 2681080
+  }
+}

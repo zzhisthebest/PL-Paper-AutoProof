@@ -1,0 +1,11 @@
+{
+  "099__security-stlc__noninterference__none__easy": {
+    "status": "proved",
+    "time_s": 2550,
+    "turns": 2,
+    "input_tokens": 49222968,
+    "cached_input_tokens": 48587008,
+    "output_tokens": 193637,
+    "total_tokens": 49416605
+  }
+}

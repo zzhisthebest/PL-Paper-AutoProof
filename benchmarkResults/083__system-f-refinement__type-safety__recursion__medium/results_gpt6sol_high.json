@@ -1,0 +1,10 @@
+{
+  "083__system-f-refinement__type-safety__recursion__medium": {
+    "status": "failed",
+    "time_s": 755,
+    "input_tokens": 2840044,
+    "cached_input_tokens": 2686080,
+    "output_tokens": 24399,
+    "total_tokens": 2864443
+  }
+}

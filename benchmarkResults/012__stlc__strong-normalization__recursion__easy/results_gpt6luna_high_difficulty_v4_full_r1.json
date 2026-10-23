@@ -1,0 +1,11 @@
+{
+  "012__stlc__strong-normalization__recursion__easy": {
+    "status": "proved",
+    "time_s": 196,
+    "turns": 1,
+    "input_tokens": 1341707,
+    "cached_input_tokens": 1283584,
+    "output_tokens": 9462,
+    "total_tokens": 1351169
+  }
+}

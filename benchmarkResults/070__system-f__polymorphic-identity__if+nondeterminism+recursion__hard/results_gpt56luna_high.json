@@ -1,0 +1,10 @@
+{
+  "070__system-f__polymorphic-identity__if+nondeterminism+recursion__hard": {
+    "status": "failed",
+    "time_s": 1977,
+    "input_tokens": 10926059,
+    "cached_input_tokens": 10744320,
+    "output_tokens": 69610,
+    "total_tokens": 10995669
+  }
+}

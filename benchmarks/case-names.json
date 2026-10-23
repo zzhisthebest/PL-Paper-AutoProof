@@ -1,0 +1,974 @@
+[
+  {
+    "id": "001",
+    "name": "001__stlc__strong-normalization__none__hard",
+    "old_name": "stlc-normalization-none-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "hard"
+  },
+  {
+    "id": "002",
+    "name": "002__stlc__strong-normalization__none__medium",
+    "old_name": "stlc-normalization-none-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "medium"
+  },
+  {
+    "id": "003",
+    "name": "003__stlc__strong-normalization__none__easy",
+    "old_name": "stlc-normalization-none-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "easy"
+  },
+  {
+    "id": "004",
+    "name": "004__stlc__strong-normalization__if__hard",
+    "old_name": "stlc-normalization-if-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "hard"
+  },
+  {
+    "id": "005",
+    "name": "005__stlc__strong-normalization__if__medium",
+    "old_name": "stlc-normalization-if-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "medium"
+  },
+  {
+    "id": "006",
+    "name": "006__stlc__strong-normalization__if__easy",
+    "old_name": "stlc-normalization-if-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "easy"
+  },
+  {
+    "id": "007",
+    "name": "007__stlc__strong-normalization__nondeterminism__hard",
+    "old_name": "stlc-normalization-nondeterminism-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "008",
+    "name": "008__stlc__strong-normalization__nondeterminism__medium",
+    "old_name": "stlc-normalization-nondeterminism-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "009",
+    "name": "009__stlc__strong-normalization__nondeterminism__easy",
+    "old_name": "stlc-normalization-nondeterminism-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "010",
+    "name": "010__stlc__strong-normalization__recursion__hard",
+    "old_name": "stlc-normalization-recursion-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "011",
+    "name": "011__stlc__strong-normalization__recursion__medium",
+    "old_name": "stlc-normalization-recursion-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "012",
+    "name": "012__stlc__strong-normalization__recursion__easy",
+    "old_name": "stlc-normalization-recursion-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "013",
+    "name": "013__stlc__strong-normalization__if+nondeterminism__hard",
+    "old_name": "stlc-normalization-if-nondeterminism-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "014",
+    "name": "014__stlc__strong-normalization__if+nondeterminism__medium",
+    "old_name": "stlc-normalization-if-nondeterminism-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "015",
+    "name": "015__stlc__strong-normalization__if+nondeterminism__easy",
+    "old_name": "stlc-normalization-if-nondeterminism-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "016",
+    "name": "016__stlc__strong-normalization__if+recursion__hard",
+    "old_name": "stlc-normalization-if-recursion-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "017",
+    "name": "017__stlc__strong-normalization__if+recursion__medium",
+    "old_name": "stlc-normalization-if-recursion-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "018",
+    "name": "018__stlc__strong-normalization__if+recursion__easy",
+    "old_name": "stlc-normalization-if-recursion-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "019",
+    "name": "019__stlc__strong-normalization__nondeterminism+recursion__hard",
+    "old_name": "stlc-normalization-nondeterminism-recursion-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "020",
+    "name": "020__stlc__strong-normalization__nondeterminism+recursion__medium",
+    "old_name": "stlc-normalization-nondeterminism-recursion-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "021",
+    "name": "021__stlc__strong-normalization__nondeterminism+recursion__easy",
+    "old_name": "stlc-normalization-nondeterminism-recursion-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "022",
+    "name": "022__stlc__strong-normalization__if+nondeterminism+recursion__hard",
+    "old_name": "stlc-normalization-if-nondeterminism-recursion-hard",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "023",
+    "name": "023__stlc__strong-normalization__if+nondeterminism+recursion__medium",
+    "old_name": "stlc-normalization-if-nondeterminism-recursion-medium",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "024",
+    "name": "024__stlc__strong-normalization__if+nondeterminism+recursion__easy",
+    "old_name": "stlc-normalization-if-nondeterminism-recursion-easy",
+    "language": "stlc",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "025",
+    "name": "025__system-f__strong-normalization__none__hard",
+    "old_name": "systemf-normalization-none-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "hard"
+  },
+  {
+    "id": "026",
+    "name": "026__system-f__strong-normalization__none__medium",
+    "old_name": "systemf-normalization-none-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "medium"
+  },
+  {
+    "id": "027",
+    "name": "027__system-f__strong-normalization__none__easy",
+    "old_name": "systemf-normalization-none-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "none",
+    "difficulty": "easy"
+  },
+  {
+    "id": "028",
+    "name": "028__system-f__strong-normalization__if__hard",
+    "old_name": "systemf-normalization-if-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "hard"
+  },
+  {
+    "id": "029",
+    "name": "029__system-f__strong-normalization__if__medium",
+    "old_name": "systemf-normalization-if-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "medium"
+  },
+  {
+    "id": "030",
+    "name": "030__system-f__strong-normalization__if__easy",
+    "old_name": "systemf-normalization-if-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if",
+    "difficulty": "easy"
+  },
+  {
+    "id": "031",
+    "name": "031__system-f__strong-normalization__nondeterminism__hard",
+    "old_name": "systemf-normalization-nondeterminism-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "032",
+    "name": "032__system-f__strong-normalization__nondeterminism__medium",
+    "old_name": "systemf-normalization-nondeterminism-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "033",
+    "name": "033__system-f__strong-normalization__nondeterminism__easy",
+    "old_name": "systemf-normalization-nondeterminism-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "034",
+    "name": "034__system-f__strong-normalization__recursion__hard",
+    "old_name": "systemf-normalization-recursion-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "035",
+    "name": "035__system-f__strong-normalization__recursion__medium",
+    "old_name": "systemf-normalization-recursion-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "036",
+    "name": "036__system-f__strong-normalization__recursion__easy",
+    "old_name": "systemf-normalization-recursion-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "037",
+    "name": "037__system-f__strong-normalization__if+nondeterminism__hard",
+    "old_name": "systemf-normalization-if-nondeterminism-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "038",
+    "name": "038__system-f__strong-normalization__if+nondeterminism__medium",
+    "old_name": "systemf-normalization-if-nondeterminism-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "039",
+    "name": "039__system-f__strong-normalization__if+nondeterminism__easy",
+    "old_name": "systemf-normalization-if-nondeterminism-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "040",
+    "name": "040__system-f__strong-normalization__if+recursion__hard",
+    "old_name": "systemf-normalization-if-recursion-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "041",
+    "name": "041__system-f__strong-normalization__if+recursion__medium",
+    "old_name": "systemf-normalization-if-recursion-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "042",
+    "name": "042__system-f__strong-normalization__if+recursion__easy",
+    "old_name": "systemf-normalization-if-recursion-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "043",
+    "name": "043__system-f__strong-normalization__nondeterminism+recursion__hard",
+    "old_name": "systemf-normalization-nondeterminism-recursion-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "044",
+    "name": "044__system-f__strong-normalization__nondeterminism+recursion__medium",
+    "old_name": "systemf-normalization-nondeterminism-recursion-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "045",
+    "name": "045__system-f__strong-normalization__nondeterminism+recursion__easy",
+    "old_name": "systemf-normalization-nondeterminism-recursion-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "046",
+    "name": "046__system-f__strong-normalization__if+nondeterminism+recursion__hard",
+    "old_name": "systemf-normalization-if-nondeterminism-recursion-hard",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "047",
+    "name": "047__system-f__strong-normalization__if+nondeterminism+recursion__medium",
+    "old_name": "systemf-normalization-if-nondeterminism-recursion-medium",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "048",
+    "name": "048__system-f__strong-normalization__if+nondeterminism+recursion__easy",
+    "old_name": "systemf-normalization-if-nondeterminism-recursion-easy",
+    "language": "system-f",
+    "target": "strong-normalization",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "049",
+    "name": "049__system-f__polymorphic-identity__none__hard",
+    "old_name": "systemf-parametricity-none-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "none",
+    "difficulty": "hard"
+  },
+  {
+    "id": "050",
+    "name": "050__system-f__polymorphic-identity__none__medium",
+    "old_name": "systemf-parametricity-none-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "none",
+    "difficulty": "medium"
+  },
+  {
+    "id": "051",
+    "name": "051__system-f__polymorphic-identity__none__easy",
+    "old_name": "systemf-parametricity-none-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "none",
+    "difficulty": "easy"
+  },
+  {
+    "id": "052",
+    "name": "052__system-f__polymorphic-identity__if__hard",
+    "old_name": "systemf-parametricity-if-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if",
+    "difficulty": "hard"
+  },
+  {
+    "id": "053",
+    "name": "053__system-f__polymorphic-identity__if__medium",
+    "old_name": "systemf-parametricity-if-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if",
+    "difficulty": "medium"
+  },
+  {
+    "id": "054",
+    "name": "054__system-f__polymorphic-identity__if__easy",
+    "old_name": "systemf-parametricity-if-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if",
+    "difficulty": "easy"
+  },
+  {
+    "id": "055",
+    "name": "055__system-f__polymorphic-identity__nondeterminism__hard",
+    "old_name": "systemf-parametricity-nondeterminism-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "056",
+    "name": "056__system-f__polymorphic-identity__nondeterminism__medium",
+    "old_name": "systemf-parametricity-nondeterminism-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "057",
+    "name": "057__system-f__polymorphic-identity__nondeterminism__easy",
+    "old_name": "systemf-parametricity-nondeterminism-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "058",
+    "name": "058__system-f__polymorphic-identity__recursion__hard",
+    "old_name": "systemf-parametricity-recursion-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "059",
+    "name": "059__system-f__polymorphic-identity__recursion__medium",
+    "old_name": "systemf-parametricity-recursion-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "060",
+    "name": "060__system-f__polymorphic-identity__recursion__easy",
+    "old_name": "systemf-parametricity-recursion-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "061",
+    "name": "061__system-f__polymorphic-identity__if+nondeterminism__hard",
+    "old_name": "systemf-parametricity-if-nondeterminism-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "062",
+    "name": "062__system-f__polymorphic-identity__if+nondeterminism__medium",
+    "old_name": "systemf-parametricity-if-nondeterminism-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "063",
+    "name": "063__system-f__polymorphic-identity__if+nondeterminism__easy",
+    "old_name": "systemf-parametricity-if-nondeterminism-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "064",
+    "name": "064__system-f__polymorphic-identity__if+recursion__hard",
+    "old_name": "systemf-parametricity-if-recursion-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "065",
+    "name": "065__system-f__polymorphic-identity__if+recursion__medium",
+    "old_name": "systemf-parametricity-if-recursion-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "066",
+    "name": "066__system-f__polymorphic-identity__if+recursion__easy",
+    "old_name": "systemf-parametricity-if-recursion-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "067",
+    "name": "067__system-f__polymorphic-identity__nondeterminism+recursion__hard",
+    "old_name": "systemf-parametricity-nondeterminism-recursion-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "068",
+    "name": "068__system-f__polymorphic-identity__nondeterminism+recursion__medium",
+    "old_name": "systemf-parametricity-nondeterminism-recursion-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "069",
+    "name": "069__system-f__polymorphic-identity__nondeterminism+recursion__easy",
+    "old_name": "systemf-parametricity-nondeterminism-recursion-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "070",
+    "name": "070__system-f__polymorphic-identity__if+nondeterminism+recursion__hard",
+    "old_name": "systemf-parametricity-if-nondeterminism-recursion-hard",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "071",
+    "name": "071__system-f__polymorphic-identity__if+nondeterminism+recursion__medium",
+    "old_name": "systemf-parametricity-if-nondeterminism-recursion-medium",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "072",
+    "name": "072__system-f__polymorphic-identity__if+nondeterminism+recursion__easy",
+    "old_name": "systemf-parametricity-if-nondeterminism-recursion-easy",
+    "language": "system-f",
+    "target": "polymorphic-identity",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "073",
+    "name": "073__system-f-refinement__type-safety__none__hard",
+    "old_name": "systemf-refinement-soundness-none-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "none",
+    "difficulty": "hard"
+  },
+  {
+    "id": "074",
+    "name": "074__system-f-refinement__type-safety__none__medium",
+    "old_name": "systemf-refinement-soundness-none-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "none",
+    "difficulty": "medium"
+  },
+  {
+    "id": "075",
+    "name": "075__system-f-refinement__type-safety__none__easy",
+    "old_name": "systemf-refinement-soundness-none-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "none",
+    "difficulty": "easy"
+  },
+  {
+    "id": "076",
+    "name": "076__system-f-refinement__type-safety__if__hard",
+    "old_name": "systemf-refinement-soundness-if-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if",
+    "difficulty": "hard"
+  },
+  {
+    "id": "077",
+    "name": "077__system-f-refinement__type-safety__if__medium",
+    "old_name": "systemf-refinement-soundness-if-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if",
+    "difficulty": "medium"
+  },
+  {
+    "id": "078",
+    "name": "078__system-f-refinement__type-safety__if__easy",
+    "old_name": "systemf-refinement-soundness-if-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if",
+    "difficulty": "easy"
+  },
+  {
+    "id": "079",
+    "name": "079__system-f-refinement__type-safety__nondeterminism__hard",
+    "old_name": "systemf-refinement-soundness-nondeterminism-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "080",
+    "name": "080__system-f-refinement__type-safety__nondeterminism__medium",
+    "old_name": "systemf-refinement-soundness-nondeterminism-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "081",
+    "name": "081__system-f-refinement__type-safety__nondeterminism__easy",
+    "old_name": "systemf-refinement-soundness-nondeterminism-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "082",
+    "name": "082__system-f-refinement__type-safety__recursion__hard",
+    "old_name": "systemf-refinement-soundness-recursion-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "083",
+    "name": "083__system-f-refinement__type-safety__recursion__medium",
+    "old_name": "systemf-refinement-soundness-recursion-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "084",
+    "name": "084__system-f-refinement__type-safety__recursion__easy",
+    "old_name": "systemf-refinement-soundness-recursion-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "085",
+    "name": "085__system-f-refinement__type-safety__if+nondeterminism__hard",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism",
+    "difficulty": "hard"
+  },
+  {
+    "id": "086",
+    "name": "086__system-f-refinement__type-safety__if+nondeterminism__medium",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism",
+    "difficulty": "medium"
+  },
+  {
+    "id": "087",
+    "name": "087__system-f-refinement__type-safety__if+nondeterminism__easy",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism",
+    "difficulty": "easy"
+  },
+  {
+    "id": "088",
+    "name": "088__system-f-refinement__type-safety__if+recursion__hard",
+    "old_name": "systemf-refinement-soundness-if-recursion-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "089",
+    "name": "089__system-f-refinement__type-safety__if+recursion__medium",
+    "old_name": "systemf-refinement-soundness-if-recursion-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "090",
+    "name": "090__system-f-refinement__type-safety__if+recursion__easy",
+    "old_name": "systemf-refinement-soundness-if-recursion-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "091",
+    "name": "091__system-f-refinement__type-safety__nondeterminism+recursion__hard",
+    "old_name": "systemf-refinement-soundness-nondeterminism-recursion-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "092",
+    "name": "092__system-f-refinement__type-safety__nondeterminism+recursion__medium",
+    "old_name": "systemf-refinement-soundness-nondeterminism-recursion-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "093",
+    "name": "093__system-f-refinement__type-safety__nondeterminism+recursion__easy",
+    "old_name": "systemf-refinement-soundness-nondeterminism-recursion-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "094",
+    "name": "094__system-f-refinement__type-safety__if+nondeterminism+recursion__hard",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-recursion-hard",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "095",
+    "name": "095__system-f-refinement__type-safety__if+nondeterminism+recursion__medium",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-recursion-medium",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "096",
+    "name": "096__system-f-refinement__type-safety__if+nondeterminism+recursion__easy",
+    "old_name": "systemf-refinement-soundness-if-nondeterminism-recursion-easy",
+    "language": "system-f-refinement",
+    "target": "type-safety",
+    "features": "if+nondeterminism+recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "097",
+    "name": "097__security-stlc__noninterference__none__hard",
+    "old_name": "security-noninterference-none-hard",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "none",
+    "difficulty": "hard"
+  },
+  {
+    "id": "098",
+    "name": "098__security-stlc__noninterference__none__medium",
+    "old_name": "security-noninterference-none-medium",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "none",
+    "difficulty": "medium"
+  },
+  {
+    "id": "099",
+    "name": "099__security-stlc__noninterference__none__easy",
+    "old_name": "security-noninterference-none-easy",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "none",
+    "difficulty": "easy"
+  },
+  {
+    "id": "100",
+    "name": "100__security-stlc__noninterference__if__hard",
+    "old_name": "security-noninterference-if-hard",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if",
+    "difficulty": "hard"
+  },
+  {
+    "id": "101",
+    "name": "101__security-stlc__noninterference__if__medium",
+    "old_name": "security-noninterference-if-medium",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if",
+    "difficulty": "medium"
+  },
+  {
+    "id": "102",
+    "name": "102__security-stlc__noninterference__if__easy",
+    "old_name": "security-noninterference-if-easy",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if",
+    "difficulty": "easy"
+  },
+  {
+    "id": "103",
+    "name": "103__security-stlc__noninterference__recursion__hard",
+    "old_name": "security-noninterference-recursion-hard",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "104",
+    "name": "104__security-stlc__noninterference__recursion__medium",
+    "old_name": "security-noninterference-recursion-medium",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "105",
+    "name": "105__security-stlc__noninterference__recursion__easy",
+    "old_name": "security-noninterference-recursion-easy",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "recursion",
+    "difficulty": "easy"
+  },
+  {
+    "id": "106",
+    "name": "106__security-stlc__noninterference__if+recursion__hard",
+    "old_name": "security-noninterference-if-recursion-hard",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if+recursion",
+    "difficulty": "hard"
+  },
+  {
+    "id": "107",
+    "name": "107__security-stlc__noninterference__if+recursion__medium",
+    "old_name": "security-noninterference-if-recursion-medium",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if+recursion",
+    "difficulty": "medium"
+  },
+  {
+    "id": "108",
+    "name": "108__security-stlc__noninterference__if+recursion__easy",
+    "old_name": "security-noninterference-if-recursion-easy",
+    "language": "security-stlc",
+    "target": "noninterference",
+    "features": "if+recursion",
+    "difficulty": "easy"
+  }
+]

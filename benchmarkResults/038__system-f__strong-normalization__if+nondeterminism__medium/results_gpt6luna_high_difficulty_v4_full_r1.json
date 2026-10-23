@@ -1,0 +1,11 @@
+{
+  "038__system-f__strong-normalization__if+nondeterminism__medium": {
+    "status": "proved",
+    "time_s": 2106,
+    "turns": 2,
+    "input_tokens": 28473916,
+    "cached_input_tokens": 28056320,
+    "output_tokens": 131708,
+    "total_tokens": 28605624
+  }
+}

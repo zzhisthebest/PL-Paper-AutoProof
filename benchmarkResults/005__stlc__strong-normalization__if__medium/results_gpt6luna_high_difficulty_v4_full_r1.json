@@ -1,0 +1,11 @@
+{
+  "005__stlc__strong-normalization__if__medium": {
+    "status": "proved",
+    "time_s": 919,
+    "turns": 2,
+    "input_tokens": 9022100,
+    "cached_input_tokens": 8778240,
+    "output_tokens": 49623,
+    "total_tokens": 9071723
+  }
+}

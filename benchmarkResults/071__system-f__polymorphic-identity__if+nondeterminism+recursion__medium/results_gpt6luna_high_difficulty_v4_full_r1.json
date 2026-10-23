@@ -1,0 +1,11 @@
+{
+  "071__system-f__polymorphic-identity__if+nondeterminism+recursion__medium": {
+    "status": "proved",
+    "time_s": 2185,
+    "turns": 2,
+    "input_tokens": 21829000,
+    "cached_input_tokens": 21340672,
+    "output_tokens": 133242,
+    "total_tokens": 21962242
+  }
+}

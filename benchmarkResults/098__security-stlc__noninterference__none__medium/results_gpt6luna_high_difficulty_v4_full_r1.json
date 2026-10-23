@@ -1,0 +1,11 @@
+{
+  "098__security-stlc__noninterference__none__medium": {
+    "status": "proved",
+    "time_s": 2086,
+    "turns": 1,
+    "input_tokens": 50841175,
+    "cached_input_tokens": 50201856,
+    "output_tokens": 146571,
+    "total_tokens": 50987746
+  }
+}

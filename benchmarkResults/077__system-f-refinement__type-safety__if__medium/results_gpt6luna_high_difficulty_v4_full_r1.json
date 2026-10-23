@@ -1,0 +1,11 @@
+{
+  "077__system-f-refinement__type-safety__if__medium": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 4001382,
+    "cached_input_tokens": 3894528,
+    "output_tokens": 27632,
+    "total_tokens": 4029014
+  }
+}

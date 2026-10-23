@@ -1,0 +1,11 @@
+{
+  "019__stlc__strong-normalization__nondeterminism+recursion__hard": {
+    "status": "proved",
+    "time_s": 1627,
+    "turns": 1,
+    "input_tokens": 28288169,
+    "cached_input_tokens": 27860736,
+    "output_tokens": 111916,
+    "total_tokens": 28400085
+  }
+}

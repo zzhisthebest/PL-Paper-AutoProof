@@ -1,0 +1,11 @@
+{
+  "035__system-f__strong-normalization__recursion__medium": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 393979,
+    "cached_input_tokens": 362752,
+    "output_tokens": 9865,
+    "total_tokens": 403844
+  }
+}

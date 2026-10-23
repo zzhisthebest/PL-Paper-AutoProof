@@ -1,0 +1,10 @@
+{
+  "054__system-f__polymorphic-identity__if__easy": {
+    "status": "proved",
+    "time_s": 199,
+    "input_tokens": 816305,
+    "cached_input_tokens": 749312,
+    "output_tokens": 6286,
+    "total_tokens": 822591
+  }
+}

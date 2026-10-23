@@ -2,13 +2,13 @@
   "reference_revision": "c0e1ea6d831eec6f8021202ab4362118f6e4c087",
   "cases": [
     {
-      "case": "security-noninterference-if-hard",
+      "case": "100__security-stlc__noninterference__if__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "f5f80e5b2c999524981d38771b9486d637976d3bea75f1beccb41bd402379ae3"
     },
     {
-      "case": "security-noninterference-if-medium",
+      "case": "101__security-stlc__noninterference__if__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -33,7 +33,7 @@
       "input_sha256": "7ea60d4a9361e90473c9a1ca166ffb6c5ecc68115df5f2d9c42411c2bd0f7d01"
     },
     {
-      "case": "security-noninterference-if-easy",
+      "case": "102__security-stlc__noninterference__if__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -54,7 +54,6 @@
         "erase_type_wf",
         "evaluates_erasure",
         "evaluates_protected_function",
-        "flows_to_dec",
         "flows_to_refl",
         "flows_to_trans",
         "fresh_atom",
@@ -77,10 +76,6 @@
         "protect_security_wf",
         "protect_value_compose",
         "protect_value_low",
-        "related_expression_update",
-        "related_instantiations_typed",
-        "related_substitution_lc",
-        "related_values_are_related_expressions",
         "security_le_refl",
         "security_protect_mono",
         "step_big_step",
@@ -119,22 +114,20 @@
         "typing_substitution_update",
         "typing_weaken",
         "typing_weaken_empty",
-        "underlying_typed_evaluates",
         "value_multi_inv",
         "value_no_step",
-        "value_protect",
-        "value_relation_properties"
+        "value_protect"
       ],
-      "input_sha256": "95e748e591b5d8dae8de42f7eefe6f4395d093e8dc04a6abdcba69f775e4827b"
+      "input_sha256": "7b97fb997f6d98a361b15753308a01ebc7ca9b2970ec28401f4b0e5002238777"
     },
     {
-      "case": "security-noninterference-if-recursion-hard",
+      "case": "106__security-stlc__noninterference__if+recursion__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "4401c4b31666750af63c56740e089f965e9ba14115712507a02489d85d18554e"
     },
     {
-      "case": "security-noninterference-if-recursion-medium",
+      "case": "107__security-stlc__noninterference__if+recursion__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -159,7 +152,7 @@
       "input_sha256": "f440156a574ea64722a69b2fb35f5cf22e1b49405cbecca08af2ec3fb9550d2b"
     },
     {
-      "case": "security-noninterference-if-recursion-easy",
+      "case": "108__security-stlc__noninterference__if+recursion__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -181,7 +174,6 @@
         "erase_unroll",
         "evaluates_erasure",
         "evaluates_protected_function",
-        "flows_to_dec",
         "flows_to_refl",
         "flows_to_trans",
         "fresh_atom",
@@ -204,10 +196,6 @@
         "protect_security_wf",
         "protect_value_compose",
         "protect_value_low",
-        "related_expression_update",
-        "related_instantiations_typed",
-        "related_substitution_lc",
-        "related_values_are_related_expressions",
         "security_le_refl",
         "security_le_trans",
         "security_protect_mono",
@@ -251,22 +239,20 @@
         "typing_unroll",
         "typing_weaken",
         "typing_weaken_empty",
-        "underlying_typed_evaluates",
         "value_multi_inv",
         "value_no_step",
-        "value_protect",
-        "value_relation_properties"
+        "value_protect"
       ],
-      "input_sha256": "8d06bad13ad8ff62ea668bf07f2fc9eec040a7de58df377ad72f4927ae3ed3b5"
+      "input_sha256": "726a23534a2ccc882138bebe3eed96273792c12a4a27b21efb39cd31c2277564"
     },
     {
-      "case": "security-noninterference-none-hard",
+      "case": "097__security-stlc__noninterference__none__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "2a9154f1cd24cf74c5f92e336b531a12ac12aaae2f0c30452487a963f1bc52f3"
     },
     {
-      "case": "security-noninterference-none-medium",
+      "case": "098__security-stlc__noninterference__none__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -291,7 +277,7 @@
       "input_sha256": "94f53d3bfd61eba02423577b18360df20a5582851f28eba515f2776b608d003b"
     },
     {
-      "case": "security-noninterference-none-easy",
+      "case": "099__security-stlc__noninterference__none__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -312,7 +298,6 @@
         "erase_type_wf",
         "evaluates_erasure",
         "evaluates_protected_function",
-        "flows_to_dec",
         "flows_to_refl",
         "flows_to_trans",
         "fresh_atom",
@@ -335,10 +320,6 @@
         "protect_security_wf",
         "protect_value_compose",
         "protect_value_low",
-        "related_expression_update",
-        "related_instantiations_typed",
-        "related_substitution_lc",
-        "related_values_are_related_expressions",
         "security_le_refl",
         "security_protect_mono",
         "step_big_step",
@@ -375,22 +356,20 @@
         "typing_substitution_update",
         "typing_weaken",
         "typing_weaken_empty",
-        "underlying_typed_evaluates",
         "value_multi_inv",
         "value_no_step",
-        "value_protect",
-        "value_relation_properties"
+        "value_protect"
       ],
-      "input_sha256": "6c00aebc76ec32441de8ad73c9963a442f51353e39a09bf4dd90de5f46f6e8f8"
+      "input_sha256": "03982a1d56a9b3dce5c66936bb2566fa9ea110b15d933b898c5ad3fab276c558"
     },
     {
-      "case": "security-noninterference-recursion-hard",
+      "case": "103__security-stlc__noninterference__recursion__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "ca1f04c2776c3d5ff355b2d5f21198e3617a1f2f2a4e6795de93bd551f8a7946"
     },
     {
-      "case": "security-noninterference-recursion-medium",
+      "case": "104__security-stlc__noninterference__recursion__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -415,7 +394,7 @@
       "input_sha256": "1d924a788b95443e0b3edec7abf26ee5580309fc04885e383bbda95a0d86b9c5"
     },
     {
-      "case": "security-noninterference-recursion-easy",
+      "case": "105__security-stlc__noninterference__recursion__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -437,7 +416,6 @@
         "erase_unroll",
         "evaluates_erasure",
         "evaluates_protected_function",
-        "flows_to_dec",
         "flows_to_refl",
         "flows_to_trans",
         "fresh_atom",
@@ -460,10 +438,6 @@
         "protect_security_wf",
         "protect_value_compose",
         "protect_value_low",
-        "related_expression_update",
-        "related_instantiations_typed",
-        "related_substitution_lc",
-        "related_values_are_related_expressions",
         "security_le_refl",
         "security_le_trans",
         "security_protect_mono",
@@ -505,22 +479,20 @@
         "typing_unroll",
         "typing_weaken",
         "typing_weaken_empty",
-        "underlying_typed_evaluates",
         "value_multi_inv",
         "value_no_step",
-        "value_protect",
-        "value_relation_properties"
+        "value_protect"
       ],
-      "input_sha256": "a782afdfaa6ca212c79841c5467d7efb64abecfe31dddaea2ed7d8c4452eca39"
+      "input_sha256": "5dc6f7f471206024f88ef300e8774732cef28b0322607fdc3ef97f47b78b701e"
     },
     {
-      "case": "stlc-normalization-if-hard",
+      "case": "004__stlc__strong-normalization__if__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "7c82c77c5bd4bb92114b619d7d233a042efa37c3dd674cead092a5e828637c6b"
     },
     {
-      "case": "stlc-normalization-if-medium",
+      "case": "005__stlc__strong-normalization__if__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -539,10 +511,10 @@
         "term_lc_at",
         "value_regular"
       ],
-      "input_sha256": "a4fd32b3721fb655b70bdddc786357011ef1dd9f58910fa7ae6abe54d912ec3a"
+      "input_sha256": "505bdbcd2f7f56c8e08de39761e0a8ed00dfb65aa5fc899791d7ae9482f0fce7"
     },
     {
-      "case": "stlc-normalization-if-easy",
+      "case": "006__stlc__strong-normalization__if__easy",
       "target": "normalization",
       "provided_lemmas": [
         "empty_related",
@@ -572,16 +544,16 @@
         "value_relation_term",
         "value_relation_value"
       ],
-      "input_sha256": "1dce1bc12462f7ed26c43e57117f6515e2cc91c6c3d54b74d52fe8760e0e52e5"
+      "input_sha256": "71f9145f48ec2ce265871176f3e1204979464b49d5d891cbf29bf0aa53cf6b24"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-hard",
+      "case": "013__stlc__strong-normalization__if+nondeterminism__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "4bc0db053d89e17a696dd57d87810ad75a8fad57f3f11e18d905a57325fedacf"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-medium",
+      "case": "014__stlc__strong-normalization__if+nondeterminism__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -602,10 +574,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "8b2cdf5925e82dca5820bbfc69d6173f66df6e9688f65add328b821b8c6fdf7f"
+      "input_sha256": "f7e6d1a1d4aa07f349fd0cb1bc0506bed171469d32b4e42c90218983bf31a72e"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-easy",
+      "case": "015__stlc__strong-normalization__if+nondeterminism__easy",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -646,13 +618,13 @@
       "input_sha256": "3275bf6f254c6f40a63d0e7cbbd1d025eb0091677cb6f819b9a178905c42a590"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-recursion-hard",
+      "case": "022__stlc__strong-normalization__if+nondeterminism+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "1e550b4b218bebee4606adbd29a1c471a8fa7f34ed2bb5660e23310fd8887598"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-recursion-medium",
+      "case": "023__stlc__strong-normalization__if+nondeterminism+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -677,10 +649,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "143d732bbfbb1f79f3bb6a5f0436c1a8531b7a6c1774a938a6ac8bfedefbd70f"
+      "input_sha256": "c871c86b24e825ce79a653238eef53bceb8562ee264a7cb43c663dbdfdda134b"
     },
     {
-      "case": "stlc-normalization-if-nondeterminism-recursion-easy",
+      "case": "024__stlc__strong-normalization__if+nondeterminism+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -725,13 +697,13 @@
       "input_sha256": "7e676f5603b2005766a9daa5e4e46b85cb585154dc9521fd64e5c033cc87fdec"
     },
     {
-      "case": "stlc-normalization-if-recursion-hard",
+      "case": "016__stlc__strong-normalization__if+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "1ed4db53567645d3d138d8093c722bf67c480fe63f58d4f1afe2171ab49e5ee4"
     },
     {
-      "case": "stlc-normalization-if-recursion-medium",
+      "case": "017__stlc__strong-normalization__if+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -756,10 +728,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "3aa2d77caa402ee4fce699a0cf5888618e67d6faf718f5e5dec57bb9b5895e60"
+      "input_sha256": "54e874e1e0cc4d053be69434b04a5080cb5200336f01831d85c727250536c691"
     },
     {
-      "case": "stlc-normalization-if-recursion-easy",
+      "case": "018__stlc__strong-normalization__if+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -804,13 +776,13 @@
       "input_sha256": "ac75fcf5447dce5f04f3196a4ce5f626721dfa9343a42b6126d60ac2b22c8b9c"
     },
     {
-      "case": "stlc-normalization-nondeterminism-hard",
+      "case": "007__stlc__strong-normalization__nondeterminism__hard",
       "target": "strong_normalization",
       "provided_lemmas": [],
       "input_sha256": "dd40eedf1e0bcb4f4b8a5c41f322838945a5fbb9c87ca3dcbccb20c069f2aabc"
     },
     {
-      "case": "stlc-normalization-nondeterminism-medium",
+      "case": "008__stlc__strong-normalization__nondeterminism__medium",
       "target": "strong_normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -829,10 +801,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "ec3f224ca5c1d511f82b44195b84135f9dda7dca269a83ce6e4d2a22743c0ba2"
+      "input_sha256": "1c5c7f894d60d1326df2223c10e60d03b901f064572272be8113cde500398a9a"
     },
     {
-      "case": "stlc-normalization-nondeterminism-easy",
+      "case": "009__stlc__strong-normalization__nondeterminism__easy",
       "target": "strong_normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -866,16 +838,16 @@
         "value_regular",
         "value_sn"
       ],
-      "input_sha256": "3dd2dbfa1aaae6ab462844b45e36e6fc6ab6b082cb20d3beb81f4f26bbd023ce"
+      "input_sha256": "dd84bae74b4fd5d6bf7338c38f42d78136c57e7a050ddfbc7187c86155b7df5a"
     },
     {
-      "case": "stlc-normalization-nondeterminism-recursion-hard",
+      "case": "019__stlc__strong-normalization__nondeterminism+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "2a59991c6961b9fb0efbda175ae2fb95c22e494817bae38dd1111999a70e5367"
     },
     {
-      "case": "stlc-normalization-nondeterminism-recursion-medium",
+      "case": "020__stlc__strong-normalization__nondeterminism+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -900,10 +872,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "87c1a00733c64b6da72d9f49d0fea863223bacfe07fa9c04f61b4d5d6ef1be57"
+      "input_sha256": "724ad15d88ec10376cd2d3e35747ff8313914bdb9b8c8416b94849e996e608f2"
     },
     {
-      "case": "stlc-normalization-nondeterminism-recursion-easy",
+      "case": "021__stlc__strong-normalization__nondeterminism+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -948,13 +920,13 @@
       "input_sha256": "3a9f76a75372f85b62ee424be9b39d051463fab4b9ff0c1a240ecefaab025a01"
     },
     {
-      "case": "stlc-normalization-none-hard",
+      "case": "001__stlc__strong-normalization__none__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "5d2149b610aed2c38fc16ec07de07f961682d2b2b7cdeef000f5866b74d4ee78"
     },
     {
-      "case": "stlc-normalization-none-medium",
+      "case": "002__stlc__strong-normalization__none__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -972,10 +944,10 @@
         "term_lc_at",
         "value_regular"
       ],
-      "input_sha256": "8c21c1497d466923c297632da6ba8148c5c931352490d7004a221147f2c1f99f"
+      "input_sha256": "e215d363a6f9c3bc443fd2a2c8afa6b30419567d72c11b005283339dafd72c5b"
     },
     {
-      "case": "stlc-normalization-none-easy",
+      "case": "003__stlc__strong-normalization__none__easy",
       "target": "normalization",
       "provided_lemmas": [
         "empty_related",
@@ -1004,16 +976,16 @@
         "value_relation_term",
         "value_relation_value"
       ],
-      "input_sha256": "7bdf9cc44988d952a634ad576c0c1090ce4d98b9b55c0ac5000f4f77af610b7e"
+      "input_sha256": "35dfa0db4b89a85b6072fc7009451cde0e6eab8281d19e63e60a5d4ad3b18eca"
     },
     {
-      "case": "stlc-normalization-recursion-hard",
+      "case": "010__stlc__strong-normalization__recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "e2570b0c5491e9779f7e3abddb012dbfadcaa26b18779345d30728e83d706d28"
     },
     {
-      "case": "stlc-normalization-recursion-medium",
+      "case": "011__stlc__strong-normalization__recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1044,10 +1016,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "dedba9eca030ae5f203104fb4283365ee49a80b6b8c69242e2e01ae9a03e7f6b"
+      "input_sha256": "63592407567a1753db238015224a4034e034084c309b0be694b1265e601626d7"
     },
     {
-      "case": "stlc-normalization-recursion-easy",
+      "case": "012__stlc__strong-normalization__recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "canonical_forms_fun",
@@ -1098,13 +1070,13 @@
       "input_sha256": "3c6f16a4e1b503b976d587819af2de0a7c8e584361eb693322a0aa3e22cb9ca9"
     },
     {
-      "case": "systemf-normalization-if-hard",
+      "case": "028__system-f__strong-normalization__if__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "985f72039582159f1deb98ea8b03486acf8d8a2dae2bcaf56de3926df3cfb032"
     },
     {
-      "case": "systemf-normalization-if-medium",
+      "case": "029__system-f__strong-normalization__if__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1130,10 +1102,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "dc7a7d48694bdfdfef7ca3a91b03c30c94ebf45e74160438e0c67638f7a9c991"
+      "input_sha256": "4019cce2a8d177f664d35a6ea28aab3cfc1f4e8906c72bb691576ea419b2231b"
     },
     {
-      "case": "systemf-normalization-if-easy",
+      "case": "030__system-f__strong-normalization__if__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1199,13 +1171,13 @@
       "input_sha256": "aad499e0096ccc61a6f34c01e7232533b9206455d6cff7315bb309ab2ef12dd0"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-hard",
+      "case": "037__system-f__strong-normalization__if+nondeterminism__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "033058ffdcf6df7edbf5ba6b09d001c2ad8fc89d079f6f707c06c68629193aea"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-medium",
+      "case": "038__system-f__strong-normalization__if+nondeterminism__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1231,10 +1203,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "abaf76abeea5556825da79dda8be5fd4d7d51bff9d34c6aa0ed3ba808844ae87"
+      "input_sha256": "7c3a086453b11d781c6a1fb1ef21d04fc7b669af8b2bb53b49b45e3b83dd7eed"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-easy",
+      "case": "039__system-f__strong-normalization__if+nondeterminism__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1300,13 +1272,13 @@
       "input_sha256": "a02eec4c089050aab6e6dace4c4dff15640192b0d34622cc55fa47e4187c1b3c"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-recursion-hard",
+      "case": "046__system-f__strong-normalization__if+nondeterminism+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "0329e7907d5ec35e84e10722c4ab4d96063cbd814b6f102053f55439aed633a3"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-recursion-medium",
+      "case": "047__system-f__strong-normalization__if+nondeterminism+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1336,10 +1308,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "7fadcf8e3acd5dd4f07501d6bcbb64ebec24c2d74f21fa88e1c0725d3a7eb486"
+      "input_sha256": "19eb22fe0ad5417e84891372d50aaf3db28e48af10a22312668d5f7f9ea2175f"
     },
     {
-      "case": "systemf-normalization-if-nondeterminism-recursion-easy",
+      "case": "048__system-f__strong-normalization__if+nondeterminism+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1409,13 +1381,13 @@
       "input_sha256": "310885541f2e2b7bf7ab9f6637a900d13a9585ba931cf870848e4783a48e8cb9"
     },
     {
-      "case": "systemf-normalization-if-recursion-hard",
+      "case": "040__system-f__strong-normalization__if+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "742aa084bb11d874d05561417a3e512e1bfd36c673e3e3425118110575a41812"
     },
     {
-      "case": "systemf-normalization-if-recursion-medium",
+      "case": "041__system-f__strong-normalization__if+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1445,10 +1417,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "28f0a52650a4053f888b5eed69cf49a082cbd81295236fbba250527dc73a511e"
+      "input_sha256": "c317cd0c0b62ae9600aacb3eddaa9d9742b9db713d8f008a12e5c80813fc45b2"
     },
     {
-      "case": "systemf-normalization-if-recursion-easy",
+      "case": "042__system-f__strong-normalization__if+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1518,13 +1490,13 @@
       "input_sha256": "ca03cb4513e5d2c430aaafe1acb62715c3baa3e9d6239dfa14747d95f134571c"
     },
     {
-      "case": "systemf-normalization-nondeterminism-hard",
+      "case": "031__system-f__strong-normalization__nondeterminism__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "0499aea7fde7db712cfa72afe91870ce7f7d706ed7ad27a210946fdd7c268b4f"
     },
     {
-      "case": "systemf-normalization-nondeterminism-medium",
+      "case": "032__system-f__strong-normalization__nondeterminism__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1550,10 +1522,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "8e47a20f5c79600a80517595c8eb93d58c74bb88264e25dea18689b242fd9d5d"
+      "input_sha256": "0ce803f687f62be51c2501e1c749d3e19ad94da40f80f8d531d270dfd0545262"
     },
     {
-      "case": "systemf-normalization-nondeterminism-easy",
+      "case": "033__system-f__strong-normalization__nondeterminism__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1619,13 +1591,13 @@
       "input_sha256": "30c5588eaa32ec2ed76d6bd23a64a20a74418f456afead0efeb4e51f7ea088ef"
     },
     {
-      "case": "systemf-normalization-nondeterminism-recursion-hard",
+      "case": "043__system-f__strong-normalization__nondeterminism+recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "9497abdfffc4bb9a0febf57c60f03507b8dc796d24e78d1e148c6afdbfd63133"
     },
     {
-      "case": "systemf-normalization-nondeterminism-recursion-medium",
+      "case": "044__system-f__strong-normalization__nondeterminism+recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1655,10 +1627,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "6bdd07b343ee5970ce72b23b3aca49befbc0019146e51015e719253ed58d8a77"
+      "input_sha256": "3fe76303bd01f7512d4b9fe2a2230d0c547fe6ddd96c49e9868d649c6703e905"
     },
     {
-      "case": "systemf-normalization-nondeterminism-recursion-easy",
+      "case": "045__system-f__strong-normalization__nondeterminism+recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1728,13 +1700,13 @@
       "input_sha256": "44ab7a97ca56528531090b939a5a271a3be56ce5ffa2561c637fd9e7bea53a3c"
     },
     {
-      "case": "systemf-normalization-none-hard",
+      "case": "025__system-f__strong-normalization__none__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "828614da6d0f365f3b0af242017833502fbec206d51011cd3e7537a2ca86fba0"
     },
     {
-      "case": "systemf-normalization-none-medium",
+      "case": "026__system-f__strong-normalization__none__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1760,10 +1732,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "dcb70db1d8921ec51b888506d5d4e81df699a3be18c3e9248745fc050cb7aa2c"
+      "input_sha256": "457d3650b2f67f024cba7c3670b134f850ca7bf0d744129f05a21d75d35cfd39"
     },
     {
-      "case": "systemf-normalization-none-easy",
+      "case": "027__system-f__strong-normalization__none__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1829,13 +1801,13 @@
       "input_sha256": "ba14350d9099c0b574e25bb869ef8a1879ece677a517c71a53392864bf37c6a3"
     },
     {
-      "case": "systemf-normalization-recursion-hard",
+      "case": "034__system-f__strong-normalization__recursion__hard",
       "target": "normalization",
       "provided_lemmas": [],
       "input_sha256": "97ff21adbe18bcf620103277dc254c6462eda5b0477c804adbd60f9a89397754"
     },
     {
-      "case": "systemf-normalization-recursion-medium",
+      "case": "035__system-f__strong-normalization__recursion__medium",
       "target": "normalization",
       "provided_lemmas": [
         "fresh_notin",
@@ -1865,10 +1837,10 @@
         "value_no_step",
         "value_regular"
       ],
-      "input_sha256": "d7704b5399369c7f55e46d370ca284803cd87753f4ccc60880a3a8116c317e1f"
+      "input_sha256": "96175bb17eba12f8f3875bb75e0b8cd589534fa46ae2146919b9394526be00c8"
     },
     {
-      "case": "systemf-normalization-recursion-easy",
+      "case": "036__system-f__strong-normalization__recursion__easy",
       "target": "normalization",
       "provided_lemmas": [
         "expression_lifting_equiv",
@@ -1938,13 +1910,13 @@
       "input_sha256": "d829be5cb9f0ff540a3175e732ddfe9ad6fdd52f1985597213309de84d4ea57c"
     },
     {
-      "case": "systemf-parametricity-if-hard",
+      "case": "052__system-f__polymorphic-identity__if__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "04bd80f64f4edeca78ce1235c6768634626dae544a646b1451992ccaed50989a"
     },
     {
-      "case": "systemf-parametricity-if-medium",
+      "case": "053__system-f__polymorphic-identity__if__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -1973,10 +1945,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "cc51f9fa960777eec1a062e10cd5b68a98cedee68a722018b112dda3b1b1f163"
+      "input_sha256": "e25febb0a6ba25e68812222de2ed1177531ed82be4ea7abe068ca2955e900990"
     },
     {
-      "case": "systemf-parametricity-if-easy",
+      "case": "054__system-f__polymorphic-identity__if__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2040,13 +2012,13 @@
       "input_sha256": "29b89cf37b52c734e6d8185345b6498cff96a5f501714d00c5df6c2e586b4bd3"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-hard",
+      "case": "061__system-f__polymorphic-identity__if+nondeterminism__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "fe6d03e721de441b76c179b8df3e53c7e62f2ac8df1341c00a1cdec7b1c3f6df"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-medium",
+      "case": "062__system-f__polymorphic-identity__if+nondeterminism__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2075,10 +2047,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "b197775a047fb6db24b5862b8a06efcd3a259ff121db73404e39d4789d51d314"
+      "input_sha256": "169a404e19ddacf2aa33beabafc05b5adcbd68bcb774edf6f0b0ec26039b49e7"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-easy",
+      "case": "063__system-f__polymorphic-identity__if+nondeterminism__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2142,13 +2114,13 @@
       "input_sha256": "bd9521b574072f818049197662439bcde992d1ec852a5884f569005adc1be46b"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-recursion-hard",
+      "case": "070__system-f__polymorphic-identity__if+nondeterminism+recursion__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "22d88b1ffaca00bab8775e3a8d8e21e0ca6109d959cfe42465c0e82d3b6d203f"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-recursion-medium",
+      "case": "071__system-f__polymorphic-identity__if+nondeterminism+recursion__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2182,10 +2154,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "5f87484d78fbc3a58061e80a2646beab08ce380e04ace7682222263a646971ef"
+      "input_sha256": "daa452a04486590a7a49df1c9956c99919af74d60070b150328ef3f31cd2d54e"
     },
     {
-      "case": "systemf-parametricity-if-nondeterminism-recursion-easy",
+      "case": "072__system-f__polymorphic-identity__if+nondeterminism+recursion__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2260,13 +2232,13 @@
       "input_sha256": "a3ff7f32df01f027e0380a6a3de8b1a05d54b9a2f5082f2f55997721860e2bd9"
     },
     {
-      "case": "systemf-parametricity-if-recursion-hard",
+      "case": "064__system-f__polymorphic-identity__if+recursion__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "6c6f540130b0a85bbd1fee75026db93ca64c8444dbc7a1392c84b2efa72edef8"
     },
     {
-      "case": "systemf-parametricity-if-recursion-medium",
+      "case": "065__system-f__polymorphic-identity__if+recursion__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2300,10 +2272,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "5360eecdd8b65b2b8182af5e0ba224022ce8a09fa41192e0aec4388eaea8e19a"
+      "input_sha256": "d4ccbbaa126359d38880a6f9bbd8e468ce0e950dd1e0cb47692e2181585d3710"
     },
     {
-      "case": "systemf-parametricity-if-recursion-easy",
+      "case": "066__system-f__polymorphic-identity__if+recursion__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2378,13 +2350,13 @@
       "input_sha256": "5e3c917ba9cc5f943f8034ec888eccc99583e44a53bf9bb352c20f315a7f0662"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-hard",
+      "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "803576a90ebca6d13a5d628476c3ae69d15c0e83a2cf6e57e5ea24603564eb63"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-medium",
+      "case": "056__system-f__polymorphic-identity__nondeterminism__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2412,10 +2384,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "17d5391680fd007d525021029b19f641ffe20cf6546d0be5c295c89dea709ebd"
+      "input_sha256": "c86993e966d391cbdcb0ed350201e13245e3d6e175cf83300f6b9a75d23d6730"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-easy",
+      "case": "057__system-f__polymorphic-identity__nondeterminism__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2478,13 +2450,13 @@
       "input_sha256": "3ad39df439baa1d3baf101aa5b1d2cb466aa29771ed987ff6de41a5a52521ca6"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-recursion-hard",
+      "case": "067__system-f__polymorphic-identity__nondeterminism+recursion__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "8c7cf8fb957c0a50354e6ee5b1a0d3d95b420eae3c6fae65a0255ade3b1f5ba8"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-recursion-medium",
+      "case": "068__system-f__polymorphic-identity__nondeterminism+recursion__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2517,10 +2489,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "4e86d16e72b840e790d0ac8cd768a6b4f34b82016986df67ce0744bcaf53d2b1"
+      "input_sha256": "0f443f6721c17467169456886ec1cafebaa2b607a745ba1339c7bfb3e0de8c8f"
     },
     {
-      "case": "systemf-parametricity-nondeterminism-recursion-easy",
+      "case": "069__system-f__polymorphic-identity__nondeterminism+recursion__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2594,13 +2566,13 @@
       "input_sha256": "56940fa9b161100bab4501828cb777e3e71c50669c2646d77dd4efaf365f3088"
     },
     {
-      "case": "systemf-parametricity-none-hard",
+      "case": "049__system-f__polymorphic-identity__none__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "bc4d56f81a2a13dfddc0a827f55f2a5b8f1b63fa16b8c3de7b3befb4724b760f"
     },
     {
-      "case": "systemf-parametricity-none-medium",
+      "case": "050__system-f__polymorphic-identity__none__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2628,10 +2600,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "f5cdb841df88c89d0c0bf8b334cd519d3ceffece1a1812b38b350575c7e31108"
+      "input_sha256": "0cbc8afbd1ddd1780d51eb5540b26fbdcd93f0026d0b328eb5d7a5a100513e74"
     },
     {
-      "case": "systemf-parametricity-none-easy",
+      "case": "051__system-f__polymorphic-identity__none__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2694,13 +2666,13 @@
       "input_sha256": "3024aa2ee0fc6687a840bc0c986ec2bc4e3476f39a6d638b3ca93dc20482a72d"
     },
     {
-      "case": "systemf-parametricity-recursion-hard",
+      "case": "058__system-f__polymorphic-identity__recursion__hard",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [],
       "input_sha256": "ce6a3ab175eecf399d3b8aa49e2b65d3859f06acdacdeeedb1b01699533bbd66"
     },
     {
-      "case": "systemf-parametricity-recursion-medium",
+      "case": "059__system-f__polymorphic-identity__recursion__medium",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "fresh_notin",
@@ -2733,10 +2705,10 @@
         "type_subst_update_closed",
         "value_regular"
       ],
-      "input_sha256": "02a6f7b865fd512115807b9b36a177278b7ff10feb31e7cc2f69c1e7796080b8"
+      "input_sha256": "97493e67a87ced804111a295d3199febf98e26e1bb7366a9e38e5dc000dc2fea"
     },
     {
-      "case": "systemf-parametricity-recursion-easy",
+      "case": "060__system-f__polymorphic-identity__recursion__easy",
       "target": "polymorphic_identity_theorem_for_free",
       "provided_lemmas": [
         "evaluates_lc",
@@ -2810,13 +2782,13 @@
       "input_sha256": "3cee6005cea68e802a0a7c0d13fb4c32003e523ffc41d85faf4adc3bab4c7e98"
     },
     {
-      "case": "systemf-refinement-soundness-if-hard",
+      "case": "076__system-f-refinement__type-safety__if__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "150f156c97537226e0a74436f29289263628e4f2c25fd6080707be33b8c9b935"
     },
     {
-      "case": "systemf-refinement-soundness-if-medium",
+      "case": "077__system-f-refinement__type-safety__if__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -2847,7 +2819,7 @@
       "input_sha256": "21bd181309fe963919035847305205eb4c03b6047c9bafc43ab209bd706579a4"
     },
     {
-      "case": "systemf-refinement-soundness-if-easy",
+      "case": "078__system-f-refinement__type-safety__if__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3002,13 +2974,13 @@
       "input_sha256": "693320c4009a6a99c81ca2a129547fa1627c1176883d47147fc6acc3485597a1"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-hard",
+      "case": "085__system-f-refinement__type-safety__if+nondeterminism__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "8c45a7e9b7b76fa3990ddbf9dac3bb16f54fd426dcd42c7954202db72b345f4e"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-medium",
+      "case": "086__system-f-refinement__type-safety__if+nondeterminism__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -3039,7 +3011,7 @@
       "input_sha256": "5dd18a99a9f5a3541f6c5ca85f08acda236fdbe15394fb70dba09cc3746277a9"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-easy",
+      "case": "087__system-f-refinement__type-safety__if+nondeterminism__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3192,13 +3164,13 @@
       "input_sha256": "c2d4d513d8599f73f6d4f5d5427c112b3c97e2261d376e55c26fb3313218ef8d"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-recursion-hard",
+      "case": "094__system-f-refinement__type-safety__if+nondeterminism+recursion__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "a8ef56857266f3c6098f46a6053351b2532728fbf429ecb76825c0019e5ff5fa"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-recursion-medium",
+      "case": "095__system-f-refinement__type-safety__if+nondeterminism+recursion__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -3229,7 +3201,7 @@
       "input_sha256": "99fb5427f07dc8c8d6d95ec51b8300fe92892f44d6af0b59b904c27264f0e561"
     },
     {
-      "case": "systemf-refinement-soundness-if-nondeterminism-recursion-easy",
+      "case": "096__system-f-refinement__type-safety__if+nondeterminism+recursion__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3396,13 +3368,13 @@
       "input_sha256": "57adf05c725d476cc3a53f21803390dc23f8667de6d757b428cf60e3b0298f78"
     },
     {
-      "case": "systemf-refinement-soundness-if-recursion-hard",
+      "case": "088__system-f-refinement__type-safety__if+recursion__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "ac3a183b35a3c8721eb9324145e8daabb3b87f82b32fbd0cf188f9706126e354"
     },
     {
-      "case": "systemf-refinement-soundness-if-recursion-medium",
+      "case": "089__system-f-refinement__type-safety__if+recursion__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -3433,7 +3405,7 @@
       "input_sha256": "28f5f6761e19924370c44137f521a41442a7853472fb6e075af6ede6ee77f8c8"
     },
     {
-      "case": "systemf-refinement-soundness-if-recursion-easy",
+      "case": "090__system-f-refinement__type-safety__if+recursion__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3602,13 +3574,13 @@
       "input_sha256": "e72ba2f052776c260fc37bde6319b8781405d82ea91ee485216b39f820e8e2ff"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-hard",
+      "case": "079__system-f-refinement__type-safety__nondeterminism__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "04a79f1fa1777808f3334218d2492e763b70bc8a3b32da47521d16448778d32d"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-medium",
+      "case": "080__system-f-refinement__type-safety__nondeterminism__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -3639,7 +3611,7 @@
       "input_sha256": "d4e5e9527134290768a1b1109947bff71f405d93ad82a00716875344c5a0046f"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-easy",
+      "case": "081__system-f-refinement__type-safety__nondeterminism__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3792,13 +3764,13 @@
       "input_sha256": "851d838a17e768377b616fae36362f4df6e1b68ccca6ee773970247120e2c3d9"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-recursion-hard",
+      "case": "091__system-f-refinement__type-safety__nondeterminism+recursion__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "3025ecec246ed3dd2154c87323efb22ec23b141d1fa921b0fb40448d3b2930f9"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-recursion-medium",
+      "case": "092__system-f-refinement__type-safety__nondeterminism+recursion__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -3829,7 +3801,7 @@
       "input_sha256": "d5948c8216ed490182b9dbc3d70d6febdc6058cba06ba22f7036c9fbd91742c1"
     },
     {
-      "case": "systemf-refinement-soundness-nondeterminism-recursion-easy",
+      "case": "093__system-f-refinement__type-safety__nondeterminism+recursion__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -3996,13 +3968,13 @@
       "input_sha256": "0dfe4303f47ad2cd6449a5cb13d79c06aa1f82b5e44581cb31417c6246094c01"
     },
     {
-      "case": "systemf-refinement-soundness-none-hard",
+      "case": "073__system-f-refinement__type-safety__none__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "7c4ecaf6800cbd4e3919ce01e12ffec5d1e67b3dad9d9304a7172db14abc6e6e"
     },
     {
-      "case": "systemf-refinement-soundness-none-medium",
+      "case": "074__system-f-refinement__type-safety__none__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -4033,7 +4005,7 @@
       "input_sha256": "b3fc0462e22123d04c608a4dd0e2d78ffe79493e15e430efd0cecfecaf12cef5"
     },
     {
-      "case": "systemf-refinement-soundness-none-easy",
+      "case": "075__system-f-refinement__type-safety__none__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",
@@ -4187,13 +4159,13 @@
       "input_sha256": "6a2815c3cbb7a08fed5445b0d859dc4c1060b27a25f9f4844d5665ae31993872"
     },
     {
-      "case": "systemf-refinement-soundness-recursion-hard",
+      "case": "082__system-f-refinement__type-safety__recursion__hard",
       "target": "never_stuck",
       "provided_lemmas": [],
       "input_sha256": "a9eada933add785fae65b12a10314dc362a7696f663c814818cc8e699d188d44"
     },
     {
-      "case": "systemf-refinement-soundness-recursion-medium",
+      "case": "083__system-f-refinement__type-safety__recursion__medium",
       "target": "never_stuck",
       "provided_lemmas": [
         "fresh_notin",
@@ -4224,7 +4196,7 @@
       "input_sha256": "9a5820f418e2fe9cd264e801be2d86146f19687c29b26ff7fb769abc3fe19b5c"
     },
     {
-      "case": "systemf-refinement-soundness-recursion-easy",
+      "case": "084__system-f-refinement__type-safety__recursion__easy",
       "target": "never_stuck",
       "provided_lemmas": [
         "close_open_ty_rec",

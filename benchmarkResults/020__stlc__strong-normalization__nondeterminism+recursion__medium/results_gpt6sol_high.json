@@ -1,0 +1,10 @@
+{
+  "020__stlc__strong-normalization__nondeterminism+recursion__medium": {
+    "status": "proved",
+    "time_s": 720,
+    "input_tokens": 3363714,
+    "cached_input_tokens": 3251072,
+    "output_tokens": 22608,
+    "total_tokens": 3386322
+  }
+}

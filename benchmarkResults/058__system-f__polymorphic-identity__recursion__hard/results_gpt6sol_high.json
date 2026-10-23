@@ -1,0 +1,10 @@
+{
+  "058__system-f__polymorphic-identity__recursion__hard": {
+    "status": "proved",
+    "time_s": 1958,
+    "input_tokens": 15749526,
+    "cached_input_tokens": 15539584,
+    "output_tokens": 65903,
+    "total_tokens": 15815429
+  }
+}

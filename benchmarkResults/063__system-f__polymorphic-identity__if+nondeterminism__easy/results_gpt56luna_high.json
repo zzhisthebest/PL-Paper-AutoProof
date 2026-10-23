@@ -1,0 +1,10 @@
+{
+  "063__system-f__polymorphic-identity__if+nondeterminism__easy": {
+    "status": "proved",
+    "time_s": 224,
+    "input_tokens": 948703,
+    "cached_input_tokens": 874240,
+    "output_tokens": 5483,
+    "total_tokens": 954186
+  }
+}

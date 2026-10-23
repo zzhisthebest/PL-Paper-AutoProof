@@ -1,0 +1,10 @@
+{
+  "086__system-f-refinement__type-safety__if+nondeterminism__medium": {
+    "status": "failed",
+    "time_s": 2223,
+    "input_tokens": 27221846,
+    "cached_input_tokens": 26701824,
+    "output_tokens": 79124,
+    "total_tokens": 27300970
+  }
+}

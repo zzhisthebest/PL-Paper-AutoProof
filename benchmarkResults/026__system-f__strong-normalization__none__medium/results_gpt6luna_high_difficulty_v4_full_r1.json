@@ -1,0 +1,11 @@
+{
+  "026__system-f__strong-normalization__none__medium": {
+    "status": "proved",
+    "time_s": 1862,
+    "turns": 2,
+    "input_tokens": 28187998,
+    "cached_input_tokens": 27828480,
+    "output_tokens": 127229,
+    "total_tokens": 28315227
+  }
+}
