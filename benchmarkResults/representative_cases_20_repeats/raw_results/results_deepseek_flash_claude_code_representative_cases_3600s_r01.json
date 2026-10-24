@@ -1,0 +1,42 @@
+{
+  "034__system-f__strong-normalization__recursion__hard": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 90178,
+    "cached_input_tokens": 70400,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 262301,
+    "total_tokens": 352479
+  },
+  "055__system-f__polymorphic-identity__nondeterminism__hard": {
+    "status": "timeout",
+    "time_s": 3601,
+    "turns": 1,
+    "input_tokens": 22683681,
+    "cached_input_tokens": 22622080,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 22683681
+  },
+  "073__system-f-refinement__type-safety__none__hard": {
+    "status": "timeout",
+    "time_s": 3601,
+    "turns": 1,
+    "input_tokens": 62515973,
+    "cached_input_tokens": 62368000,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 62515973
+  },
+  "100__security-stlc__noninterference__if__hard": {
+    "status": "proved",
+    "time_s": 2406,
+    "turns": 1,
+    "input_tokens": 43660435,
+    "cached_input_tokens": 43576064,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 390087,
+    "total_tokens": 44050522
+  }
+}
