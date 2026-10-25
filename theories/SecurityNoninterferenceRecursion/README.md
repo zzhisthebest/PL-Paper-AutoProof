@@ -1,4 +1,4 @@
-# Security noninterference with natural-number recursion
+# Secure STLC noninterference with natural-number recursion
 
 This directory extends the recursion-free security language with labeled natural
 numbers, successor, and a System T-style natural-number recursor. It is a

@@ -29,7 +29,7 @@
     "output_tokens": 119,
     "total_tokens": 37013250
   },
-  "100__security-stlc__noninterference__if__hard": {
+  "100__secure-stlc__noninterference__if__hard": {
     "status": "timeout",
     "time_s": 3601,
     "turns": 1,

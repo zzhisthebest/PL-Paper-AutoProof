@@ -7,7 +7,7 @@
 | 034 | System F strong normalization | Recursion |
 | 055 | System F polymorphic identity | Nondeterminism |
 | 073 | System F refinement type safety | None |
-| 100 | Security noninterference | If |
+| 100 | Secure STLC noninterference | If |
 
 模型为 DeepSeek Flash，harness 为 Claude Code 2.1.308；每次总时间预算 3600 秒，未启用 lr-first。
 续跑保留原会话和证明文件，不重置时间预算。034 运行时续跑提示包含剩余时间，后续运行前已移除该提示。

@@ -201,7 +201,7 @@
 | recursion-hard | 超时 / 3600 | **反例核实。** 已核实 Sem_Func 无应用行为要求；value-level 语义与 progress 建立后，beta/递归经存在 subtyping 的 preservation 未完成。 | [Trace](../benchmarkResults/systemf-refinement-soundness-recursion-hard/traces_gpt6luna_high_difficulty_v4_full_r1/systemf-refinement-soundness-recursion-hard.jsonl) · [Task.v](../benchmarkResults/systemf-refinement-soundness-recursion-hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
 | recursion-medium | 超时 / 3600 | **反例核实。** 最终函数关系仅保证调用安全，不保证返回 refinement，已核实应用闭包反例；一般 fundamental 未完成。 | [Trace](../benchmarkResults/systemf-refinement-soundness-recursion-medium/traces_gpt6luna_high_difficulty_v4_full_r1/systemf-refinement-soundness-recursion-medium.jsonl) · [Task.v](../benchmarkResults/systemf-refinement-soundness-recursion-medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
 
-## Security noninterference
+## Secure STLC noninterference
 
 | Feature / 难度 | 结果 / 秒 | 核查结论 | 历史证据 |
 |---|---|---|---|

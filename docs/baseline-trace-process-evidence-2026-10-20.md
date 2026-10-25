@@ -66,7 +66,7 @@ Case 前缀均为 `systemf-refinement-soundness`；目标是 never stuck。
 | if-nondeterminism-recursion-medium | LR 只给调用安全，L652 补返回条件；又发现只检查 qualifier 不能保证整数形状，L696 加普通类型约束。零层和正层条件的搭配始终没完全解决，最终仍有已验证反例；后段又大量补替换/打开支撑。 | L652–1303：126/257；L658、702 的源码，L696、1057 及末段替换目标。 | 方案返工 |
 | if-nondeterminism-recursion-easy | 已给 LR。开始联合归纳时，后续 tactics 错误地只作用于已聚焦的变量分支，L124 才修正。接着证明除法所有路径终止：必须将“任何结果非零”的前提转移到操作数的下一步；L218 的目标明确显示这一缺口。修好除法后继续算术，尚未覆盖其他核心分支。 | L56–307：49/55；L124、L218、L241、L280 及对应检查。不是单独一个末尾 bullet 错误。 | 具体证明 |
 
-## Security noninterference：5 道失败
+## Secure STLC noninterference：5 道失败
 
 | Case 后缀 | 过程与具体障碍 | 证据区间与检查数 | 主线 |
 |---|---|---|---|

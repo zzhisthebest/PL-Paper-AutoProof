@@ -900,7 +900,7 @@
     "trace": "073__system-f-refinement__type-safety__none__hard/r20/traces/073__system-f-refinement__type-safety__none__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 1,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r01",
     "status": "proved",
@@ -911,11 +911,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 390087,
     "total_tokens": 44050522,
-    "proof": "100__security-stlc__noninterference__if__hard/r01/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r01/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r01/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r01/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 2,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r02",
     "status": "proved",
@@ -926,11 +926,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 297386,
     "total_tokens": 33045725,
-    "proof": "100__security-stlc__noninterference__if__hard/r02/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r02/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r02/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r02/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 3,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r03",
     "status": "proved",
@@ -941,11 +941,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 360923,
     "total_tokens": 47704588,
-    "proof": "100__security-stlc__noninterference__if__hard/r03/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r03/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r03/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r03/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 4,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r04",
     "status": "timeout",
@@ -956,11 +956,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 35483,
     "total_tokens": 61456618,
-    "proof": "100__security-stlc__noninterference__if__hard/r04/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r04/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r04/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r04/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 5,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r05",
     "status": "proved",
@@ -971,11 +971,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 520069,
     "total_tokens": 39019936,
-    "proof": "100__security-stlc__noninterference__if__hard/r05/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r05/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r05/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r05/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 6,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r06",
     "status": "proved",
@@ -986,11 +986,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 387548,
     "total_tokens": 65719052,
-    "proof": "100__security-stlc__noninterference__if__hard/r06/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r06/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r06/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r06/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 7,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r07",
     "status": "timeout",
@@ -1001,11 +1001,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 17828,
     "total_tokens": 91086,
-    "proof": "100__security-stlc__noninterference__if__hard/r07/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r07/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r07/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r07/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 8,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r08",
     "status": "proved",
@@ -1016,11 +1016,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 378581,
     "total_tokens": 46836598,
-    "proof": "100__security-stlc__noninterference__if__hard/r08/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r08/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r08/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r08/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 9,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r09",
     "status": "timeout",
@@ -1031,11 +1031,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 0,
     "total_tokens": 8984372,
-    "proof": "100__security-stlc__noninterference__if__hard/r09/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r09/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r09/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r09/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 10,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r10",
     "status": "proved",
@@ -1046,11 +1046,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 553215,
     "total_tokens": 75580432,
-    "proof": "100__security-stlc__noninterference__if__hard/r10/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r10/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r10/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r10/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 11,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r11",
     "status": "timeout",
@@ -1061,11 +1061,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 131351,
     "total_tokens": 12324405,
-    "proof": "100__security-stlc__noninterference__if__hard/r11/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r11/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r11/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r11/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 12,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r12",
     "status": "proved",
@@ -1076,11 +1076,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 333459,
     "total_tokens": 39997708,
-    "proof": "100__security-stlc__noninterference__if__hard/r12/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r12/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r12/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r12/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 13,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r13",
     "status": "proved",
@@ -1091,11 +1091,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 383228,
     "total_tokens": 46503704,
-    "proof": "100__security-stlc__noninterference__if__hard/r13/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r13/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r13/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r13/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 14,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r14",
     "status": "timeout",
@@ -1106,11 +1106,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 415590,
     "total_tokens": 31899895,
-    "proof": "100__security-stlc__noninterference__if__hard/r14/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r14/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r14/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r14/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 15,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r15",
     "status": "proved",
@@ -1121,11 +1121,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 330989,
     "total_tokens": 39251913,
-    "proof": "100__security-stlc__noninterference__if__hard/r15/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r15/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r15/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r15/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 16,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r16",
     "status": "proved",
@@ -1136,11 +1136,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 355407,
     "total_tokens": 53284179,
-    "proof": "100__security-stlc__noninterference__if__hard/r16/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r16/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r16/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r16/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 17,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r17",
     "status": "proved",
@@ -1151,11 +1151,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 318225,
     "total_tokens": 34001789,
-    "proof": "100__security-stlc__noninterference__if__hard/r17/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r17/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r17/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r17/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 18,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r18",
     "status": "proved",
@@ -1166,11 +1166,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 370543,
     "total_tokens": 50708652,
-    "proof": "100__security-stlc__noninterference__if__hard/r18/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r18/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r18/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r18/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 19,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r19",
     "status": "proved",
@@ -1181,11 +1181,11 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 355934,
     "total_tokens": 33827380,
-    "proof": "100__security-stlc__noninterference__if__hard/r19/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r19/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r19/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r19/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   },
   {
-    "case": "100__security-stlc__noninterference__if__hard",
+    "case": "100__secure-stlc__noninterference__if__hard",
     "repeat": 20,
     "tag": "deepseek_flash_claude_code_representative_cases_3600s_r20",
     "status": "timeout",
@@ -1196,7 +1196,7 @@
     "cache_creation_input_tokens": 0,
     "output_tokens": 0,
     "total_tokens": 71858731,
-    "proof": "100__security-stlc__noninterference__if__hard/r20/proofs/Task.v",
-    "trace": "100__security-stlc__noninterference__if__hard/r20/traces/100__security-stlc__noninterference__if__hard.jsonl.gz"
+    "proof": "100__secure-stlc__noninterference__if__hard/r20/proofs/Task.v",
+    "trace": "100__secure-stlc__noninterference__if__hard/r20/traces/100__secure-stlc__noninterference__if__hard.jsonl.gz"
   }
 ]

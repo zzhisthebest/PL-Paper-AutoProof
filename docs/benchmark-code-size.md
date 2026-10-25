@@ -20,7 +20,7 @@
 | System F — Strong Normalization | 8／24 | 262–391 | 553–758 | 1,112–1,380 | 18/24 | 1,128–1,930 | 1,620 |
 | System F — Polymorphic Identity | 8／24 | 265–394 | 563–785 | 1,076–1,462 | 22/24 | 1,296–2,065 | 1,764 |
 | System F + Refinement Types — Type Safety | 8／24 | 814–1,052 | 1,237–1,481 | 3,129–3,810 | 4/24 | 3,812–4,479 | 4,230 |
-| Security STLC — Noninterference | 4／12 | 349–430 | 538–647 | 1,432–1,675 | 7/12 | 1,402–2,667 | 1,677 |
+| Secure STLC — Noninterference | 4／12 | 349–430 | 538–647 | 1,432–1,675 | 7/12 | 1,402–2,667 | 1,677 |
 
 ## 逐题明细
 
@@ -142,19 +142,19 @@
 | [095](../benchmarks/095__system-f-refinement__type-safety__if+nondeterminism+recursion__medium/input/Task.v.orig) | if+nondeterminism+recursion | Medium | 1,663 | 1,481 | 超时（未完成） | 2,788 | [2,540](../benchmarkResults/095__system-f-refinement__type-safety__if+nondeterminism+recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
 | [096](../benchmarks/096__system-f-refinement__type-safety__if+nondeterminism+recursion__easy/input/Task.v.orig) | if+nondeterminism+recursion | Easy | 4,158 | 3,810 | 超时（未完成） | 4,418 | [4,058](../benchmarkResults/096__system-f-refinement__type-safety__if+nondeterminism+recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
 
-### Security STLC — Noninterference
+### Secure STLC — Noninterference
 
 | 编号 | Features | 难度 | 题面总行数 | 题面代码行数 | 结果 | 最终总行数 | 最终代码行数 |
 |---|---|---|---:|---:|---|---:|---:|
-| [097](../benchmarks/097__security-stlc__noninterference__none__hard/input/Task.v.orig) | none | Hard | 394 | 349 | 成功 | 1,570 | [1,448](../benchmarkResults/097__security-stlc__noninterference__none__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [098](../benchmarks/098__security-stlc__noninterference__none__medium/input/Task.v.orig) | none | Medium | 608 | 538 | 成功 | 1,511 | [1,402](../benchmarkResults/098__security-stlc__noninterference__none__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [099](../benchmarks/099__security-stlc__noninterference__none__easy/input/Task.v.orig) | none | Easy | 1,582 | 1,432 | 成功 | 2,393 | [2,231](../benchmarkResults/099__security-stlc__noninterference__none__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [100](../benchmarks/100__security-stlc__noninterference__if__hard/input/Task.v.orig) | if | Hard | 417 | 372 | 超时（未完成） | 1,630 | [1,486](../benchmarkResults/100__security-stlc__noninterference__if__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [101](../benchmarks/101__security-stlc__noninterference__if__medium/input/Task.v.orig) | if | Medium | 642 | 572 | 成功 | 1,671 | [1,558](../benchmarkResults/101__security-stlc__noninterference__if__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [102](../benchmarks/102__security-stlc__noninterference__if__easy/input/Task.v.orig) | if | Easy | 1,630 | 1,485 | 成功 | 2,573 | [2,400](../benchmarkResults/102__security-stlc__noninterference__if__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [103](../benchmarks/103__security-stlc__noninterference__recursion__hard/input/Task.v.orig) | recursion | Hard | 453 | 407 | 超时（未完成） | 1,495 | [1,383](../benchmarkResults/103__security-stlc__noninterference__recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [104](../benchmarks/104__security-stlc__noninterference__recursion__medium/input/Task.v.orig) | recursion | Medium | 684 | 613 | 超时（未完成） | 1,345 | [1,220](../benchmarkResults/104__security-stlc__noninterference__recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [105](../benchmarks/105__security-stlc__noninterference__recursion__easy/input/Task.v.orig) | recursion | Easy | 1,716 | 1,566 | 成功 | 2,855 | [2,667](../benchmarkResults/105__security-stlc__noninterference__recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [106](../benchmarks/106__security-stlc__noninterference__if+recursion__hard/input/Task.v.orig) | if+recursion | Hard | 476 | 430 | 超时（未完成） | 2,033 | [1,879](../benchmarkResults/106__security-stlc__noninterference__if+recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [107](../benchmarks/107__security-stlc__noninterference__if+recursion__medium/input/Task.v.orig) | if+recursion | Medium | 718 | 647 | 成功 | 1,796 | [1,677](../benchmarkResults/107__security-stlc__noninterference__if+recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
-| [108](../benchmarks/108__security-stlc__noninterference__if+recursion__easy/input/Task.v.orig) | if+recursion | Easy | 1,827 | 1,675 | 超时（未完成） | 2,848 | [2,666](../benchmarkResults/108__security-stlc__noninterference__if+recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [097](../benchmarks/097__secure-stlc__noninterference__none__hard/input/Task.v.orig) | none | Hard | 394 | 349 | 成功 | 1,570 | [1,448](../benchmarkResults/097__secure-stlc__noninterference__none__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [098](../benchmarks/098__secure-stlc__noninterference__none__medium/input/Task.v.orig) | none | Medium | 608 | 538 | 成功 | 1,511 | [1,402](../benchmarkResults/098__secure-stlc__noninterference__none__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [099](../benchmarks/099__secure-stlc__noninterference__none__easy/input/Task.v.orig) | none | Easy | 1,582 | 1,432 | 成功 | 2,393 | [2,231](../benchmarkResults/099__secure-stlc__noninterference__none__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [100](../benchmarks/100__secure-stlc__noninterference__if__hard/input/Task.v.orig) | if | Hard | 417 | 372 | 超时（未完成） | 1,630 | [1,486](../benchmarkResults/100__secure-stlc__noninterference__if__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [101](../benchmarks/101__secure-stlc__noninterference__if__medium/input/Task.v.orig) | if | Medium | 642 | 572 | 成功 | 1,671 | [1,558](../benchmarkResults/101__secure-stlc__noninterference__if__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [102](../benchmarks/102__secure-stlc__noninterference__if__easy/input/Task.v.orig) | if | Easy | 1,630 | 1,485 | 成功 | 2,573 | [2,400](../benchmarkResults/102__secure-stlc__noninterference__if__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [103](../benchmarks/103__secure-stlc__noninterference__recursion__hard/input/Task.v.orig) | recursion | Hard | 453 | 407 | 超时（未完成） | 1,495 | [1,383](../benchmarkResults/103__secure-stlc__noninterference__recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [104](../benchmarks/104__secure-stlc__noninterference__recursion__medium/input/Task.v.orig) | recursion | Medium | 684 | 613 | 超时（未完成） | 1,345 | [1,220](../benchmarkResults/104__secure-stlc__noninterference__recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [105](../benchmarks/105__secure-stlc__noninterference__recursion__easy/input/Task.v.orig) | recursion | Easy | 1,716 | 1,566 | 成功 | 2,855 | [2,667](../benchmarkResults/105__secure-stlc__noninterference__recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [106](../benchmarks/106__secure-stlc__noninterference__if+recursion__hard/input/Task.v.orig) | if+recursion | Hard | 476 | 430 | 超时（未完成） | 2,033 | [1,879](../benchmarkResults/106__secure-stlc__noninterference__if+recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [107](../benchmarks/107__secure-stlc__noninterference__if+recursion__medium/input/Task.v.orig) | if+recursion | Medium | 718 | 647 | 成功 | 1,796 | [1,677](../benchmarkResults/107__secure-stlc__noninterference__if+recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |
+| [108](../benchmarks/108__secure-stlc__noninterference__if+recursion__easy/input/Task.v.orig) | if+recursion | Easy | 1,827 | 1,675 | 超时（未完成） | 2,848 | [2,666](../benchmarkResults/108__secure-stlc__noninterference__if+recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v) |

@@ -29,7 +29,7 @@
     "output_tokens": 142,
     "total_tokens": 67187192
   },
-  "100__security-stlc__noninterference__if__hard": {
+  "100__secure-stlc__noninterference__if__hard": {
     "status": "proved",
     "time_s": 3030,
     "turns": 2,

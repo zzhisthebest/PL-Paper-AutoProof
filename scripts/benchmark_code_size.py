@@ -12,7 +12,7 @@ FAMILIES = {
     "system-f-normalization": "System F — Strong Normalization",
     "system-f-parametricity": "System F — Polymorphic Identity",
     "system-f-refinement": "System F + Refinement Types — Type Safety",
-    "security-stlc": "Security STLC — Noninterference",
+    "secure-stlc": "Secure STLC — Noninterference",
 }
 
 

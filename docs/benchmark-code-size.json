@@ -1347,8 +1347,8 @@
     },
     {
       "id": "097",
-      "case": "097__security-stlc__noninterference__none__hard",
-      "family": "Security STLC — Noninterference",
+      "case": "097__secure-stlc__noninterference__none__hard",
+      "family": "Secure STLC — Noninterference",
       "features": "none",
       "difficulty": "hard",
       "input_physical_lines": 394,
@@ -1356,13 +1356,13 @@
       "status": "proved",
       "final_physical_lines": 1570,
       "final_code_lines": 1448,
-      "input_path": "benchmarks/097__security-stlc__noninterference__none__hard/input/Task.v.orig",
-      "final_path": "benchmarkResults/097__security-stlc__noninterference__none__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/097__secure-stlc__noninterference__none__hard/input/Task.v.orig",
+      "final_path": "benchmarkResults/097__secure-stlc__noninterference__none__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "098",
-      "case": "098__security-stlc__noninterference__none__medium",
-      "family": "Security STLC — Noninterference",
+      "case": "098__secure-stlc__noninterference__none__medium",
+      "family": "Secure STLC — Noninterference",
       "features": "none",
       "difficulty": "medium",
       "input_physical_lines": 608,
@@ -1370,13 +1370,13 @@
       "status": "proved",
       "final_physical_lines": 1511,
       "final_code_lines": 1402,
-      "input_path": "benchmarks/098__security-stlc__noninterference__none__medium/input/Task.v.orig",
-      "final_path": "benchmarkResults/098__security-stlc__noninterference__none__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/098__secure-stlc__noninterference__none__medium/input/Task.v.orig",
+      "final_path": "benchmarkResults/098__secure-stlc__noninterference__none__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "099",
-      "case": "099__security-stlc__noninterference__none__easy",
-      "family": "Security STLC — Noninterference",
+      "case": "099__secure-stlc__noninterference__none__easy",
+      "family": "Secure STLC — Noninterference",
       "features": "none",
       "difficulty": "easy",
       "input_physical_lines": 1582,
@@ -1384,13 +1384,13 @@
       "status": "proved",
       "final_physical_lines": 2393,
       "final_code_lines": 2231,
-      "input_path": "benchmarks/099__security-stlc__noninterference__none__easy/input/Task.v.orig",
-      "final_path": "benchmarkResults/099__security-stlc__noninterference__none__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/099__secure-stlc__noninterference__none__easy/input/Task.v.orig",
+      "final_path": "benchmarkResults/099__secure-stlc__noninterference__none__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "100",
-      "case": "100__security-stlc__noninterference__if__hard",
-      "family": "Security STLC — Noninterference",
+      "case": "100__secure-stlc__noninterference__if__hard",
+      "family": "Secure STLC — Noninterference",
       "features": "if",
       "difficulty": "hard",
       "input_physical_lines": 417,
@@ -1398,13 +1398,13 @@
       "status": "timeout",
       "final_physical_lines": 1630,
       "final_code_lines": 1486,
-      "input_path": "benchmarks/100__security-stlc__noninterference__if__hard/input/Task.v.orig",
-      "final_path": "benchmarkResults/100__security-stlc__noninterference__if__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/100__secure-stlc__noninterference__if__hard/input/Task.v.orig",
+      "final_path": "benchmarkResults/100__secure-stlc__noninterference__if__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "101",
-      "case": "101__security-stlc__noninterference__if__medium",
-      "family": "Security STLC — Noninterference",
+      "case": "101__secure-stlc__noninterference__if__medium",
+      "family": "Secure STLC — Noninterference",
       "features": "if",
       "difficulty": "medium",
       "input_physical_lines": 642,
@@ -1412,13 +1412,13 @@
       "status": "proved",
       "final_physical_lines": 1671,
       "final_code_lines": 1558,
-      "input_path": "benchmarks/101__security-stlc__noninterference__if__medium/input/Task.v.orig",
-      "final_path": "benchmarkResults/101__security-stlc__noninterference__if__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/101__secure-stlc__noninterference__if__medium/input/Task.v.orig",
+      "final_path": "benchmarkResults/101__secure-stlc__noninterference__if__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "102",
-      "case": "102__security-stlc__noninterference__if__easy",
-      "family": "Security STLC — Noninterference",
+      "case": "102__secure-stlc__noninterference__if__easy",
+      "family": "Secure STLC — Noninterference",
       "features": "if",
       "difficulty": "easy",
       "input_physical_lines": 1630,
@@ -1426,13 +1426,13 @@
       "status": "proved",
       "final_physical_lines": 2573,
       "final_code_lines": 2400,
-      "input_path": "benchmarks/102__security-stlc__noninterference__if__easy/input/Task.v.orig",
-      "final_path": "benchmarkResults/102__security-stlc__noninterference__if__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/102__secure-stlc__noninterference__if__easy/input/Task.v.orig",
+      "final_path": "benchmarkResults/102__secure-stlc__noninterference__if__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "103",
-      "case": "103__security-stlc__noninterference__recursion__hard",
-      "family": "Security STLC — Noninterference",
+      "case": "103__secure-stlc__noninterference__recursion__hard",
+      "family": "Secure STLC — Noninterference",
       "features": "recursion",
       "difficulty": "hard",
       "input_physical_lines": 453,
@@ -1440,13 +1440,13 @@
       "status": "timeout",
       "final_physical_lines": 1495,
       "final_code_lines": 1383,
-      "input_path": "benchmarks/103__security-stlc__noninterference__recursion__hard/input/Task.v.orig",
-      "final_path": "benchmarkResults/103__security-stlc__noninterference__recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/103__secure-stlc__noninterference__recursion__hard/input/Task.v.orig",
+      "final_path": "benchmarkResults/103__secure-stlc__noninterference__recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "104",
-      "case": "104__security-stlc__noninterference__recursion__medium",
-      "family": "Security STLC — Noninterference",
+      "case": "104__secure-stlc__noninterference__recursion__medium",
+      "family": "Secure STLC — Noninterference",
       "features": "recursion",
       "difficulty": "medium",
       "input_physical_lines": 684,
@@ -1454,13 +1454,13 @@
       "status": "timeout",
       "final_physical_lines": 1345,
       "final_code_lines": 1220,
-      "input_path": "benchmarks/104__security-stlc__noninterference__recursion__medium/input/Task.v.orig",
-      "final_path": "benchmarkResults/104__security-stlc__noninterference__recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/104__secure-stlc__noninterference__recursion__medium/input/Task.v.orig",
+      "final_path": "benchmarkResults/104__secure-stlc__noninterference__recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "105",
-      "case": "105__security-stlc__noninterference__recursion__easy",
-      "family": "Security STLC — Noninterference",
+      "case": "105__secure-stlc__noninterference__recursion__easy",
+      "family": "Secure STLC — Noninterference",
       "features": "recursion",
       "difficulty": "easy",
       "input_physical_lines": 1716,
@@ -1468,13 +1468,13 @@
       "status": "proved",
       "final_physical_lines": 2855,
       "final_code_lines": 2667,
-      "input_path": "benchmarks/105__security-stlc__noninterference__recursion__easy/input/Task.v.orig",
-      "final_path": "benchmarkResults/105__security-stlc__noninterference__recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/105__secure-stlc__noninterference__recursion__easy/input/Task.v.orig",
+      "final_path": "benchmarkResults/105__secure-stlc__noninterference__recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "106",
-      "case": "106__security-stlc__noninterference__if+recursion__hard",
-      "family": "Security STLC — Noninterference",
+      "case": "106__secure-stlc__noninterference__if+recursion__hard",
+      "family": "Secure STLC — Noninterference",
       "features": "if+recursion",
       "difficulty": "hard",
       "input_physical_lines": 476,
@@ -1482,13 +1482,13 @@
       "status": "timeout",
       "final_physical_lines": 2033,
       "final_code_lines": 1879,
-      "input_path": "benchmarks/106__security-stlc__noninterference__if+recursion__hard/input/Task.v.orig",
-      "final_path": "benchmarkResults/106__security-stlc__noninterference__if+recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/106__secure-stlc__noninterference__if+recursion__hard/input/Task.v.orig",
+      "final_path": "benchmarkResults/106__secure-stlc__noninterference__if+recursion__hard/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "107",
-      "case": "107__security-stlc__noninterference__if+recursion__medium",
-      "family": "Security STLC — Noninterference",
+      "case": "107__secure-stlc__noninterference__if+recursion__medium",
+      "family": "Secure STLC — Noninterference",
       "features": "if+recursion",
       "difficulty": "medium",
       "input_physical_lines": 718,
@@ -1496,13 +1496,13 @@
       "status": "proved",
       "final_physical_lines": 1796,
       "final_code_lines": 1677,
-      "input_path": "benchmarks/107__security-stlc__noninterference__if+recursion__medium/input/Task.v.orig",
-      "final_path": "benchmarkResults/107__security-stlc__noninterference__if+recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/107__secure-stlc__noninterference__if+recursion__medium/input/Task.v.orig",
+      "final_path": "benchmarkResults/107__secure-stlc__noninterference__if+recursion__medium/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     },
     {
       "id": "108",
-      "case": "108__security-stlc__noninterference__if+recursion__easy",
-      "family": "Security STLC — Noninterference",
+      "case": "108__secure-stlc__noninterference__if+recursion__easy",
+      "family": "Secure STLC — Noninterference",
       "features": "if+recursion",
       "difficulty": "easy",
       "input_physical_lines": 1827,
@@ -1510,8 +1510,8 @@
       "status": "timeout",
       "final_physical_lines": 2848,
       "final_code_lines": 2666,
-      "input_path": "benchmarks/108__security-stlc__noninterference__if+recursion__easy/input/Task.v.orig",
-      "final_path": "benchmarkResults/108__security-stlc__noninterference__if+recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
+      "input_path": "benchmarks/108__secure-stlc__noninterference__if+recursion__easy/input/Task.v.orig",
+      "final_path": "benchmarkResults/108__secure-stlc__noninterference__if+recursion__easy/proofs_gpt6luna_high_difficulty_v4_full_r1/Task.v"
     }
   ]
 }

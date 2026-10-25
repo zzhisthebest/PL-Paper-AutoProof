@@ -10,7 +10,7 @@
 | System F normalization | 15 | 1 | 0 |
 | System F parametricity | 14 | 2 | 0 |
 | System F refinement type safety | 0 | 16 | 0 |
-| Security noninterference | 4 | 0 | 4 |
+| Secure STLC noninterference | 4 | 0 | 4 |
 | 合计 | 49 | 19 | 4 |
 
 ## 从 23 份未完成报告看到什么
@@ -27,11 +27,11 @@
 2. **针对反复出现的接口提供工具支持。** 如果第一项实验确认瓶颈集中在绑定规则，可尝试让 agent 检索或生成 locally nameless 的打开、替换、环境扩展引理，以及 refinement typing 与 subtyping 的联合归纳框架。先作为 agent 方法试验，不直接改 benchmark 输入。
 3. **单独处理最终衔接。** 对基本定理已经建立的 noninterference 题，测试 agent 能否构造“相关输入放入有类型程序上下文后仍相关”的桥接引理；它和基本定理缺失不是同一个问题。
 
-建议先选 refinement None 的 Hard / Medium、System F parametricity If + Recursion Medium、Security Noninterference None Medium 做同模型、同预算的 A/B 小实验。除最终成功率，还记录开始基本定理归纳的时间、实际关闭的 typing / subtyping 分支数，以及是否识别并修正了 LR 或环境解释中的缺口。
+建议先选 refinement None 的 Hard / Medium、System F parametricity If + Recursion Medium、Secure STLC Noninterference None Medium 做同模型、同预算的 A/B 小实验。除最终成功率，还记录开始基本定理归纳的时间、实际关闭的 typing / subtyping 分支数，以及是否识别并修正了 LR 或环境解释中的缺口。
 
 ## 逐题失败报告
 
-Security noninterference（4 个 timeout）：[None Medium](../benchmarkResults/security-noninterference-none-medium/failure_analysis_gpt6sol_high.md) · [If Medium](../benchmarkResults/security-noninterference-if-medium/failure_analysis_gpt6sol_high.md) · [Recursion Medium](../benchmarkResults/security-noninterference-recursion-medium/failure_analysis_gpt6sol_high.md) · [If + Recursion Medium](../benchmarkResults/security-noninterference-if-recursion-medium/failure_analysis_gpt6sol_high.md)。
+Secure STLC noninterference（4 个 timeout）：[None Medium](../benchmarkResults/security-noninterference-none-medium/failure_analysis_gpt6sol_high.md) · [If Medium](../benchmarkResults/security-noninterference-if-medium/failure_analysis_gpt6sol_high.md) · [Recursion Medium](../benchmarkResults/security-noninterference-recursion-medium/failure_analysis_gpt6sol_high.md) · [If + Recursion Medium](../benchmarkResults/security-noninterference-if-recursion-medium/failure_analysis_gpt6sol_high.md)。
 
 System F normalization / parametricity（3 个 failed）：[Normalization If + Recursion Medium](../benchmarkResults/systemf-normalization-if-recursion-medium/failure_analysis_gpt6sol_high.md) · [Parametricity If + Recursion Medium](../benchmarkResults/systemf-parametricity-if-recursion-medium/failure_analysis_gpt6sol_high.md) · [Parametricity Non-determinism + Recursion Hard](../benchmarkResults/systemf-parametricity-nondeterminism-recursion-hard/failure_analysis_gpt6sol_high.md)。
 

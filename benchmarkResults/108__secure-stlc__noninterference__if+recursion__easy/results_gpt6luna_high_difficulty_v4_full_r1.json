@@ -1,0 +1,11 @@
+{
+  "108__secure-stlc__noninterference__if+recursion__easy": {
+    "status": "timeout",
+    "time_s": 3600,
+    "turns": 2,
+    "input_tokens": 4104258,
+    "cached_input_tokens": 3975936,
+    "output_tokens": 29401,
+    "total_tokens": 4133659
+  }
+}

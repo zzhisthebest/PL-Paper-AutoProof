@@ -16,7 +16,7 @@ names = {
     "System F — Strong Normalization": "System F-N",
     "System F — Polymorphic Identity": "System F-P",
     "System F + Refinement Types — Type Safety": "Refinement",
-    "Security STLC — Noninterference": "Security",
+    "Secure STLC — Noninterference": "Secure STLC",
 }
 levels = ["hard", "medium", "easy"]
 groups = {}
@@ -56,7 +56,7 @@ fig.suptitle("36 个任务 × 3 个难度：代码规模总览", x=0.035, ha="le
 fig.text(0.035, 0.955, "数字 = 去除注释与空行后的代码行数；颜色越深，代码越多。灰色 × = 超时，没有完成的证明。",
          fontsize=12, color="#536170")
 fig.text(0.035, 0.048,
-         "N = Strong Normalization；P = Polymorphic Identity；Refinement = Type Safety；Security = Noninterference。",
+         "N = Strong Normalization；P = Polymorphic Identity；Refinement = Type Safety；Secure STLC = Noninterference。",
          fontsize=10, color="#536170")
 fig.text(0.035, 0.028,
          "右侧统一取 GPT-6 Luna high、每题 3600 秒的全量实验（75/108 成功）；左侧为当前题面，不能直接相减。",

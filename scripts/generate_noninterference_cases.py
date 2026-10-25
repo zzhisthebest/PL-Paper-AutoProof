@@ -93,7 +93,7 @@ def card(difficulty, target, feature="none"):
         "Easy": "use the supplied proved fundamental theorem to prove the target theorem",
     }[difficulty]
     title = {"if": "If-then-else", "if-recursion": "If-then-else + Recursion"}.get(feature, feature.title())
-    return f'''# Security Noninterference — {title} — {difficulty}
+    return f'''# Secure STLC Noninterference — {title} — {difficulty}
 
 ## Input
 

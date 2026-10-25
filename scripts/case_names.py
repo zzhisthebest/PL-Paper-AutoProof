@@ -9,6 +9,7 @@ ALIASES = {alias: case['name'] for case in CASES
 
 
 def canonical_name(name):
+    name = name.replace('__security-stlc__', '__secure-stlc__')
     return ALIASES.get(name, name)
 
 

@@ -2,13 +2,13 @@
   "reference_revision": "c0e1ea6d831eec6f8021202ab4362118f6e4c087",
   "cases": [
     {
-      "case": "100__security-stlc__noninterference__if__hard",
+      "case": "100__secure-stlc__noninterference__if__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "f5f80e5b2c999524981d38771b9486d637976d3bea75f1beccb41bd402379ae3"
     },
     {
-      "case": "101__security-stlc__noninterference__if__medium",
+      "case": "101__secure-stlc__noninterference__if__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -33,7 +33,7 @@
       "input_sha256": "7ea60d4a9361e90473c9a1ca166ffb6c5ecc68115df5f2d9c42411c2bd0f7d01"
     },
     {
-      "case": "102__security-stlc__noninterference__if__easy",
+      "case": "102__secure-stlc__noninterference__if__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -121,13 +121,13 @@
       "input_sha256": "7b97fb997f6d98a361b15753308a01ebc7ca9b2970ec28401f4b0e5002238777"
     },
     {
-      "case": "106__security-stlc__noninterference__if+recursion__hard",
+      "case": "106__secure-stlc__noninterference__if+recursion__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "4401c4b31666750af63c56740e089f965e9ba14115712507a02489d85d18554e"
     },
     {
-      "case": "107__security-stlc__noninterference__if+recursion__medium",
+      "case": "107__secure-stlc__noninterference__if+recursion__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -152,7 +152,7 @@
       "input_sha256": "f440156a574ea64722a69b2fb35f5cf22e1b49405cbecca08af2ec3fb9550d2b"
     },
     {
-      "case": "108__security-stlc__noninterference__if+recursion__easy",
+      "case": "108__secure-stlc__noninterference__if+recursion__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -246,13 +246,13 @@
       "input_sha256": "726a23534a2ccc882138bebe3eed96273792c12a4a27b21efb39cd31c2277564"
     },
     {
-      "case": "097__security-stlc__noninterference__none__hard",
+      "case": "097__secure-stlc__noninterference__none__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "2a9154f1cd24cf74c5f92e336b531a12ac12aaae2f0c30452487a963f1bc52f3"
     },
     {
-      "case": "098__security-stlc__noninterference__none__medium",
+      "case": "098__secure-stlc__noninterference__none__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -277,7 +277,7 @@
       "input_sha256": "94f53d3bfd61eba02423577b18360df20a5582851f28eba515f2776b608d003b"
     },
     {
-      "case": "099__security-stlc__noninterference__none__easy",
+      "case": "099__secure-stlc__noninterference__none__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
@@ -363,13 +363,13 @@
       "input_sha256": "03982a1d56a9b3dce5c66936bb2566fa9ea110b15d933b898c5ad3fab276c558"
     },
     {
-      "case": "103__security-stlc__noninterference__recursion__hard",
+      "case": "103__secure-stlc__noninterference__recursion__hard",
       "target": "noninterference",
       "provided_lemmas": [],
       "input_sha256": "ca1f04c2776c3d5ff355b2d5f21198e3617a1f2f2a4e6795de93bd551f8a7946"
     },
     {
-      "case": "104__security-stlc__noninterference__recursion__medium",
+      "case": "104__secure-stlc__noninterference__recursion__medium",
       "target": "noninterference",
       "provided_lemmas": [
         "flows_to_refl",
@@ -394,7 +394,7 @@
       "input_sha256": "1d924a788b95443e0b3edec7abf26ee5580309fc04885e383bbda95a0d86b9c5"
     },
     {
-      "case": "105__security-stlc__noninterference__recursion__easy",
+      "case": "105__secure-stlc__noninterference__recursion__easy",
       "target": "noninterference",
       "provided_lemmas": [
         "big_step_erasure",
