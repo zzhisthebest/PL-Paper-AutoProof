@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proof Viewer · STLC 001</title>
+<style>
+:root{--paper:#fff;--back:#eef2f6;--ink:#233348;--muted:#637387;--line:#d6dee7;--blue:#245da9;--tint:#eaf1fb;--add:#e7f4ee;--remove:#fceceb;--amber:#8a6017}
+*{box-sizing:border-box}body{margin:0;background:var(--back);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC",sans-serif}button,select,input{font:inherit;color:inherit}button,select{border:1px solid var(--line);border-radius:5px;background:white;padding:6px 10px}button{cursor:pointer}button:hover{border-color:var(--blue);background:var(--tint)}button:disabled{opacity:.45;cursor:default}button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #83afe9;outline-offset:2px}header{padding:18px 26px 0;background:var(--paper);border-bottom:1px solid var(--line)}h1{font-size:23px;letter-spacing:-.5px;margin:0;font-weight:650}.sub{color:var(--muted);margin:4px 0 14px;font-size:13px}.header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.tabs{display:flex;gap:22px}.tabs button{border:0;border-radius:0;padding:11px 2px;background:none;border-bottom:3px solid transparent}.tabs button.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:650}.help{max-width:760px;margin:12px 26px;background:white;padding:10px 14px;border-left:3px solid var(--blue)}.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px;background:#f7f9fc;border-bottom:1px solid var(--line)}.toolbar label{display:flex;align-items:center;gap:6px}.toolbar input[type=checkbox]{accent-color:var(--blue)}.hint{color:var(--muted);font-size:12px}.legend{margin-left:auto;display:flex;gap:12px}.swatch{display:inline-block;width:11px;height:11px;margin-right:4px;border:1px solid #c8d7ce;background:var(--add)}.swatch.red{background:var(--remove);border-color:#e9cac7}.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 20px}.panel{min-width:0;background:white;border:1px solid var(--line);border-radius:6px;overflow:hidden}.panel-head{padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.panel-head strong{font-size:15px}.meta{font-size:12px;color:var(--muted)}.nav{padding:8px 12px;display:flex;gap:7px;align-items:center;background:#f8fafc;border-bottom:1px solid var(--line)}.nav select{flex:1;min-width:0;font:12px/1.5 "DejaVu Sans Mono",Consolas,monospace}.nav button{font-size:12px;white-space:nowrap}.code{height:calc(100vh - 285px);min-height:350px;overflow:auto;font:12px/1.65 "DejaVu Sans Mono","SFMono-Regular",Consolas,monospace;tab-size:2;background:white}.row{display:flex;min-width:max-content;min-height:20px}.ln{width:52px;flex:none;position:sticky;left:0;text-align:right;padding:0 10px;color:#8996a5;background:#f5f7fa;user-select:none;border-right:1px solid #e7edf2}.src{white-space:pre;padding:0 12px;display:block;flex:1}.row.add,.row.add .src{background:var(--add)}.row.del,.row.del .src{background:var(--remove)}.row.original .src{color:#7d8793}.row.focus{outline:2px solid #7399cc;outline-offset:-2px}.kw{color:#264e99;font-weight:600}.fold{font:12px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:6px 12px;color:var(--blue);background:#f0f5fc;cursor:pointer;border-bottom:1px solid #e1e8f2;list-style:none}.fold:hover{background:#e4eefc}.folded details{margin:0}.empty{padding:26px;color:var(--muted);line-height:1.9}.playback{display:grid;grid-template-columns:300px 1fr;gap:0;height:calc(100vh - 125px);min-height:650px}.rail{border-right:1px solid var(--line);background:#f7f9fc;display:flex;flex-direction:column;min-height:0}.rail-controls{padding:14px;border-bottom:1px solid var(--line);display:grid;gap:8px}.rail-controls select{width:100%}.steps{overflow:auto;padding:8px}.step{display:block;width:100%;text-align:left;background:transparent;border:1px solid transparent;margin:2px 0;padding:9px 10px}.step.active{background:white;border-color:#9db9dd;box-shadow:0 1px 2px #d9e2ee}.step-top{display:flex;gap:8px;justify-content:space-between;font-size:12px;color:var(--muted)}.step-title{margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.badge{color:var(--blue)}.event{overflow:auto;min-width:0;padding:16px 20px}.event h2{font-size:18px;margin:0 0 4px}.event-top{display:flex;justify-content:space-between;gap:15px;margin-bottom:12px}.event-top button{font-size:12px}.event-note{color:var(--amber);border-left:3px solid #d5b05b;padding:7px 12px;background:#fff8e8;font-size:13px;margin:10px 0}.event-code{display:grid;grid-template-columns:1fr 1fr;gap:10px}.event-code .code{height:460px;min-height:200px}.event-code .panel-head{padding:7px 12px;font-size:12px}.terminal{background:#f8fafc;border:1px solid var(--line);border-radius:5px;margin:10px 0}.terminal summary{cursor:pointer;padding:9px 12px;font-weight:550}.terminal pre{margin:0;border-top:1px solid var(--line);padding:12px;max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 "DejaVu Sans Mono",Consolas,monospace}.notice{margin:0 0 12px;font-size:12px;color:var(--muted)}[hidden]{display:none!important}.pill{border-radius:4px;background:#eef3f8;padding:2px 6px;font-size:11px}.search{border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0}footer{padding:8px 20px;font-size:12px;color:var(--muted)}
+.compare .code{height:calc(100vh - 360px);font-size:13px}
+.compare.single{grid-template-columns:1fr}.compare.single #right-panel{display:none}
+.block-controls{padding:12px 20px;background:white;border-bottom:1px solid var(--line)}.block-tabs{display:flex;gap:6px;flex-wrap:wrap}.block-tabs button{font-size:13px}.block-tabs button.active{color:white;background:var(--blue);border-color:var(--blue)}.block-description{margin:8px 0 0;color:var(--muted);font-size:12px}.block-decl{border-bottom:1px solid var(--line);padding-bottom:10px}.block-decl-head{position:sticky;left:0;padding:9px 12px;background:#f5f8fc;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.block-decl-head strong{font-family:Consolas,monospace;color:var(--blue)}.block-decl-head button{margin-left:auto;font-size:11px;padding:2px 6px}.block-decl details>summary{padding:5px 12px;color:var(--blue);background:#f9fbfe;cursor:pointer;font:12px/1.5 sans-serif}.block-decl .origin{color:var(--muted)}.compare-block-note{padding:6px 12px;background:#f8fafc;color:var(--muted);font-size:12px}
+.history-file .code{height:calc(100vh - 350px);min-height:360px;font-size:13px}.history-file .toolbar{padding:8px 12px}.mode-buttons{display:flex;gap:5px}.mode-buttons button.active{background:var(--blue);color:white;border-color:var(--blue)}.history-file .row.add,.history-file .row.add .src{background:#d4f3df;color:#154b2d}.history-file .row.del,.history-file .row.del .src{background:#ffdedc;color:#7e2523}.history-file .sign{width:22px;flex:none;text-align:center;user-select:none;font-weight:bold}.history-file .ln{width:52px;position:static}.history-file .row.add .ln{background:#e2f7e9}.history-file .row.del .ln{background:#ffeae8}.line-head{display:flex;background:#f5f7fa;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}.line-head span{width:52px;text-align:center;padding:5px 0}.line-head .file-name{width:auto;text-align:left;padding-left:22px}.change-count{font-size:12px;margin-left:auto}.change-count .plus{color:#18653b}.change-count .minus{color:#a12f2d}.history-file .fold{padding:5px 12px}.history-file .code details summary{position:sticky;left:0}.event .notice{margin:8px 0}.step.active{border-left:3px solid var(--blue)}
+.trace-grid{display:grid;grid-template-columns:minmax(260px,.85fr) minmax(0,1.15fr);gap:14px;align-items:start}.trace-body{min-width:0}.trace-part{background:white;border:1px solid var(--line);border-radius:5px;margin-bottom:10px}.trace-part h3{font-size:13px;margin:0;padding:9px 12px;border-bottom:1px solid var(--line);color:var(--blue)}.trace-part pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:12px;font:13px/1.7 "DejaVu Sans Mono",Consolas,monospace}.trace-part.thinking pre,.trace-part.text pre{font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.trace-grid .history-file .code{height:calc(100vh - 390px);font-size:12px}.trace-grid .toolbar{gap:6px;font-size:12px}.trace-grid .toolbar button{font-size:12px;padding:5px 8px}.trace-grid .history-file{min-width:0}.raw-record pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto}.raw-lines{font-size:12px;color:var(--muted)}.playback{grid-template-columns:270px 1fr}.kind-thinking{border-left:3px solid #a2a9cf}.kind-tool{border-left:3px solid #98bca6}.kind-system,.kind-result{border-left:3px solid #c7cbd0}.interleave{font-size:12px;color:var(--muted);margin:6px 0}.record-jump{display:flex;gap:5px}.record-jump input{width:100%;min-width:0}.coverage{font-size:12px;color:var(--muted)}
+@media(max-width:1150px){.trace-grid{grid-template-columns:1fr}.trace-grid .history-file .code{height:450px}}
+@media(max-width:900px){.compare{grid-template-columns:1fr}.compare .code{height:500px}.playback{grid-template-columns:220px 1fr}.event-code{grid-template-columns:1fr}.legend{display:none}.header-row{flex-wrap:wrap}.event{padding:12px}.nav{flex-wrap:wrap}.nav select{min-width:180px}}@media(max-width:600px){header{padding:15px 14px 0}.compare{padding:10px}.playback{display:block;height:auto}.rail{height:320px}.event-code .code{height:380px}.toolbar{padding:10px}.event-top{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<header><div class="header-row"><div><h1>Proof Viewer</h1><p class="sub" id="subtitle"></p></div><button id="help-button" aria-expanded="false">阅读说明</button></div><nav class="tabs" aria-label="视图"><button id="compare-tab" class="active">最终代码对照</button><button id="history-tab">完整过程回放</button></nav></header>
+<div id="help" class="help" hidden>完整时间线保留当前 trace 的每条记录。工具调用、进度和返回按 ID 合并，排列在最后一条记录的位置；调用与返回的行号同时标明，期间穿插的事件不会被删除。思考和回复展示原文，空思考明确标注；所有步骤都可展开原始 JSON。行号指清除计数更新后的 trace 行号。右侧始终是 Task.v：有文件变化时显示红绿 diff，其他步骤仅展示截至该记录最近确认的文件，不代表当时文件一定未变。草稿操作保留在操作详情，不混成 Task.v。所有内容嵌入此文件，无需联网。</div>
+<section id="compare-view">
+<div class="block-controls"><div class="block-tabs" id="block-tabs"></div><p id="block-description" class="block-description"></p></div>
+<div class="toolbar"><label><input type="checkbox" id="dual-view">双栏对照</label></div>
+<div class="toolbar"><label><input type="checkbox" id="diff-mode">显示文本差异</label><label id="original-control"><input type="checkbox" id="fold-original" checked>折叠题面原有代码</label><label id="include-control" hidden><input type="checkbox" id="include-original">包含题面原有声明</label><label id="proof-control" hidden><input type="checkbox" id="fold-proofs" checked>折叠 proof</label><label><input type="checkbox" id="sync-scroll" checked>同步滚动</label><div class="legend"><span><i class="swatch red"></i>仅左侧</span><span><i class="swatch"></i>仅右侧</span></div></div><div class="compare" id="panels"></div><footer>分块按声明功能整理，不移动原文件；同一分块不代表定理语义相同。点击「原文件」可返回完整源码。</footer></section>
+<section id="history-view" hidden><div class="playback"><aside class="rail"><div class="rail-controls"><label for="history-run">运行</label><select id="history-run"></select><select id="event-filter" aria-label="时间线筛选"><option value="all">完整过程</option><option value="thinking">只看模型思考</option><option value="text">只看文字回复</option><option value="tool">只看工具操作</option><option value="edits">只看 Task.v 变化</option><option value="compile">只看编译相关操作</option><option value="changes">只看所选声明的变化</option></select><input id="event-search" class="search" placeholder="搜索完整记录" aria-label="搜索步骤"><div class="record-jump"><input id="line-jump" type="number" min="1" placeholder="Trace 行号" class="search" aria-label="Trace 行号"><button id="go-line">跳转</button></div><div class="hint" id="trace-summary"></div></div><div id="steps" class="steps"></div></aside><main class="event" id="event"></main></div></section>
+<script>
+const DATA=/*DATA*/null;
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state={left:0,right:1,history:0,event:0,decl:null,selected:{left:'',right:''},block:'all'};
+const fmt=s=>s==null?'—':`${Math.floor(Math.max(0,s)/60)}:${String(Math.floor(Math.max(0,s)%60)).padStart(2,'0')}`;
+const runName=r=>`r${String(r.repeat).padStart(2,'0')}`;
+function options(){return DATA.runs.map((r,i)=>`<option value="${i}">${runName(r)} · ${fmt(r.seconds)}</option>`).join('')}
+function snap(run,id){return id==null?null:run.snapshots[id]}
+function rows(text){return text.split('\n').map((s,i)=>({text:s,line:i+1,type:''}))}
+function diff(a,b){
+ const x=a.split('\n'),y=b.split('\n'),n=x.length,m=y.length,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));
+ for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=x[i]===y[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+ const l=[],r=[];let i=0,j=0;
+ while(i<n||j<m){if(i<n&&j<m&&x[i]===y[j]){l.push({line:i+1,text:x[i++],type:''});r.push({line:j+1,text:y[j++],type:''})}
+ else if(i<n&&(j===m||dp[i+1][j]>=dp[i][j+1])){l.push({line:i+1,text:x[i++],type:'del'});r.push({line:null,text:'',type:''})}
+ else{l.push({line:null,text:'',type:''});r.push({line:j+1,text:y[j++],type:'add'})}}
+ return [l,r];
+}
+function codeLine(row,original=false){return `<div class="row ${row.type} ${original?'original':''}" ${row.line?'data-line="'+row.line+'"':''}><span class="ln">${row.line??''}</span><span class="src">${esc(row.text)||' '}</span></div>`}
+function renderCode(el,list,original=new Set(),fold=false,pairedFold=null){
+ let out='',i=0;
+ while(i<list.length){let j=i;const isOriginal=k=>pairedFold?pairedFold[k]:original.has(list[k].line);
+ if(fold&&isOriginal(i)){while(j<list.length&&isOriginal(j))j++}
+ if(j-i>=5){out+=`<details class="folded"><summary class="fold">展开题面原有代码 · ${j-i} 行</summary>${list.slice(i,j).map(r=>codeLine(r,true)).join('')}</details>`;i=j}
+ else{out+=codeLine(list[i],original.has(list[i].line));i++}}
+ el.innerHTML=out;
+}
+function panel(side){return `<article class="panel" id="${side}-panel"><div class="panel-head"><strong id="${side}-title">${side==='left'?'运行':'右侧'}</strong><select id="${side}-run" aria-label="${side==='left'?'左侧运行':'右侧运行'}"><option value="">未选择</option>${options()}</select><span class="meta" id="${side}-meta"></span></div><div class="nav"><select id="${side}-decl" aria-label="${side==='left'?'左侧声明':'右侧声明'}"></select><button id="${side}-trace">修改记录</button></div><div class="code" id="${side}-code"></div></article>`}
+function selectDeclarations(side){
+ if(state[side]==null){$(side+'-decl').innerHTML='<option value="">未选择运行</option>';$(side+'-meta').textContent='';$(side+'-trace').disabled=true;return}
+ const r=DATA.runs[state[side]],s=snap(r,r.final),select=$(side+'-decl');
+ const ds=state.block==='all'?s.declarations:blockDeclarations(r);
+ select.innerHTML='<option value="">跳转到定义 / 引理 / 定理…</option>'+ds.map(d=>`<option value="${d.line}">${esc(d.kind+' '+d.name)} · L${d.line}</option>`).join('');
+ select.value=state.selected[side];
+ $(side+'-meta').textContent=state.block==='all'?`${s.text.split('\n').length} 行（含注释与空行）`:`${ds.length} 个声明 · 新增 ${ds.reduce((n,d)=>n+d.addedLines,0)} 行代码`;
+ $(side+'-trace').disabled=!select.value||!s.declarations.some(d=>d.line===Number(select.value));
+}
+function blockDeclarations(run){return (run.blocks||[]).filter(d=>d.block===state.block&&($('include-original').checked||d.origin!=='original'))}
+function blockRows(run){const text=snap(run,run.final).text.split('\n');return blockDeclarations(run).flatMap(d=>text.slice(d.line-1,d.end).map((text,i)=>({text,line:d.line+i,type:''})))}
+function chooseBlock(block){state.block=block;state.selected={left:'',right:''};showCompare()}
+function showBlockTabs(){
+ const labels=DATA.blockLabels.filter(([id])=>id!=='unknown'||DATA.runs.some(r=>r.blocks?.some(d=>d.block===id)));
+ $('block-tabs').innerHTML=[['all','全部代码'],...labels].map(([id,label])=>`<button data-block="${id}" class="${state.block===id?'active':''}">${esc(label)}</button>`).join('');
+ $('block-tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>chooseBlock(b.dataset.block));
+ $('block-description').textContent=state.block==='all'?'保留完整文件顺序。选择分块后，默认只显示模型新增或补全的声明。':DATA.blockLabels.find(([id])=>id===state.block)[2];
+}
+function renderBlock(side,run){
+ const text=snap(run,run.final).text.split('\n'),ds=blockDeclarations(run);
+ $(side+'-code').innerHTML=ds.map(d=>{
+  const lines=text.slice(d.line-1,d.end).map((text,i)=>({text,line:d.line+i,type:''}));
+  const cut=d.proofLine==null?lines.length:d.proofLine-d.line;
+  const origin={original:'题面原有',modified:'题面声明 · 模型补全',new:'模型新增'}[d.origin];
+  return `<section class="block-decl"><div class="block-decl-head"><strong>${esc(d.kind+' '+d.name)}</strong><span class="origin">${origin}</span><button data-source="${d.line}">原文件 · 第 ${d.line} 行</button></div>${lines.slice(0,cut).map(r=>codeLine(r,d.origin==='original')).join('')}${cut<lines.length?`<details ${$('fold-proofs').checked?'':'open'}><summary>Proof · ${lines.length-cut} 行（含空行与注释）</summary>${lines.slice(cut).map(r=>codeLine(r)).join('')}</details>`:''}</section>`;
+ }).join('')||'<div class="empty">此运行在这一块没有'+($('include-original').checked?'声明。':'模型新增声明。可勾选「包含题面原有声明」。')+'</div>';
+ $(side+'-code').querySelectorAll('[data-source]').forEach(b=>b.onclick=()=>{const line=Number(b.dataset.source);chooseBlock('all');state.selected[side]=String(line);selectDeclarations(side);jump(side,line)});
+}
+function showCompare(){
+ const dual=$('dual-view').checked,canDiff=dual&&state.left!=null&&state.right!=null;
+ $('panels').classList.toggle('single',!dual);$('left-title').textContent=dual?'左侧':'运行';
+ $('diff-mode').parentElement.hidden=!dual;$('sync-scroll').parentElement.hidden=!dual;document.querySelector('.legend').hidden=!dual;
+ $('diff-mode').disabled=!canDiff;if(!canDiff)$('diff-mode').checked=false;
+ for(const side of ['left','right'])$(side+'-run').value=state[side]??'';
+ showBlockTabs();
+ const grouped=state.block!=='all';$('original-control').hidden=grouped;$('include-control').hidden=!grouped;$('proof-control').hidden=!grouped;$('fold-proofs').disabled=$('diff-mode').checked;
+ if(!canDiff){
+  for(const side of ['left','right']){
+   const run=state[side]==null?null:DATA.runs[state[side]];
+   if(!run)$(side+'-code').innerHTML='<div class="empty">未选择运行。请从上方下拉框选择。</div>';
+   else if(grouped)renderBlock(side,run);
+   else renderCode($(side+'-code'),rows(snap(run,run.final).text),new Set(run.originalLines),$('fold-original').checked);
+   selectDeclarations(side);
+  }
+  return;
+ }
+ const l=DATA.runs[state.left],r=DATA.runs[state.right],ls=snap(l,l.final),rs=snap(r,r.final),lm=new Set(l.originalLines),rm=new Set(r.originalLines);
+ if(grouped){
+  if($('diff-mode').checked){
+   const a=blockRows(l),b=blockRows(r);
+   const pair=diff(a.map(r=>r.text).join('\n'),b.map(r=>r.text).join('\n'));
+   pair[0].forEach(row=>row.line=row.line==null?null:a[row.line-1]?.line??null);pair[1].forEach(row=>row.line=row.line==null?null:b[row.line-1]?.line??null);
+   renderCode($('left-code'),pair[0]);renderCode($('right-code'),pair[1]);
+  }else{renderBlock('left',l);renderBlock('right',r)}
+  selectDeclarations('left');selectDeclarations('right');return;
+ }
+ const pair=$('diff-mode').checked?diff(ls.text,rs.text):[rows(ls.text),rows(rs.text)];
+ const both=$('diff-mode').checked?pair[0].map((v,i)=>lm.has(v.line)&&rm.has(pair[1][i].line)&&v.text===pair[1][i].text):null;
+ renderCode($('left-code'),pair[0],lm,$('fold-original').checked,both);renderCode($('right-code'),pair[1],rm,$('fold-original').checked,both);
+ selectDeclarations('left');selectDeclarations('right');
+}
+function jump(side,line){
+ const box=$(side+'-code');box.querySelectorAll('.focus').forEach(n=>n.classList.remove('focus'));
+ const node=box.querySelector(`[data-line="${line}"]`);if(!node)return;
+ const details=node.closest('details');if(details)details.open=true;
+ node.classList.add('focus');box.scrollTop=node.offsetTop-box.offsetTop-60;
+}
+function declarationText(snapshot,name){if(!snapshot)return null;const a=snapshot.declarations,index=a.findIndex(d=>d.name===name);if(index<0)return null;return snapshot.text.split('\n').slice(a[index].line-1,index+1<a.length?a[index+1].line-1:undefined).join('\n')}
+function affects(run,event,name){if(event.after==null)return false;const before=snap(run,event.before??event.previous),after=snap(run,event.after);return declarationText(before,name)!==declarationText(after,name)}
+function switchView(history){$('compare-view').hidden=history;$('history-view').hidden=!history;$('compare-tab').classList.toggle('active',!history);$('history-tab').classList.toggle('active',history);if(history)showHistory()}
+function filteredSteps(){
+ const r=DATA.runs[state.history],filter=$('event-filter').value,q=$('event-search').value.toLowerCase();
+ return r.timeline.map((e,i)=>[e,i]).filter(([e])=>{
+  const s=e.step==null?null:r.steps[e.step];
+  const match=filter==='all'||filter===e.kind||filter==='edits'&&e.changed||filter==='compile'&&s?.kind==='compile'||filter==='changes'&&e.changed&&state.decl&&affects(r,e,state.decl);
+  return match&&(!q||(e.label+e.lines.map(n=>r.raw[n-1]).join('')).toLowerCase().includes(q));
+ });
+}
+function showHistory(){
+ $('history-run').value=state.history;const r=DATA.runs[state.history],items=filteredSteps();
+ $('trace-summary').textContent=`${r.raw.length} 条 trace → ${r.timeline.length-1} 步 + 最终归档；当前显示 ${items.length} 步`;
+ if(!items.some(([,i])=>i===state.event))state.event=items[0]?.[1]??-1;
+ $('steps').innerHTML=items.map(([e,i])=>`<button class="step kind-${e.kind} ${state.event===i?'active':''}" data-step="${i}"><div class="step-top"><span class="badge">#${i+1}${e.changed?' · 代码变化':''}</span><span>${e.lines.length?(e.start===e.end?'L'+e.start:'L'+e.start+'–'+e.end):'归档'}</span></div><div class="step-title">${esc(e.step==null?e.label:r.steps[e.step].label)}</div></button>`).join('')||'<div class="empty">没有匹配的记录。</div>';
+ $('steps').querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{state.event=Number(b.dataset.step);showHistory()});showEvent();
+}
+function unifiedRows(before,after){const [left,right]=diff(before,after),result=[];left.forEach((l,i)=>{const r=right[i];if(l.type==='del')result.push({old:l.line,new:null,text:l.text,type:'del'});else if(r.type==='add')result.push({old:null,new:r.line,text:r.text,type:'add'});else result.push({old:l.line,new:r.line,text:l.text,type:''})});return result}
+function unifiedLine(r){return `<div class="row ${r.type}" ${r.new?'data-line="'+r.new+'"':''}><span class="ln">${r.old??''}</span><span class="ln">${r.new??''}</span><span class="sign">${r.type==='add'?'+':r.type==='del'?'−':' '}</span><span class="src">${esc(r.text)||' '}</span></div>`}
+function renderUnified(list,fold){
+ const keep=new Set();list.forEach((r,i)=>{if(r.type)for(let j=Math.max(0,i-3);j<=Math.min(list.length-1,i+3);j++)keep.add(j)});
+ let html='',i=0;
+ while(i<list.length){let j=i;if(fold&&!keep.has(i)){while(j<list.length&&!keep.has(j))j++}
+ if(j-i>5){html+=`<details><summary class="fold">展开未变化的 ${j-i} 行</summary>${list.slice(i,j).map(unifiedLine).join('')}</details>`;i=j}else html+=unifiedLine(list[i++]);}
+ $('history-code').innerHTML=html;
+}
+function traceParts(run,e){
+ let html='';const part=(title,text,kind='')=>`<section class="trace-part ${kind}"><h3>${esc(title)}</h3><pre>${esc(text)}</pre></section>`;
+ for(const n of e.lines){const record=JSON.parse(run.raw[n-1]),content=record.message?.content,stamp=record.timestamp?' · '+record.timestamp:'';
+  if(Array.isArray(content)&&content.length){for(const b of content){
+   if(b.type==='thinking')html+=part(`L${n} · 模型思考${stamp}`,b.thinking||'此记录的思考文本为空。','thinking');
+   else if(b.type==='text')html+=part(`L${n} · ${record.type==='assistant'?'模型回复':'输入消息'}${stamp}`,b.text,'text');
+   else if(b.type==='tool_use')html+=part(`L${n} · 调用 ${b.name}${stamp}`,b.name==='Bash'?b.input.command:JSON.stringify(b.input,null,2));
+   else if(b.type==='tool_result')html+=part(`L${n} · 工具返回${b.is_error?'（报错）':''}${stamp}`,typeof b.content==='string'?b.content:JSON.stringify(b.content,null,2));
+   else html+=part(`L${n} · ${b.type}${stamp}`,JSON.stringify(b,null,2));
+  }}else html+=part(`L${n} · ${record.subtype||record.type}${stamp}`,JSON.stringify(record,null,2));
+ }
+ if(e.kind==='archive')html=part('最终归档','来自 proofs/Task.v；这是归档补充，不是 trace 中的一条记录。');
+ return html;
+}
+function showEvent(){
+ const r=DATA.runs[state.history],e=r.timeline[state.event];if(!e){$('event').innerHTML='<div class="empty">请选择其他筛选条件。</div>';return}
+ const before=e.changed?snap(r,e.before):null,after=snap(r,e.snapshot);
+ const items=filteredSteps().map(([,i])=>i),pos=items.indexOf(state.event);
+ const changes=before&&after?unifiedRows(before.text,after.text):null,adds=changes?.filter(x=>x.type==='add').length??0,dels=changes?.filter(x=>x.type==='del').length??0;
+ const s=e.step==null?null:r.steps[e.step];
+ let out=`<div class="event-top"><div><h2>${esc(s?.label||e.label)}</h2><span class="meta">${runName(r)} · 第 ${state.event+1} 步${e.lines.length?' · 原始记录 '+e.lines.map(n=>'L'+n).join('、'):''}</span></div><div><button id="prev" ${pos<=0?'disabled':''}>上一步</button> <button id="next" ${pos===items.length-1?'disabled':''}>下一步</button></div></div>`;
+ if(e.interleaved)out+=`<p class="interleave">调用 L${e.start} 至最后记录 L${e.end} 之间，穿插了 ${e.interleaved} 条其他记录，仍在时间线中保留。本操作按完成位置排列。</p>`;
+ if(e.kind==='tool'&&!e.returned)out+='<p class="event-note">未找到对应的工具返回，保留调用原文。</p>';
+ out+=`<div class="trace-grid"><div class="trace-body">${traceParts(r,e)}</div><div>`;
+ if(e.gap)out+='<p class="event-note">Task.v 中间修改未完整记录，diff 是两个已知状态之间的净变化，不能归因于单次操作。</p>';
+ if(e.gapBefore)out+='<p class="event-note">这次修改前，文件已经与上次记录不同。当前 diff 只展示本次操作；下方另列未记录区间的变化。</p>';
+ const fileNote=e.kind==='archive'?'最终归档文件':after?`当前：trace 第 ${e.end} 行；代码快照来自 trace 第 ${e.snapshotLine} 行。`:'此时尚无完整 Task.v 记录。';
+ out+=`<p class="notice"><strong>Task.v</strong> · ${fileNote}</p>`;
+ if(after)out+=`<div class="panel history-file"><div class="toolbar"><div class="mode-buttons"><button data-mode="diff" ${before?'':'disabled'}>红绿diff</button><button data-mode="after">修改后</button></div>${before?'<label><input id="fold-unchanged" type="checkbox" checked>折叠未变化代码</label>':''}<span class="change-count"><span class="minus">−${dels}</span> / <span class="plus">+${adds}</span></span></div><div class="line-head"><span>修改前</span><span>修改后</span><span class="file-name">/workspace/Task.v</span></div><div class="code" id="history-code"></div></div>`;
+ else out+='<div class="panel empty">尚未读到文件；不提前展示后面的代码。</div>';
+ out+='</div></div>';
+ if(e.gapBefore){const gap=unifiedRows(snap(r,e.priorSnapshot).text,snap(r,e.before).text);out+=`<details class="terminal history-file"><summary>前置记录缺口：上次确认的文件 → 本次修改前</summary><div class="code">${gap.map(unifiedLine).join('')}</div></details>`}
+ if(e.lines.length)out+=`<details class="terminal" id="raw-records"><summary>原始 trace（${e.lines.length} 条，完整保留全部字段）</summary><div id="raw-content"></div></details>`;
+ $('event').innerHTML=out;$('prev').onclick=()=>{state.event=items[pos-1];showHistory()};$('next').onclick=()=>{state.event=items[pos+1];showHistory()};
+ if($('raw-records'))$('raw-records').ontoggle=()=>{if($('raw-records').open&&!$('raw-content').childNodes.length)$('raw-content').innerHTML=e.lines.map(n=>`<div class="raw-record"><strong>L${n}</strong><pre>${esc(r.raw[n-1])}</pre></div>`).join('')};
+ if(!after)return;
+ let mode=before?'diff':'after';
+ const draw=()=>{document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));if($('fold-unchanged'))$('fold-unchanged').disabled=mode!=='diff';
+ if(mode==='diff')renderUnified(changes,$('fold-unchanged').checked);
+ else{renderUnified(after.text.split('\n').map((text,i)=>({old:null,new:i+1,text,type:''})),false)}
+ const box=$('history-code'),first=box.querySelector('.del,.add');if(first)box.scrollTop=first.offsetTop-box.offsetTop-60;else box.scrollTop=0;
+ };
+ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});if($('fold-unchanged'))$('fold-unchanged').onchange=draw;draw();
+}
+$('subtitle').textContent=`${DATA.case.split('__')[0]}  STLC · Strong normalization · None · Hard / ${DATA.runs.length} 次独立运行`;
+$('panels').innerHTML=panel('left')+panel('right');$('history-run').innerHTML=options();
+for(const side of ['left','right']){
+ $(side+'-run').value=state[side];$(side+'-run').onchange=e=>{state[side]=e.target.value===''?null:Number(e.target.value);state.selected[side]='';showCompare()};
+ $(side+'-decl').onchange=e=>{state.selected[side]=e.target.value;selectDeclarations(side);if(e.target.value)jump(side,e.target.value)};
+ $(side+'-trace').onclick=()=>{const run=DATA.runs[state[side]],d=snap(run,run.final).declarations.find(d=>d.line===Number($(side+'-decl').value));if(!d)return;state.history=state[side];state.decl=d.name;$('event-filter').value='changes';$('event-search').value='';state.event=-1;switchView(true)};
+}
+let syncing=false;for(const side of ['left','right'])$(side+'-code').onscroll=()=>{if(syncing||!$('dual-view').checked||!$('sync-scroll').checked)return;syncing=true;const a=$(side+'-code'),b=$((side==='left'?'right':'left')+'-code');b.scrollTop=a.scrollTop;b.scrollLeft=a.scrollLeft;requestAnimationFrame(()=>syncing=false)};
+$('dual-view').onchange=showCompare;
+$('diff-mode').onchange=showCompare;$('fold-original').onchange=showCompare;
+$('include-original').onchange=showCompare;$('fold-proofs').onchange=showCompare;
+$('compare-tab').onclick=()=>switchView(false);$('history-tab').onclick=()=>switchView(true);
+$('history-run').onchange=e=>{state.history=Number(e.target.value);state.event=0;state.decl=null;$('event-filter').value='all';showHistory()};
+$('event-filter').onchange=showHistory;$('event-search').oninput=showHistory;
+$('go-line').onclick=()=>{const n=Number($('line-jump').value),run=DATA.runs[state.history],i=run.timeline.findIndex(e=>e.lines.includes(n));if(i<0){$('trace-summary').textContent=`请输入 1–${run.raw.length} 的行号。`;return}state.event=i;$('event-filter').value='all';$('event-search').value='';showHistory();$('steps').querySelector('.active')?.scrollIntoView({block:'nearest'})};
+$('help-button').onclick=()=>{$('help').hidden=!$('help').hidden;$('help-button').setAttribute('aria-expanded',String(!$('help').hidden))};
+showCompare();
+</script></body></html>
