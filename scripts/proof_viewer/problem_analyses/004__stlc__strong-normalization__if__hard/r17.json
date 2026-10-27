@@ -1,0 +1,320 @@
+{
+  "summary": "本次约一半时间用于推敲 sem 的 CBV 逻辑关系及 substitution/opening 的证明路线；其余时间主要花在 opening/substitution helper lemmas 的 IH 与分支调试、step_lc 的 induction pattern、semantic lemmas 的 inversion/sem_app_aux，以及 environment update。fundamental 与 normalization 完整写入后首次编译即通过，之后的 assumptions 检查、clean build、coqchk 与 fresh-directory build 均成功。",
+  "phases": [
+    {
+      "title": "读取任务，核对语言、CBV reduction 与 normalization 目标",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 sem、substitution environment 与 application/if closure 的证明路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "核对环境与 Stdlib，编写 LR definitions 和 opening helper lemmas 初稿",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "调试 opening/local closure、重复 lemma 与 subst_open_rec 的各分支",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 93
+        }
+      ]
+    },
+    {
+      "title": "设计并写入 value/SN facts、LR closure 和 environment helper lemmas",
+      "intervals": [
+        {
+          "after": 93,
+          "through": 100
+        }
+      ]
+    },
+    {
+      "title": "调试 step_lc、semantic lemmas 的 induction/inversion 与 environment update",
+      "intervals": [
+        {
+          "after": 100,
+          "through": 152
+        }
+      ]
+    },
+    {
+      "title": "核对 has_type_ind，完成 fundamental 与 normalization 并首次编译通过",
+      "intervals": [
+        {
+          "after": 152,
+          "through": 164
+        }
+      ]
+    },
+    {
+      "title": "检查 assumptions 与原始声明，完成 clean build、coqchk 和最终报告",
+      "intervals": [
+        {
+          "after": 164,
+          "through": 184
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "open_rec_lc/lc_open_rec/lc_open_rec_inv 的 IH 实例化、bvar 分支等式与 abstraction 参数失配",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 51
+        }
+      ],
+      "outcome": "open_rec_lc 的 rewrite IH 改为显式传入 k、u 与 local closure premise；lc_open_rec 的 bvar false branch 用 Nat.eqb_neq 从 false equation 得到 k <> n 后交给 lia；lc_open_rec_inv 的 apply IH 也改为显式传入 k、u 及各 premise。期间一次误改 forward lemma 使 lc_open_rec abstraction 的 lc_abs_inv 用了 k 而非 S k，返回后另把 lc_open_rec_inv abstraction 的参数改成 opened body。编译越过这三个声明，停在重复的 open_rec_lc_subst。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        30,
+        34,
+        39,
+        43,
+        48,
+        57,
+        63,
+        69,
+        70,
+        71,
+        75
+      ],
+      "qualification": "包含一次针对 inverse-opening 报错却先修改 forward-opening lemma 的迂回；该迂回及其引出的 level 错误都发生在同一连续调试段内，合并计时。三个 lemma 的 statement 均未改变。"
+    },
+    {
+      "title": "open_rec_lc_subst 与 open_rec_lc statement 重复，proof 直接依赖自动生成的 IHH1 名称",
+      "intervals": [
+        {
+          "after": 51,
+          "through": 59
+        }
+      ],
+      "outcome": "open_rec_lc_subst 的 statement 与 open_rec_lc 实质相同，其证明引用 induction 自动生成的 IHH1 等名称，编译报 IHH1 not found。删除该重复 lemma，并把 subst_open_rec 的 fvar case 改为显式 rewrite open_rec_lc。编译越过它，推进到 subst_open_rec 的 bvar 分支。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        75,
+        76,
+        78,
+        79,
+        81,
+        84,
+        87
+      ],
+      "qualification": "fvar case 改用 open_rec_lc 时只传了 locally_closed 前提，该 level 问题在后续编译中单独暴露并处理。"
+    },
+    {
+      "title": "subst_open_rec 的 bvar 分支在 destruct 后仍 rewrite Nat.eqb_refl / E",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 69
+        }
+      ],
+      "outcome": "true branch 连续两次 rewrite Nat.eqb_refl 的第二次已无匹配，改为 repeat rewrite Nat.eqb_refl；false branch 的 destruct 已把目标中的 eqb 替换掉，rewrite E 报找不到 k =? n，改为 reflexivity。编译越过 bvar，停在 fvar 的 local closure level。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        87,
+        91,
+        93,
+        96,
+        97,
+        99,
+        102
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_open_rec 的 fvar case 需要把 locally_closed 提升为 lc_at k",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 75
+        }
+      ],
+      "outcome": "Hlc a 只有 locally_closed（即 lc_at 0），而 open_rec_lc 需要 lc_at k；新增 locally_closed_lc_at（lc_at_mono 与 Nat.le_0_l），并在 fvar case 显式使用。编译越过 fvar，停在 application case 的 in_app_iff。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        102,
+        103,
+        105,
+        108,
+        111
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_open_rec 的 application case 在 negated freshness 上误用 in_app_iff，随后 IH rewrite 无法定位",
+      "intervals": [
+        {
+          "after": 75,
+          "through": 85
+        }
+      ],
+      "outcome": "apply in_app_iff in Hfresh 不能用于 ~ In x (...) 这样的 negated membership；改为 simpl in Hfresh 后 rewrite in_app_iff in Hfresh，并显式构造 Hf1/Hf2。随后嵌套的 rewrite IH1/IH2 报 Cannot find a relation to rewrite，改为显式传入 k、sigma、v、x、local closure 与 freshness。编译越过 app/abs，停在 if case 的 freshness assertion。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        111,
+        112,
+        114,
+        117,
+        121,
+        123,
+        126
+      ],
+      "qualification": "定位 rewrite 失败时先怀疑过 abs case，最终确认在 application case 的嵌套 rewrite。"
+    },
+    {
+      "title": "subst_open_rec 的 if case 按左结合提取 freshness，与 ++ 的右结合不匹配",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 93
+        }
+      ],
+      "outcome": "fvs 的 ++ 右结合，两次 rewrite in_app_iff 后 Hfresh 为 ~ (A \\/ (B \\/ C))；此前用 left; left 提取 Hf1 报 Not an inductive definition。分别改为 left、right; left、right; right。编译仅在空 normalization 的 Qed 报 incomplete proof，subst_open_rec 及其之前代码通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        126,
+        128,
+        129,
+        131,
+        132,
+        133,
+        135,
+        138
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_lc 的 ST_AppAbs local closure 分解及 step induction hypothesis 排列错误",
+      "intervals": [
+        {
+          "after": 100,
+          "through": 114
+        }
+      ],
+      "outcome": "先用 lc_app_inv 从整个 application 提取 abstraction 的 local closure，再用 lc_abs_inv。随后为 step_lc 写显式 induction pattern；首次命名把 IH 的位置搞反，编译显示实际 IH 对应 t2 的 local closure、Hlc2 才是该 step premise 的 IH。按 proof state 调整为 ST_App1 的 Hstep、IH、Hlc2 与 ST_If 的 Hstep、IH、Hlc2、Hlc3，并放弃一次因 syntax error 失败的 step_ind 临时检查。编译通过 step_lc，推进到 sem_expand。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        148,
+        149,
+        150,
+        154,
+        160,
+        163,
+        164,
+        165,
+        169
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step inversion pattern 需列全六个 constructor 分支，并为 sem_var/sem_if 显式命名 hypothesis",
+      "intervals": [
+        {
+          "after": 114,
+          "through": 136
+        },
+        {
+          "after": 144,
+          "through": 148
+        }
+      ],
+      "outcome": "临时实验确认 inversion as 必须列出全部六个 step constructors，虽然 app 与 if source 分别只留下部分 subgoals；据此为 sem_expand 补三个 if patterns，为 sem_app_aux 与 sem_if 补全六个 patterns，并把 sem_var 的自动命名改为显式 Hs、Hv'。修正 sem_if 时一次编辑误把收尾 block 重复插入，随后整体替换删除。返回 sem_if 后，另将与现有 b2 冲突的 pattern 参数改名为 c1、c2、c3。编译越过 sem_if 与 sem_var，停在 env_rel_update。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        169,
+        176,
+        178,
+        180,
+        183,
+        195,
+        198,
+        214,
+        216,
+        220
+      ],
+      "qualification": "两个区间之间在处理 sem_app_aux 的 non-value 目标与 Hsn_u（另列一条），已排除。首段包含修复 sem_if 编辑时意外重复的收尾代码，没有重复归因。"
+    },
+    {
+      "title": "sem_app_aux 混淆整个 application 与 argument 的 non-value 目标，且 inner SN induction 消耗 Hsn_u",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 144
+        }
+      ],
+      "outcome": "对 sem_expand 所需的整个 tm_app t u 的 non-value 目标直接 intro Hv; inversion Hv，不再错误地使用关于 argument u 的 Hnshape。ST_App1 case 调用 outer IH 时，以 sem_sn T1 u Hsem_u 提供已被 inner induction 消耗的 SN premise。下一次编译越过 sem_app_aux，停在 sem_if 的名称冲突。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        202,
+        203,
+        204,
+        208,
+        209,
+        210,
+        214
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "env_rel_update 的 true branch 在 destruct/subst 后仍 rewrite Nat.eqb_refl",
+      "intervals": [
+        {
+          "after": 148,
+          "through": 152
+        }
+      ],
+      "outcome": "destruct 已把目标中的 eqb 替换为 true，subst T 后 rewrite Nat.eqb_refl 找不到匹配；改为 injection、subst T、simpl 后 exact Hv。编译仅在空 normalization 处报 incomplete proof，第二批 supporting lemmas 全部通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        220,
+        221,
+        222,
+        226
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "f289de868b69eda49e67c4ad80aa1732079256605f64f6bf62eb8e5568616f45",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 17,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "f289de868b69eda49e67c4ad80aa1732079256605f64f6bf62eb8e5568616f45",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r17.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r17_20261027_211738_064398"
+  }
+}

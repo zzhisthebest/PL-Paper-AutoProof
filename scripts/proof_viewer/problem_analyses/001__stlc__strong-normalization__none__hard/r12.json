@@ -1,0 +1,583 @@
+{
+  "summary": "1238 秒中前约 710 秒（57%）用于 LR/强归一化方案的设计与细化，其中单个长篇 thinking 约 635 秒，期间比较并否决了 value-only LR、纯 backward-closure 等方案，最终定型 `LR = locally_closed ∧ SN ∧ (∀u, LR A u → LR B (t u))` 加 `LR_of_red_nonabs` 的路线；其余约 350 秒（28%）落在 25 处具体调试上（前期为 `step_det` 的交叉矛盾分支与 LR 的 application/abstraction 引理，后期为 `substenv_open_rec` 等 substitution/freshness 引理），另约 180 秒用于编写实现、移植与最终验证。目标 `normalization` 最终以 `Qed` 完成、`Print Assumptions` 为 Closed under the global context，所有列出的困难均解决（无放弃项），supplied definitions 与 theorem statement 未被改动。",
+  "phases": [
+    {
+      "title": "阅读 Task.v 并确认 Rocq 环境（workspace、Task.v.orig、Rocq 9.1.0）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "LR 与强归一化证明架构设计探索：长篇推演、比较并否决多种 LR 变体（value-only、纯 backward closure 等）",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "实现方案细化：helper lemma 清单、substitution environment 与开发流程规划",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "搭建 /tmp/stlc scratch 并验证 LR Fixpoint 与基本 helper 被 Rocq 接受",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 19
+        }
+      ]
+    },
+    {
+      "title": "编写 dev.v 全部定义与引理草稿（T_Abs 先留 admit 占位）",
+      "intervals": [
+        {
+          "after": 19,
+          "through": 20
+        }
+      ]
+    },
+    {
+      "title": "基础引理首次编译调试：lc_open_rec_inv、step_det、LR_step_backward",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 58
+        }
+      ]
+    },
+    {
+      "title": "以 step_app_cases 重构 step 反演与 LR 的 application/abstraction 引理（LR_of_red_nonabs、LR_abs_app、LR_app_aux、LR_app）",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 94
+        }
+      ]
+    },
+    {
+      "title": "调试 substitution environment 与 freshness 引理（fv_list、fresh、lc_substenv、substenv_open_rec）",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 140
+        }
+      ]
+    },
+    {
+      "title": "编写 fundamental 的 T_Abs case 与 normalization 终定理",
+      "intervals": [
+        {
+          "after": 140,
+          "through": 148
+        }
+      ]
+    },
+    {
+      "title": "验证与交付：Admitted→Qed、移植 Task.v、diff/axiom 检查、死代码清理与 clean build",
+      "intervals": [
+        {
+          "after": 148,
+          "through": 206
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "scratch 测试文件 test.v 截断在 theorem 中间且 module 未关闭，LR Fixpoint 最小验证无法编译",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 17
+        }
+      ],
+      "outcome": "改用 `sed -n '1,193p' base.v` 只取 normalization 之前的定义，并补 `End STLCNormalizationNoneHardTask`；step 17 编译无报错，确认 LR Fixpoint 与 LR_lc/LR_SN 可用。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        18,
+        21,
+        24
+      ],
+      "qualification": "仅涉及 scratch 测试文件构造，不涉及证明内容，约 6 秒即解决。"
+    },
+    {
+      "title": "`lc_open_rec_inv` 的 bvar 分支：`lia` 无法利用 `(k =? n) = true`，且对变量 `u` 做了多余 inversion",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 30
+        }
+      ],
+      "outcome": "先 `destruct (Nat.eqb k n)`，true 分支用 `Nat.eqb_eq` 得 n=k 后 `subst`，false 分支用 `lc_bvar_inv` 取出 n<k；不再对变量 u 做 inversion。修复后编译推进到 step_det。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        31,
+        34,
+        41,
+        42,
+        43
+      ],
+      "qualification": "区间含一次误定位（先怀疑 lc_at_mono）与一次 Show 调试，无法再细分。"
+    },
+    {
+      "title": "`step_det` 的第二个 reduct binder `t2` 与 ST_App1/ST_App2 constructor 参数重名（`t2 is already used`）",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 34
+        }
+      ],
+      "outcome": "把 step_det 的 binder 改为 `forall s, step t s -> t1 = s`（`intros s H2`），编译越过 `t2 is already used`，转而暴露第 286 行 `eapply value_no_step; eassumption` 的 No applicable tactic。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        43,
+        46,
+        47,
+        49
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`step_det` 交叉矛盾分支：`eapply value_no_step` 的 evar 未定（shelved goals）、inversion 子目标顺序误判，最终用 `contra_value` 显式套 `value_no_step`",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 54
+        }
+      ],
+      "outcome": "Show 确认 `eapply value_no_step` 留下未定 `?v/?t'` 与 shelved goals，显式 bullets 仍失败；改用 `eauto using value_no_step, v_abs` 又留未完成 bullet；随后发现 inversion 的 ST_AppAbs/ST_App1/ST_App2 子目标顺序与 bullet 对应不符。最终新增 `contra_value`：用 `match goal` 找一致的 `value ?v`/`step ?v ?x`，或从 abstraction 的 `locally_closed` 用 `v_abs` 构造 value，再显式套 `value_no_step`；step_det 通过，错误推进到 LR_step_backward。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        49,
+        52,
+        55,
+        58,
+        61,
+        64,
+        65,
+        67,
+        71,
+        73,
+        77,
+        79
+      ],
+      "qualification": "期间多次把 inversion 第一个子目标当成 reflexivity、重排 bullet，并试过 eauto using；这些尝试与最终修复无法分开计时。"
+    },
+    {
+      "title": "`LR_step_backward` 的 arrow case：`apply IHT2 with (t := tm_app t u)` 无法推断 reduct `t'`",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 58
+        }
+      ],
+      "outcome": "改为 `eapply IHT2 with (t := tm_app t u) (t' := tm_app t' u)`，显式给出源项与 reduct，再结合 `Harr` 与 `ST_App1` 完成 arrow 分量。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        79,
+        83,
+        85
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_of_red_nonabs` 依赖 inversion 自动命名（`No such hypothesis: Hstep`），改为补 `step_app_cases`",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 63
+        }
+      ],
+      "outcome": "新增 `step_app_cases`，把 `step (tm_app t1 t2) t'` 反演成三条带 witness 的 disjunction；先用独立 test.v 验证 `inversion H; subst; eauto 10` 能证明它，再在后续 proof 中统一用它做 step case analysis。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        85,
+        88,
+        89,
+        92
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_of_red_nonabs` 嵌套 SN induction 的 binder 命名冲突（`v`/`w` already used）",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 74
+        }
+      ],
+      "outcome": "把外层 `intros w Hw`、Hgen 的 `forall w0`、SN_ind case 的 `w1` 与 `Hw1` 分层命名，避免 `induction Hsnw as [...]` 与外层 binder 同名；LR_of_red_nonabs 通过，错误推进到 LR_abs_app。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        96,
+        102,
+        105,
+        108
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_abs_app` 内部重复引入 `u`，与 lemma 外层 binder 冲突（`u is already used`）",
+      "intervals": [
+        {
+          "after": 74,
+          "through": 78
+        }
+      ],
+      "outcome": "按 step 77 的方案重写 LR_abs_app：用 step_app_cases 与局部 Hreds 处理 reduct，并把 Hgen 的内层 binder 与外层 `u` 分开（`forall w` / `intros w0` / `induction as [w ...]`）；编译越过该引理，转到 LR_app_aux 第 513 行的 unification 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        108,
+        111,
+        112,
+        114
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_aux` ST_AppAbs（beta）分支用错 closure 方向：以 `LR_step_backward` 从 application 推 beta reduct",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 82
+        }
+      ],
+      "outcome": "核对 goal 是 beta reduct 满足 LR，而已知 application 满足 LR，应使用 `LR_step_forward`；把 `eapply LR_step_backward with (t := tm_app (tm_abs T' body) vv)` 改为 forward 后，编译报下一处 premise 顺序错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        114,
+        117,
+        118,
+        120
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_aux` beta 分支改用 `LR_step_forward` 后仍按 backward 的 premise 顺序给 bullet（多余 `lc_app`）",
+      "intervals": [
+        {
+          "after": 82,
+          "through": 84
+        }
+      ],
+      "outcome": "确认 LR_step_forward 只有 source 的 LR 与 step 两个 premise；删掉多余的 `lc_app` bullet，把 `simpl in HRf; destruct ... apply Harr` 放到第一个 premise，step 由 `eapply ST_AppAbs; eassumption` 提供；编译推进到 ST_App1 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        120,
+        121,
+        123
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_aux` ST_App1 分支：`SN a0` 已被对 `Hsna` 的 induction 消耗，`assumption` 失败",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 88
+        }
+      ],
+      "outcome": "用 `apply SN_intro; assumption` 从 `Hstepa : forall t', a0 --> t' -> SN t'` 重建被 `induction Hsna` 消耗的 `SN a0`；编译越过 LR_app_aux，错误推进到 LR_app wrapper。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        123,
+        126,
+        127,
+        129
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app` wrapper：`eapply LR_app_aux` 后 domain type `?A` 未确定，`assumption` 失败",
+      "intervals": [
+        {
+          "after": 88,
+          "through": 94
+        }
+      ],
+      "outcome": "用 `eapply LR_app_aux with (A := A) (B := B) (f := t1) (a := t2)` 显式实例化，四个 premise 依次由 `LR_SN`/假设给出。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        129,
+        132,
+        135,
+        138
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fv_list` 使用 `[]`/list notation 但未 `Import ListNotations`，报 syntax error",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 98
+        }
+      ],
+      "outcome": "在新增 proof 区域开头加 `Import ListNotations.`（位于所有 supplied definitions 之后，不影响原文件解析）。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        138,
+        141,
+        144
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fresh_gt` 的 `destruct H as [-> | H]` 消去 `a`，branch 内引用 `a` 报 The variable a was not found",
+      "intervals": [
+        {
+          "after": 98,
+          "through": 102
+        }
+      ],
+      "outcome": "改为 `destruct H as [Heq | H]`，保留等式并 `subst a`；编译越过该错误，转到第二 branch 的严格界问题。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        144,
+        147,
+        148,
+        150
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fresh_gt` 第二 branch 的 IH 只给严格界 `x < fresh L`，不能直接用作 `x <= fold_right Nat.max 0 L`",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 104
+        }
+      ],
+      "outcome": "新增 `in_le_fold_max : forall L x, In x L -> x <= fold_right Nat.max 0 L`，再由 `fresh` 定义用 `lia` 推出 `x < fresh L`；编译推进到 `fresh_notin_app`。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        150,
+        151,
+        153
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fresh_notin_app` 的 `++` 右结合导致 `in_or_app` 分解错误（L1 多套了一次分解）",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 110
+        }
+      ],
+      "outcome": "明确 `L1 ++ L2 ++ L3` 是 `L1 ++ (L2 ++ L3)`：L1 只需一次 `in_or_app; left`，L2/L3 需先 `right` 再分解；三个分支改为显式 `-` bullets。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        153,
+        156,
+        159,
+        162
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`substenv_nil` 多写一个 `reflexivity` bullet，与 `induction; simpl; auto` 剩余的 goal 不对应",
+      "intervals": [
+        {
+          "after": 110,
+          "through": 112
+        }
+      ],
+      "outcome": "删掉多余的 bullet，只保留 app 与 abs 两个分支的 `rewrite IH; reflexivity`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        162,
+        165
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_substenv` 未先分解 `lc_at k (tm_app ...)`，直接对 IH 用 `assumption` 失败",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 116
+        }
+      ],
+      "outcome": "先用 `lc_app_inv`/`lc_abs_inv` 把 Hk 拆成子项 local closure，再喂给 IH。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        165,
+        168,
+        171
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`substenv_open_rec` 的 bvar/fvar 分支：`lookup_cons_eq` 已被 simpl 展开、`k =? n` 不在 goal 中，rewrite 反复不匹配",
+      "intervals": [
+        {
+          "after": 116,
+          "through": 134
+        }
+      ],
+      "outcome": "确认 simpl 已把 `env_lookup x ((x,u)::rho)` 化成 `if Nat.eqb x x ...`、把 open 化成 if，于是 bvar 分支改为 `destruct (Nat.eqb k n)` 后 true 分支 `rewrite Nat.eqb_refl`、false 分支直接 `reflexivity`；fvar 分支改为 destruct `Nat.eqb a x`、再 destruct `env_lookup a rho`，并用 `lc_open_rec_id` 把 image 上的 `open_rec` 消掉。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        171,
+        177,
+        180,
+        183,
+        186,
+        192,
+        195,
+        198
+      ],
+      "qualification": "诊断期间一度把错误归到 fvar 分支（实际位置是 bvar 的 `rewrite lookup_cons_eq`），这段误判与反复 Show/按行编辑无法从区间中拆分。"
+    },
+    {
+      "title": "`substenv_open_rec` 的 app/abs 分支：IH 需要 component freshness，且 Coq 自动命名把 type 变量叫 `t`、body 叫 `t0`",
+      "intervals": [
+        {
+          "after": 134,
+          "through": 140
+        }
+      ],
+      "outcome": "显式从 `~ In x (fv_list (t1 t2))` 推出 `Hfv1`/`Hfv2`（abs 分支推出 `Hfvb`），并按 `induction t as [n|a|t1 IHt1 t2 IHt2|T b IHb| |]` 固定所有名字后带完整参数 rewrite。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        198,
+        201,
+        204,
+        207
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` 的 T_Abs case：`rewrite substenv_open_rec` 前需先 `unfold open`（goal 是 `open t1 (fvar x)` 而非 `open_rec 0` 形式）",
+      "intervals": [
+        {
+          "after": 143,
+          "through": 145
+        }
+      ],
+      "outcome": "在 HLR 上先 `unfold open`，再带全部 freshness 参数 rewrite `substenv_open_rec`；T_Abs 通过，错误推进到 normalization。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        211,
+        214
+      ],
+      "qualification": "不含 140→143 编写 T_Abs 实 proof 的时间，那属于正常实现。"
+    },
+    {
+      "title": "`normalization`：`LR T (substenv [] t)` 不能直接当作 `strongly_normalizing t`",
+      "intervals": [
+        {
+          "after": 145,
+          "through": 148
+        }
+      ],
+      "outcome": "先给 `env_sem empty []`（`env_sem_empty`，其证明用 `discriminate` 处理两个空 context 前提），`rewrite substenv_nil`，再 `apply LR_SN`；normalization 以 Qed 结束（此时 fundamental 仍是 Admitted）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        214,
+        216,
+        218
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` 结尾仍是草稿遗留的 `Admitted.`，此前那次 scratch “编译通过”并未验证该定理",
+      "intervals": [
+        {
+          "after": 151,
+          "through": 155
+        }
+      ],
+      "outcome": "grep 查出 dev.v 第 813 行仍是 `Admitted.`；改成 `Qed.` 后重新编译才真正检查五个 typing case，编译通过且再无 admit/Admitted/Axiom。",
+      "resolution": "resolved",
+      "category": "other",
+      "evidence_lines": [
+        222,
+        225,
+        228
+      ],
+      "qualification": "不是证明失败，而是占位 Admitted 的遗留；确认前不应把那次 scratch 编译视为完整验证。"
+    },
+    {
+      "title": "移植时发现 scratch 重录版本把 supplied `step` notation 改成带 `: stlc_scope`，并漏了文件头注释",
+      "intervals": [
+        {
+          "after": 158,
+          "through": 161
+        }
+      ],
+      "outcome": "diff 原 Task.v 与 dev.v 前缀后确认只有 `where \"t '-->' t'\" := (step t t') : stlc_scope.` 与 header 不同；把该行恢复原样并重编译 dev.v 仍通过，最终改为以原 Task.v 为基底插入新增代码。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        232,
+        233,
+        236
+      ],
+      "qualification": "若未发现，最终文件会修改 supplied language definition；修复后 diff 显示原文件唯一被删的行是 proof placeholder 注释。"
+    },
+    {
+      "title": "清理 dead code 时按连续区块删除，误删仍被使用的 `step_app_cases`",
+      "intervals": [
+        {
+          "after": 185,
+          "through": 189
+        }
+      ],
+      "outcome": "编译报 `The variable step_app_cases was not found`；从保存的 removed_blocks.v 只恢复 `step_app_cases`（LR_step_backward、LR_irred 保持删除），重编译通过；随后再删 SN_step_backward、substenv_fvar 也通过。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        271,
+        274,
+        277
+      ],
+      "qualification": "step 185 的 `&& echo` 输出不是编译成功的证据（管道取 head 的退出码）；以 step 189 无错误输出及后续 clean build 为准。"
+    }
+  ],
+  "trace_sha256": "7e8b23595f31114dfbe7f9a1278688d38097d143a49275b4c099aea7e28b2134",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 12,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "7e8b23595f31114dfbe7f9a1278688d38097d143a49275b4c099aea7e28b2134",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r12.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r12_20261027_211738_701578"
+  }
+}

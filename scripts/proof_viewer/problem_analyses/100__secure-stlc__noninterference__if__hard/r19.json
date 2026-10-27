@@ -1,0 +1,516 @@
+{
+  "summary": "最大的单一时间块是 step 14 的完整证明架构推演（LR、subtyping、environment 与 fundamental theorem 方案），该段混合设计推演与自我纠错、无法可靠再分时，整体保留在 phases，之后才进入实现。其余时间用于实现 big-step eval、locally nameless/typing 基础设施、V/E logical relation、fundamental theorem，以及最后的 context 连接与最终定理；调试集中在 block1 的定义展开与命名冲突、`tm`/`has_type` induction pattern、`++` 右结合与 unary constructor equality、label 分支顺序、environment 实例化，以及一次把 If High branch 移出 `Qed` 的文件编辑事故。最终 noninterference 以 `Qed` 完成，并通过 clean compile 与 `Print Assumptions` 验证。",
+  "phases": [
+    {
+      "title": "初始化环境并读取 Task.v/card.md",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "初步设计 LR 并检索本地可复用开发",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "完整证明架构推演（LR、subtyping、environment 与 fundamental theorem 方案）",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "实现 big-step eval 与 block1 基础 lemmas",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 57
+        }
+      ]
+    },
+    {
+      "title": "实现 locally nameless/substitution/typing lemmas（block2）",
+      "intervals": [
+        {
+          "after": 57,
+          "through": 114
+        }
+      ]
+    },
+    {
+      "title": "实现 V/E、subtyping monotonicity、protection/erasure lemmas（block3–block5）",
+      "intervals": [
+        {
+          "after": 114,
+          "through": 173
+        }
+      ]
+    },
+    {
+      "title": "实现 fundamental theorem（block6）",
+      "intervals": [
+        {
+          "after": 173,
+          "through": 238
+        }
+      ]
+    },
+    {
+      "title": "连接 multi-step→big-step、context substitution 并完成最终 noninterference（block7–block8 + final theorem）",
+      "intervals": [
+        {
+          "after": 238,
+          "through": 254
+        }
+      ]
+    },
+    {
+      "title": "最终验证与交付（clean compile、Print Assumptions、原 prefix 校验）",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 265
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`V`/`E` mutual Fixpoint 被 Rocq guard checker 拒绝（`E T` 递归调用同参数的 `V T`）",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 23
+        }
+      ],
+      "outcome": "改为单个 Fixpoint `V`：在 arrow case 内联 expression relation，`E` 定义为 `V` 之后的普通 Definition；guard2.v 编译通过，后续 block3 正式采用该结构。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        27,
+        28,
+        31
+      ],
+      "qualification": "guard checker 问题先在 /tmp/dev/guard2.v 验证，正式写进 Task.v 的 LR 在 block3；该区间只计这个定义层面的问题与原型验证。"
+    },
+    {
+      "title": "`flows_to_high_eq`/`flows_to_low_eq`：`destruct label` 后 `auto` 未用 False premise 关闭目标",
+      "intervals": [
+        {
+          "after": 31,
+          "through": 33
+        }
+      ],
+      "outcome": "改为 `intro l; destruct l; simpl; intros H; [contradiction | reflexivity]`（low 引理分支对称），两引理通过，编译前进到 `protect_security_low`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        42,
+        43,
+        45
+      ],
+      "qualification": "这是 block1 首次编译的首个错误；原分析把它并入 block1 合并项，此处按具体障碍单独定位。"
+    },
+    {
+      "title": "`protect_security_low/high`、`wf_security_protect`、`value_lc`：`simpl`/`reflexivity` 不展开相关 Definition，需显式 `unfold`",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 43
+        },
+        {
+          "after": 47,
+          "through": 49
+        }
+      ],
+      "outcome": "用 Show 确认 `protect_security` 未被 simpl 展开，改为 `intros [r i]; unfold protect_security; simpl; rewrite join_low_l, join_low_l; reflexivity`；`wf_security_protect` 的 High case 补 `unfold wf_security`；`value_lc` 在 `induction Hv` 后补 `unfold locally_closed`。这些引理随后通过编译。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        48,
+        51,
+        54,
+        57,
+        60,
+        67,
+        69
+      ],
+      "qualification": "同一根因（simpl 不展开 Definition）先在 protect_security/wf_security 出现，随后被 erase_security 的命名冲突打断，回到 value_lc 时再次出现，故用两个区间。"
+    },
+    {
+      "title": "`erase_security_protect_value`：`destruct v` 自动生成的 `l` 与后续 `intros l` 冲突（`l is already used`）",
+      "intervals": [
+        {
+          "after": 43,
+          "through": 47
+        }
+      ],
+      "outcome": "改为先 `intros v l` 再 `destruct v`，引理通过，编译前进到 `value_lc`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        60,
+        64,
+        66
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`value_eval`：对 `value` 归纳后 v_abs case 缺 `value (tm_abs ...)` premise，`eauto` 无法自行构造",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 53
+        }
+      ],
+      "outcome": "用 Show 确认 abstraction case 的假设是 `locally_closed (tm_abs ...)` 而非 `value`；把 `v_abs` 加入 eauto 的 hint 列表后引理通过，编译前进到 `eval_lc`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        69,
+        72,
+        73,
+        75
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`eval_lc`：`apply value_lc, eval_value` 无法推断 `eval_value` 的隐式项变量 `t`",
+      "intervals": [
+        {
+          "after": 53,
+          "through": 57
+        }
+      ],
+      "outcome": "改为 `apply value_lc; apply eval_value in H; exact H`，block1 全部编译通过；theorem 此时仍为 Admitted。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        75,
+        79,
+        81
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_at_mono`：`tm` induction 的 as-pattern 把 security argument 与 IH 名字对调（`IHbody` 不存在）",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 77
+        }
+      ],
+      "outcome": "通过 t2–t7 小测试与 `Check tm_ind` 确认每个 recursive argument 之后紧跟其 IH；按该顺序重写 `induction t as [...]`，block2 后续沿用同一 pattern。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        85,
+        94,
+        97,
+        109,
+        110
+      ],
+      "qualification": "原条目把 open_rec_lc 也列为该 induction-pattern 问题，但 open_rec_lc 的首次错误实际是 unary constructor equality（另计）；本区间只计 pattern 的定位与确认，写入 block2 及后续修补发生在 step 81 之后。"
+    },
+    {
+      "title": "`open_rec_lc`/`subst_fresh`/`subst_env_extend_neq`：unary constructor case 的 IH 只给出内部项 equality，不能直接 `apply`",
+      "intervals": [
+        {
+          "after": 81,
+          "through": 85
+        }
+      ],
+      "outcome": "`open_rec_lc` 的 fst/snd/inl/inr/protect 分支改为 `rewrite (IHt k Ht u); reflexivity`；`subst_fresh` 与 `subst_env_extend_neq` 的同类分支改为 `f_equal; apply IHt; simpl in Hx; exact Hx`。这些引理通过编译。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        116,
+        117,
+        119,
+        120,
+        122
+      ],
+      "qualification": "这是 block2 首次写入后的第一批 equality 修补，紧接其后又暴露 `++` 结合性问题（下一项）。"
+    },
+    {
+      "title": "`fv` 的 triple list 使用右结合 `++`，`not_in_app`/`in_app_or` 的分割结构与左结合写法不符；批量编辑脚本还因重复匹配 assert 失败",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 89
+        }
+      ],
+      "outcome": "确认 `++` 右结合后，把 case/if 的分解改为 `fv t0` 与 `fv b1 ++ fv b2`（if 为 `fv y ++ fv n`），并按实际匹配计数重跑编辑脚本；block2 继续编译到 `subst_env_open`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        122,
+        123,
+        125,
+        126,
+        128
+      ],
+      "qualification": "区间含 step 87 的 assert 失败（文件未写回）与 step 89 的重试，属同一批 append 修正。"
+    },
+    {
+      "title": "`subst_env_open`/`subst_env_extend_open`：unary constructor equality 与带 premise 的 open/substitution commutation 等式无法直接 rewrite",
+      "intervals": [
+        {
+          "after": 89,
+          "through": 95
+        }
+      ],
+      "outcome": "`subst_env_open` 的 fst 等 unary case 改用 `rewrite (IHt k Hsig); reflexivity`；对 `subst_env_extend_open` 先显式 assert 展开后的 `Hrew` 再 rewrite，并配合 `subst_env_extend_neq` 完成。该 commutation lemma 后续用于 `fundamental` 的 T_Abs/T_Case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        128,
+        131,
+        134,
+        137
+      ],
+      "qualification": "两个错误连续出现在同一 commutation lemma 的修补中，合并为一项；step 95 之后暴露的 lookup_update_neq 改写问题不属于本项。"
+    },
+    {
+      "title": "`has_type_lc`/`has_type_fv`/`has_type_wf`：`has_type` induction 的 IH 名称（`IHhas_type` 与 `H2` 等）和 binder premise 结构不符",
+      "intervals": [
+        {
+          "after": 99,
+          "through": 114
+        }
+      ],
+      "outcome": "用 `has_type_ind` 的实际 argument 顺序写完整 as-pattern（显式命名 `IHprem`/`IHprem1`/`IHprem2`），并显式应用 `IHprem x`；三组 typing 引理通过编译。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        143,
+        149,
+        152,
+        155,
+        165
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`ann_high`/`security_le_high`/`V_high`：`simpl` 不展开 `security_le`，`repeat split` 无法关闭 High type 的 `V`",
+      "intervals": [
+        {
+          "after": 119,
+          "through": 133
+        }
+      ],
+      "outcome": "先证 `security_le_high`（显式 `unfold security_le`），`ann_high` 由它直接得到；`V_high` 改用显式 `split; [apply ann_high | split; [apply ann_high | exact I]]`。随后 V_high 通过，编译转入 V_sub。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        172,
+        175,
+        181,
+        187,
+        193
+      ],
+      "qualification": "区间末尾的 step 133 已进入 `V_sub` 的 focus 错误；V_high 本身在该步通过，故以 133 为界。"
+    },
+    {
+      "title": "`V_sub` 与 `fundamental` 中 `destruct label` 的分支顺序写反（实际 Low 在前，脚本按 High 在前）",
+      "intervals": [
+        {
+          "after": 133,
+          "through": 139
+        },
+        {
+          "after": 176,
+          "through": 185
+        }
+      ],
+      "outcome": "第一次用 Show 确认 `destruct i2` 先产生 Low，重写 V_sub 四个 case 的 Low/High 顺序；第二次用 Python 脚本交换 `fundamental` 九处 `destruct ik` 的 High/Low 两段 proof。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        193,
+        199,
+        201,
+        256,
+        260,
+        268
+      ],
+      "qualification": "同一根因在不同声明处两次出现，故保留两个 interval；第二次的 swap 还引入了 If High branch 丢失问题，另列为 tooling 项。"
+    },
+    {
+      "title": "`V_sub`/`E_sub`/`transparent_all_ind_low`：`V_ann1`、`wf_security_high_eq` 的参数无法推断，`E_sub` 的 `auto` 提前关闭 goal，IH 缺 `kappa`",
+      "intervals": [
+        {
+          "after": 139,
+          "through": 151
+        }
+      ],
+      "outcome": "`V_ann1/2` 用 `pose proof (V_ann1 _ _ _ HV)` 显式提取；`wf_security_high_eq` 分两个 premise 提供；`E_sub` 改为 `eapply V_sub; [exact Hs | apply HE; auto]`；transparency 的 IH 显式传 `kappa`。block3 随后通过编译。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        202,
+        205,
+        208,
+        214,
+        220
+      ],
+      "qualification": "该区间含四个连续小错误：V_ann 与 wf_security_high_eq 是隐式/前提参数问题，E_sub 是 `apply V_sub ...; auto` 已关闭 goal 后仍执行后续 tactic 造成的 `No such goal`，transparent 的 IH 是缺 `kappa`；按实际原因记录，未再拆分。"
+    },
+    {
+      "title": "`eval_app_inv`/`eval_pair_inv`/`eval_case_inv` 等 big-step inversion lemmas：`eexists`+`auto` 留下未实例化 evars 且不拆 conjunction",
+      "intervals": [
+        {
+          "after": 154,
+          "through": 162
+        }
+      ],
+      "outcome": "inversion 后直接使用 context 中已有的 witness（如 `exists T, body, k, arg`），conjunction 用 `tauto` 关闭；全部 inversion lemmas 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        224,
+        227,
+        233,
+        236
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`env_rel`（block4 定义）的 variable component 只要求 `E`，但 `env_rel_extend` 仍按旧的 `E ∧ lc ∧ lc` 结构 `split`",
+      "intervals": [
+        {
+          "after": 162,
+          "through": 170
+        }
+      ],
+      "outcome": "确认 `env_rel` 结构为全局 lc、全局 lc、变量 `E`；删除多余 `split`，改用 `extend_same`/`extend_neq` 与 lookup 引理完成，block4 通过编译。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        236,
+        239,
+        246,
+        248
+      ],
+      "qualification": "`env_rel` 的加强（所有 substitution image 都 locally closed）是在 block4 规划时决定的；本区间只计该 compile-fix。"
+    },
+    {
+      "title": "`fundamental` 的 T_Abs/T_Case：`IH1`/`IH2`/`IHprem` 量化于 `sigma1 sigma2`/`env_rel`，不能当作 `E` 使用；`E_apply` 与 extended environment 实例化",
+      "intervals": [
+        {
+          "after": 185,
+          "through": 199
+        }
+      ],
+      "outcome": "显式传 `sigma1 sigma2 Henv`，加入 `E_apply`，并把 `IHprem` 应用于 `extend x arg1 sigma1`/`extend x va1 sigma1`；`has_type_lc` 也显式实例化；随后进入 T_Case 的下一问题。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        269,
+        275,
+        278,
+        281,
+        287
+      ],
+      "qualification": "区间还包含 T_Abs 中 fresh `x` 必须在引用前选取的顺序错误（step 185–189），同属该 case 的 environment 构造。"
+    },
+    {
+      "title": "`fundamental` 的 T_Case/T_If 四象限：第二次 `eval_case_inv`/`eval_if_inv` 缺 `all:`，且 `injection Eq as ->` 消去后续要用的 `va2`",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 205
+        }
+      ],
+      "outcome": "第二次 inversion 前加 `all:` 覆盖所有分支；injection 改为 `as <- <-` 保留 `va2`/`ka2`；四象限 case 分析通过，编译前进到 env_rel_extend 的 V/E 类型不匹配。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        290,
+        293,
+        298
+      ],
+      "qualification": "两个错误连续出现在同一四象限 case 分析的调试中，合并为一项。"
+    },
+    {
+      "title": "`fundamental` 的 T_Case：`env_rel_extend` 需要 `V T1 va1 va2`，脚本却用 `V_E_value` 把已有的 `HVp` 转成 `E` 填入",
+      "intervals": [
+        {
+          "after": 205,
+          "through": 211
+        }
+      ],
+      "outcome": "确认 `V_E_value` 的结论是 `E` 而非所需的 `V`；把两处 `apply V_E_value; auto` 改为 `exact HVp`，编译前进到 fundamental 的 `Qed`（此时仍有未完成 goal）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        299,
+        302,
+        305,
+        306,
+        308
+      ],
+      "qualification": "step 205 的编译错误输出先展开大段 V 定义，直到 step 210 才确认方向；该障碍原分析未单列。"
+    },
+    {
+      "title": "`fundamental` 的 If case High branch 在 branch 重排与按 `rfind('Qed')` 截断诊断中丢失，`Qed` 报 incomplete proof",
+      "intervals": [
+        {
+          "after": 211,
+          "through": 238
+        }
+      ],
+      "outcome": "通过末尾 `Show` 定位剩余 goal 为 If 的 High case；检查 block6.v 确认 High branch 被 swap 脚本移到 Qed 之后，又被按 `rfind('Qed')` 截断的诊断编辑删除；恢复 `+ unfold E ... apply V_high` 和 `Qed` 后 fundamental 通过。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        308,
+        311,
+        329,
+        341,
+        348
+      ],
+      "qualification": "区间包含 Show/idtac/rocq compile -verbose 等诊断尝试；这是文件编辑/诊断事故，不是 LR 或定理陈述本身的问题。"
+    },
+    {
+      "title": "最终 `noninterference`：`has_type_wf`/`wf_ty_security` 无法从 `wf_ty T_secret` 反推 `Gamma`/`t`",
+      "intervals": [
+        {
+          "after": 248,
+          "through": 254
+        }
+      ],
+      "outcome": "先误改 `has_type_lc` 无效，后定位到 `apply has_type_wf` 需要 `Gamma`/`t`；改为显式项 `wf_ty_security T_secret (has_type_wf empty t1 T_secret Ht1)`，完整 Task.v clean compile 通过，随后以 `Qed` 结束。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        362,
+        365,
+        368,
+        371
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "485506b82d63d75c10f83e0f479b613be4db1646ae059c93660cf88314f3ca1f",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 19,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "485506b82d63d75c10f83e0f479b613be4db1646ae059c93660cf88314f3ca1f",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r19.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r19_20261027_212258_938680"
+  }
+}

@@ -1,0 +1,493 @@
+{
+  "summary": "本次运行在 3601s 处 timeout，最后记录到 step 521（约 3371s）；时间主要花在 step 7（约 501s）与 step 12（约 783s）两段长设计思考，以及从零搭建 Base.v/Model.v 的 substitution、local-closure、closing 与语义基础设施。最终完成的实质性结果是 `dbtm_open_fsubst` 与 `dbq_open_fsubst` 两个 syntactic bridge；step 355–521 集中处理 statement 形状、bvar/fvar/abstraction 分支、`nth` 默认值与 `f_equal` bullet 等多个独立障碍。trace 中没有对 Task.v 的写入，`never_stuck` 仍是空证明，Sem-level bridge、entailment/subtyping soundness 与 fundamental theorem 均未实现。",
+  "phases": [
+    {
+      "title": "阅读 Task.v 并比较 LR 与直接 progress/preservation 路线（step 7 约 501s 设计思考）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "检查 Rocq 环境并从 Task.v 取得基线编译（`never_stuck` 的 `Qed` 仍报 open goals）",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "LR/语义路线细化与 mutual induction scheme 探查（step 12 约 783s thinking；step 21 生成 `has_rtype_mut`）",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 24
+        }
+      ]
+    },
+    {
+      "title": "非结构递归机制试验（Program Fixpoint/Function/Fix_sub）失败、转向 de Bruijn environment 的 structural 语义（step 92）并建立 Base.v（step 93）",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 94
+        }
+      ]
+    },
+    {
+      "title": "Model.v 早期基础设施：substitution/fv、identity proofs 与 lc monotonicity",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 150
+        }
+      ]
+    },
+    {
+      "title": "Opening/local-closure helpers、typing/wf local-closure 与 generalized type opening",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 281
+        }
+      ]
+    },
+    {
+      "title": "Evaluation lemmas（`step_det`/`multi`）、VR/Sem 定义与 closing lc",
+      "intervals": [
+        {
+          "after": 281,
+          "through": 353
+        }
+      ]
+    },
+    {
+      "title": "dbtm/dbq opening commutation 证明（`dbtm_open_fsubst` 的 bvar/fvar/abstraction 分支与 `dbq_open_fsubst`；仅这两个 syntactic bridge 完成）",
+      "intervals": [
+        {
+          "after": 353,
+          "through": 521
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`has_rtype_ind`/`subtype_ind` 不提供跨关系 IH，`RT_Sub`/`S_Witness` 无法做 mutual induction",
+      "intervals": [
+        {
+          "after": 19,
+          "through": 23
+        }
+      ],
+      "outcome": "step 19 的 probe 显示默认生成的是彼此独立的 `has_rtype_ind` 与 `subtype_ind`，`has_rtype_subtype_ind` 不存在；step 21 用 `Scheme has_rtype_mut := Induction for has_rtype Sort Prop with subtype_mut := Induction for subtype Sort Prop` 生成双 motive 的 mutual principle，step 23 的输出确认 `RT_Sub` 带 subtype IH、`S_Witness` 带 has_rtype IH。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        26,
+        29,
+        32
+      ],
+      "qualification": "该 scheme 本身可用；规划中的 fundamental theorem/subtype soundness 后来并未实现或使用。"
+    },
+    {
+      "title": "`Sem` 对 opened rty 的非结构递归：`Program Fixpoint`/`Function`/`Fix_sub` 均无法提供可用定义与展开",
+      "intervals": [
+        {
+          "after": 25,
+          "through": 93
+        }
+      ],
+      "outcome": "`Program Fixpoint` 的 measure probe 先卡在 `size_open_tm`（step 25），随后报 `program.wf.mr not registered`（step 41），即使补上 `Sem` 定义也不生成 `Sem_equation`（step 49）；`Function` 的 `{measure ...}` 语法无法指定 decreasing argument（step 53–83），`Fix_sub_eq` 不存在（step 57）。step 92 决定改用 de Bruijn type/term environment 参数化的 structural 语义，step 93 用 Task.v 前缀建立 Base.v；`VR`/`Sem` 与相关基础设施在后续 Model.v 工作中才写出（step 318 定义 `VR`/`Sem`）。",
+      "resolution": "abandoned",
+      "category": "proof_structure",
+      "evidence_lines": [
+        35,
+        59,
+        71,
+        77,
+        83,
+        135
+      ],
+      "qualification": "abandoned 仅指 Program Fixpoint/Function/Fix_sub 机制；替代方案的基础设施后来在 Base.v/Model.v 建立，但 fundamental theorem 与目标未接入 Task.v。"
+    },
+    {
+      "title": "`subst_q_f_id`/`subst_rty_f_id`/`subst_tm_ty_f_id` 的 identity proof 与 `subst_tm_f_notin` 脚本失败",
+      "intervals": [
+        {
+          "after": 95,
+          "through": 113
+        }
+      ],
+      "outcome": "`induction ...; simpl; congruence`/`f_equal; auto` 无法关闭各 constructor case；改为逐 constructor 显式 `f_equal` 并调用 `subst_tm_f_id`/`subst_q_f_id`/`subst_ty_f_id` 等 helper，step 111 的编译已越过整个 identity block、停在 `subst_tm_f_notin`；step 112 判断该 lemma 不需要，step 113 将其删除并转入 lc monotonicity。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        140,
+        164,
+        166
+      ],
+      "qualification": "`subst_tm_f_notin` 未证明而是删除；identity block 含 `subst_q_ty_f_id`/`subst_rty_ty_f_id` 等兄弟 lemma。"
+    },
+    {
+      "title": "`lc_ty_mono`/`lc_tm_mono`/`lc_pred_mono`/`lc_rty_mono` 的 depth 未 generalize 与 bullet/IH 名称错误",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 149
+        }
+      ],
+      "outcome": "step 113 的 `lc_ty_mono` 在 `All` case 因 IH 固定了 `K'` 而无法给出 `lc_ty_at K' (Ty_All T)`；改为在 `induction H` 前把 `K'`/`k'` 留在目标中一般化、必要时显式用 `S K'`/`S k'`，并修正 `lc_pred_mono` 的多余 bullet、`lc_rty_mono` 的 `IHlc_rty_at1/2` 名称与 `lia` 算术；step 147 后只剩 `Module Model` 未关闭，step 149 移除 wrapper，Model.v 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        167,
+        179,
+        221
+      ],
+      "qualification": "该区间还包含 `Module Model` 未关闭的编译错误，属同一轮编译修复。"
+    },
+    {
+      "title": "`lc_*_open_*` 的 fresh variable 推断、wrapper unfolding 与 body depth 错误",
+      "intervals": [
+        {
+          "after": 152,
+          "through": 208
+        }
+      ],
+      "outcome": "type/term opening 的 forward/inverse lemmas 在 `revert k` 上因 hypothesis 依赖 `k` 失败（step 154–158），predicate/rty inverse 又因 `x`/`X` 只出现在 premise 而无法推断（step 164–186）；改用 `eapply ...; eassumption` 或显式传参、用 `change` 展开 `open_qualifier_tm_rec`，并在 `R_Func`/`R_Exists` 的 body case 把 depth 改为 `S k0`/`S (S k0)`；step 208 四个 rty opening/local-closure lemma 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        226,
+        260,
+        309
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`wf_ty_lc`/`has_type_lc` 的 `WF_All` 包裹、cofinite IH 名称与 `Ty_FVar`/`tm_fvar` 混淆",
+      "intervals": [
+        {
+          "after": 210,
+          "through": 222
+        }
+      ],
+      "outcome": "step 210 的草稿因 `wf_ty_lc` 尚未定义失败；补入后 `WF_All` case 需先 `apply lc_ty_all`，`has_type_lc` 的 abstraction/type abstraction case 又需用 cofinite IH（`H1`/`H0`）配合 `lc_tm_open_inv`/`lc_tm_ty_open_inv`；step 218 把 `open_tm_ty` 的第二参数误传为 `tm_fvar`，step 222 改为 `Ty_FVar`，Model.v 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        312,
+        324,
+        330
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`RT_TApp` 需要 arbitrary locally closed `U` 的 generalized opening；仅 fvar 版本不够",
+      "intervals": [
+        {
+          "after": 224,
+          "through": 240
+        }
+      ],
+      "outcome": "step 223 计划 `RT_TApp`/`R_Poly` 的 local-closure 要用一般 `U`；step 224 加入 `lc_ty_open_gen_fwd/inv`、`lc_tm_ty_open_gen_fwd/inv`、`lc_pred_open_ty_gen_fwd/inv`、`lc_rty_open_ty_gen_fwd/inv`，先因 `revert k` 失败，重排量化后用 `eapply`/显式传参；step 240 修正 `R_Poly` 的 `IHR U (S K) k0` 及 `R_Func`/`R_Exists` inverse 的 `IHR1 U K k0`/`IHR2 U K (S k0)`，generalized helpers 编译通过。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        333,
+        339,
+        344,
+        356
+      ],
+      "qualification": "该 generalization 是为 `RT_TApp`/`R_Poly` 语义准备，但相关 Sem-level 引理后续未完成。"
+    },
+    {
+      "title": "`predicate_wf_lc`/`wf_rty_lc`/`lc_rty_erase`/`has_rtype_lc` 的 IH 名称、cofinite freshness 与 arithmetic qualifier 的 `lc_tm_at 0 0 -> 0 1` 弱化",
+      "intervals": [
+        {
+          "after": 241,
+          "through": 280
+        }
+      ],
+      "outcome": "step 242 的 `wf_ty_lc` 调用缺 `Delta`，`Show`/实际变量名（`T`/`ps`、`IHwf_rty`、`H1`）逐一修正；cofinite case 用 `fresh_notin` 选 fresh atom，context 用 `eapply` 推断；step 276–280 的 arithmetic qualifier 需要 `lc_tm_at 0 1` 而 IH 只给 `lc_tm_at 0 0`，改用 `lc_tm_mono` 提升 depth，`has_rtype_lc` 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        359,
+        415,
+        417
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`step_det` 的 27 个 contradiction goals：`eassumption` 选错 value hypothesis、变量名冲突与重复 `Qed`",
+      "intervals": [
+        {
+          "after": 282,
+          "through": 316
+        }
+      ],
+      "outcome": "step 282 的 `value_no_step`/`step_det` 草稿先因 `t` 重名失败；`step_det` 在 step 294 的 `Show` 中仍有 27 个 `False` goals，显式针对 abstraction/tabs/int 构造 `value` 并用 `value_no_step` 后剩 AppAbs/App2 等 equality；step 303–308 的 negation-`eapply` probe 排除 tactic 用法问题，step 311 判断无参数 `eassumption` 选错 value witness，改为 `exact (value_no_step x Hv y Hs)`；step 314 发现重复 `Qed`，step 316 删除后编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        438,
+        447,
+        471
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`multi_trans`/`multi_value_eq`/`multi_prefix` 的 IH、destruct 与 `step_det` 参数错误",
+      "intervals": [
+        {
+          "after": 318,
+          "through": 346
+        }
+      ],
+      "outcome": "step 318 的 `multi_trans` 在 `apply multi_step with t2; assumption` 处报 `No such assumption`，step 324 的 `Show` 显示应用 `IHmulti`；`multi_value_eq` 的 constructor 变量被改写为 `t1`；`multi_prefix` 的 outer/inner destruct 重名、refl/step branch 变量错位，最终改为 `step_det a b Hs t2 H`；step 346 的编译确认 `multi_prefix` 通过并推进到 `dbtm` guard check。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        474,
+        492,
+        516
+      ],
+      "qualification": "step 346 的同一输出开始报下一个 `dbtm` guard 错误，故 interval 截止于该确认点。"
+    },
+    {
+      "title": "`dbty`/`dbtm`/`dbq` mutual `Fixpoint` 被 guard checker 拒绝",
+      "intervals": [
+        {
+          "after": 346,
+          "through": 348
+        }
+      ],
+      "outcome": "step 346 报 `Recursive call to dbty has principal argument equal to \"T\" instead of \"t1\"`；step 347 判断三者只有单向依赖，改为按 `dbty`、`dbtm`、`dbq` 顺序定义三个独立 `Fixpoint`，step 348 Model.v 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        517,
+        519
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`dbty_lc`/`dbtm_lc`/`dbq_lc` 的 depth hypotheses 不足",
+      "intervals": [
+        {
+          "after": 351,
+          "through": 353
+        }
+      ],
+      "outcome": "step 351 的 `dbtm_lc` 草稿在 bvar case 的算术上失败且引用了尚未定义的 `dbty_lc`；step 352 把 statement 改为 `lc_ty_at k T -> k <= dt`、`lc_tm_at K k t -> K <= dt -> k <= d`、`lc_pred_at K k p -> K <= dt -> k <= d`，step 353 以 generalized depths 重写三个 lemma，编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        523,
+        526
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`dbtm_subst_f`/`dbq_subst_f` 的 `map s env` statement 类型错误与 `not_in_app` 缺标注",
+      "intervals": [
+        {
+          "after": 355,
+          "through": 365
+        }
+      ],
+      "outcome": "step 355 的 `dbtm_subst_f`/`dbq_subst_f` statement 用 `map s env`（`s : atom -> tm`）使 `env` 被推断成 `list atom`；step 358 分析后判定普通 map commutation 不是所需形式，改为 `dbtm_open_fsubst`（比较 opened-and-substituted term 在两个 closing environments 下的结果），step 361 删除旧 draft；随后 `not_in_app` 的 `In` element type 无法推断，step 365 补上 atom/`list atom` 标注，编译进入 bvar case。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        529,
+        538,
+        544
+      ],
+      "qualification": "`map` 形式被放弃而非修复；新 lemma 的 proof 从下一区间继续。"
+    },
+    {
+      "title": "`dbtm_open_fsubst` opened bvar：`Nat.eqb` 条件不化简与 `S (k0+d0)`/`S k0 + d0` 算术形式不一致",
+      "intervals": [
+        {
+          "after": 365,
+          "through": 391
+        }
+      ],
+      "outcome": "step 365 的 `rewrite Hw` 找不到 `σ' x`，step 367/371 的 `Show` 显示 opening 的 `Nat.eqb` conditional 未消去且两侧写作 `S (k0+d0)` 与 `S k0 + d0`；改用 `cbn -[Nat.eqb Nat.ltb]`、显式 `Nat.eqb_refl`/算术 rewrite 与 `Nat.ltb_ge` 化掉 conditional，并修正 `dbtm_lc` 的参数顺序与多余的 `envB` rewrite；step 391 推进到 `rewrite Hk` 失败。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        544,
+        553,
+        583
+      ],
+      "qualification": "condition/arithmetic 已对齐；`nth` position 的 default 问题见下一区间。"
+    },
+    {
+      "title": "`nth` 默认值使越界位置不可比：需 in-range premise 与 `nth_cons_in`/`nth_irrel`",
+      "intervals": [
+        {
+          "after": 391,
+          "through": 415
+        }
+      ],
+      "outcome": "step 391 的 `rewrite Hk` 找不到 `nth k0 envB (tm_bvar 0)`，step 395 的 `change` 报 `Not convertible`，原因是 `nth` 的 default 依赖 opening/subtraction 下标、越界位置两边 default 不同；step 396 决定加入 `k < length envB` premise 并补 `nth_cons_in`/`nth_irrel`，step 413 的 `Show` 又暴露 `dbtm_lc` 用 `Nat.le_0_l` 补齐 `0 <= dt`、`0 <= d0` 两个 side goals；step 415 opened branch 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        583,
+        589,
+        590,
+        604,
+        619
+      ],
+      "qualification": "该 in-range premise 后来在加强 environment agreement 时被去掉（step 463）。"
+    },
+    {
+      "title": "`dbtm_open_fsubst` non-opened bvar：`Nat.eqb`/`Nat.ltb` 方向、`simpl` 顺序、stray bullet 与 `nth_sub_S` 算术",
+      "intervals": [
+        {
+          "after": 415,
+          "through": 459
+        }
+      ],
+      "outcome": "non-opened branch 的 opening conditional 仍未消去（step 415 的 `reflexivity` 失败）；`Nat.eqb_eq` 被误用于 `= false`（step 421），改用 `Nat.eqb_neq`，`Nat.ltb` 的 iff 方向又用错，改用 `proj2 (Nat.ltb_lt ...)`；step 433–439 确认必须 `simpl` 暴露 ltb 后再 rewrite，并清理混入的 `* Show`/多余 bullet；`nth_sub_S` 的 `k + 0` base case 用 `Nat.add_0_r`/`Nat.sub_0_r`/`Nat.add_succ_r` 显式 rewrite，step 459 true branch 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        619,
+        628,
+        631,
+        637,
+        646,
+        652,
+        655,
+        661,
+        670,
+        673,
+        685
+      ],
+      "qualification": "false branch 的 `n - d0 = 0` 归入下一区间。"
+    },
+    {
+      "title": "`n = d0` 时 `n - d0 = 0` 的 value position：加强 environment agreement 并补 `nth_shift`，zero branch 需先展开",
+      "intervals": [
+        {
+          "after": 459,
+          "through": 481
+        }
+      ],
+      "outcome": "step 459 的 `replace (n - d0) with (S (n - d0 - 1))` 在 `n = d0` 时非法；step 462 改为对 `n - d0` destruct 出 value position，并把 agreement 加强为 `forall j, j <> k -> forall def, nth j envA def = nth j envB def` 与 `forall def, nth k envB def = w`；step 463 据此重写 `dbtm_open_fsubst`（去掉 length premise），step 464 补 `nth_shift`，step 465 opened branch 通过；zero branch 的 `rewrite En` 在 destruct 后没有 subterm（step 479 定位 line 1222），step 481 删除该 rewrite 并用 `simpl; reflexivity`，bvar case 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        685,
+        689,
+        691,
+        694,
+        700,
+        703,
+        712,
+        718
+      ],
+      "qualification": "bvar case 完成后编译转到 fvar case。"
+    },
+    {
+      "title": "`dbtm_open_fsubst` fvar case：goal 是 `σ a` 而非 `σ' a`，需 freshness 得 `a <> x`",
+      "intervals": [
+        {
+          "after": 481,
+          "through": 485
+        }
+      ],
+      "outcome": "step 481 的 `dbtm_lc` rewrite 目标是 `dbtm ... (σ' a)`，而 goal 两侧分别是 `dbtm ... (σ' a)` 与 `dbtm ... (σ a)`；step 483 的 `Show` 确认需先用 `Hfresh` 得 `a <> x`，step 485 用 `Hx a` 把左侧改成 `σ a`，再对两侧 `dbtm_lc`，编译转到 abstraction case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        718,
+        723,
+        724
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`dbtm_open_fsubst` abstraction case：`S (S (k0+d0))` 与 `S k0 + S d0` 不一致及多余 bullet",
+      "intervals": [
+        {
+          "after": 485,
+          "through": 499
+        }
+      ],
+      "outcome": "abstraction case 的 IH `rewrite` 未匹配 opening index；step 489 的 `Show` 显示 body index 为 `S (S (k0+d0))`，step 490–491 改写为 IH 使用的 `S k0 + S d0` 后通过；step 495 的 `Show` 只剩 reflexive equality，step 497 补 `reflexivity` 后报多余 `+` bullet，step 499 删除，abstraction case 通过，编译转到 application case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        724,
+        730,
+        733,
+        739,
+        742,
+        745
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`dbtm_open_fsubst` application/type application：`f_equal` goal 数、operand freshness 与多余 bullet",
+      "intervals": [
+        {
+          "after": 499,
+          "through": 513
+        }
+      ],
+      "outcome": "step 505 确认失败在 application case 的 `f_equal; ...; eassumption`；step 506 判断每个 operand 的 IH 需要各自的 freshness，step 507 用 `not_in_app` 分解 application/division/arithmetic 的 freshness；type application case 又出现多余 `+` bullet（`f_equal` 实际只产生一个 goal，step 511），修正后 step 513 Model.v 编译通过，`dbtm_open_fsubst` 验证完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        745,
+        754,
+        757,
+        760,
+        763,
+        766
+      ],
+      "qualification": "`dbtm_open_fsubst` 完成；`dbq_open_fsubst` 见下一区间。"
+    },
+    {
+      "title": "`dbq_open_fsubst` 的 `Pred_Not` case：缺 `f_equal` 且 `IHp` 的 `w` 需 `eapply`",
+      "intervals": [
+        {
+          "after": 513,
+          "through": 521
+        }
+      ],
+      "outcome": "step 514 计划把 term opening commutation 提升到 qualifier、固定 closing depth 0 并处理 `S k + 0` 与 `S k`；step 515 加入 `dbq_open_fsubst`，Not case 直接 `apply IHp` 时 goal 外层仍是 `Pred_Not`（step 517 的完整错误），step 519 先 `f_equal`，但 `w` 只出现在 premises 无法推断，step 521 改用 `eapply IHp; eassumption`，Model.v 编译通过，`dbq_open_fsubst` 验证完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        769,
+        772,
+        775,
+        778
+      ],
+      "qualification": "完成后仍无 Sem-level bridge、entailment/subtyping soundness 与 fundamental theorem，Task.v 未改。"
+    }
+  ],
+  "trace_sha256": "cc1b98031fccadc9912fbb107c87fcc5ce841523f9a18e00725005648eebca48",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 5,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "cc1b98031fccadc9912fbb107c87fcc5ce841523f9a18e00725005648eebca48",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r05.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r05_20261027_211846_106675"
+  }
+}

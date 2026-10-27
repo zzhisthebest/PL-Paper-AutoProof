@@ -1,0 +1,534 @@
+{
+  "summary": "本次 2171 秒先用约 720 秒确定 binary LR 与整体证明架构，其余时间主要消耗在 syntactic infrastructure、V/E 语义引理（尤其 V_list_agree 与 V_subst_gen）和 fundamental 各 induction branch 的编译调试。所有列出的障碍最终都通过后续编译验证，Task.v 完成 clean compile，Print Assumptions 返回 Closed under the global context。修订按原始 trace 中的具体编译错误拆开了原先合并过头的 relation-list/V_subst_gen 与 fundamental 区间，并校正了若干结束边界和个别结果描述。",
+  "phases": [
+    {
+      "title": "阅读 Task.v、确认任务约束并设计 binary LR 与整体证明架构",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 syntactic infrastructure：substitution、fvars、local closure 与 agreement",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 188
+        }
+      ]
+    },
+    {
+      "title": "实现 typing_lc、V/E logical relation、relation-list 替换与 semantic helpers",
+      "intervals": [
+        {
+          "after": 188,
+          "through": 309
+        }
+      ]
+    },
+    {
+      "title": "补齐 update/context helper 与 typing_ty_lc",
+      "intervals": [
+        {
+          "after": 309,
+          "through": 334
+        }
+      ]
+    },
+    {
+      "title": "证明 fundamental theorem 并完成目标 theorem",
+      "intervals": [
+        {
+          "after": 334,
+          "through": 423
+        }
+      ]
+    },
+    {
+      "title": "clean compile、Print Assumptions 与原始定义一致性验证",
+      "intervals": [
+        {
+          "after": 423,
+          "through": 438
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_ty_mono / lc_tm_mono：IH depth 参数推断与 local-closure inversion",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 72
+        }
+      ],
+      "outcome": "按 constructor cases 重写 lc_ty_mono/lc_tm_mono，为 IHT1/IHT2 显式指定 source depth，先 inversion local-closure hypothesis 再 apply constructor，并用独立最小文件排查 bullet/focus 结构；第 72 步编译越过两个 monotonicity lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        30,
+        36,
+        42,
+        54,
+        63,
+        78,
+        90,
+        102,
+        106
+      ],
+      "qualification": "Coq 多次把错误报到下一个 bullet 或后续行；用最小文件确认根因是 IH depth 参数推断、未 inversion 与 bullet/focus 结构，而非命题不成立。"
+    },
+    {
+      "title": "lc_ty_subst_gen / lc_tm_subst_gen：BVar inversion 与 substitution image 的 local-closure depth",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 84
+        }
+      ],
+      "outcome": "BVar case 先 inversion lc hypothesis，FVar 用 lc_ty_mono 把 substitution image 从 depth 0 提到目标 k，并对 abs/app/tabs/tapp/choice 显式提取前提；第 84 步编译越过两个 substitution-closure lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        108,
+        112,
+        115,
+        118,
+        121,
+        124
+      ],
+      "qualification": "两个 substitution-closure lemmas 在同一轮重写中一起通过；错误先报 Cannot find witness，后报 No such assumption。"
+    },
+    {
+      "title": "open_ty_rec_lc / open_tm_rec_lc：rewrite side goals 与 K 参数推断",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 92
+        }
+      ],
+      "outcome": "先 inversion closure hypothesis，给 rewrite IHT 显式传 K（All case 用 S K），并把 reflexivity 从 rewrite 生成的 side goals 中拆出；第 92 步编译越过两个 opening-identity lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        126,
+        127,
+        130,
+        133,
+        136
+      ],
+      "qualification": "错误一度显示 lc_ty_at 不是 reflexive relation，实际是 reflexivity 落到 rewrite 生成的 closure side goal。"
+    },
+    {
+      "title": "tysubst_open_ty_rec / tsubst_open_tm_rec / tsubst_open_tm_ty_rec：缺 theta local-closure premise，opening/substitution 不闭合",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 111
+        }
+      ],
+      "outcome": "先把 rewrite 与其 side conditions 分开（reflexivity 不能直接关闭 lc side goal），再给 tsubst_open_tm_ty_rec 增加 forall x, lc_tm_at 0 0 (theta x) premise，新增 open_tm_ty_rec_lc_gen 并调整 intros 顺序；第 111 步编译越过这些 commutation lemmas。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        139,
+        142,
+        148,
+        152,
+        155,
+        161,
+        164
+      ],
+      "qualification": "修的是 local helper lemma 的 statement，不是目标 theorem；错误常报到后续 tactic。"
+    },
+    {
+      "title": "tysubst_agree / tsubst_agree / tsubst_id：自动 intro 重名、destination substitution 推断与 f_equal 结构",
+      "intervals": [
+        {
+          "after": 111,
+          "through": 141
+        }
+      ],
+      "outcome": "去掉 induction 已自动引入的重复 intros，显式传入 destination substitution 与 induction binder 名，用 f_equal 分解 constructor equality，并用 in_or_app 处理 append membership；第 141 步编译越过 agreement 与 identity lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        167,
+        170,
+        173,
+        176,
+        179,
+        185,
+        188,
+        209
+      ],
+      "qualification": "tsubst_id 的一行式 proof 与 tysubst_agree 的 append-membership 分支也属同一组 substitution-agreement 调试。"
+    },
+    {
+      "title": "lc_ty_open_inv / lc_tm_open_inv / lc_tm_open_ty_inv / wf_ty_lc：BVar/All inversion、lc_tm_mono premise 与 IH 名称",
+      "intervals": [
+        {
+          "after": 141,
+          "through": 188
+        }
+      ],
+      "outcome": "对 BVar 的 false 分支和 All case 直接 inversion local-closure hypothesis，给 lc_tm_mono 补第三个 premise，按 Show 结果使用实际 IH 名称并用 fresh atom 完成 wf_ty_lc；第 188 步 dev.v 的 syntactic infrastructure 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        212,
+        221,
+        227,
+        241,
+        256,
+        266,
+        278
+      ],
+      "qualification": "错误常落在下一行或下一个 lemma；用 Show 与独立测试确认根因。"
+    },
+    {
+      "title": "typing_lc：cofinite premise 的 opened body 与 tsubst_open_tm(_ty) rewrite",
+      "intervals": [
+        {
+          "after": 191,
+          "through": 205
+        }
+      ],
+      "outcome": "用 pose proof 取 fresh atom 上的 opened-body local closure，先用 tsubst_open_tm/_ty 改写再调用 lc_tm_open_inv/lc_tm_open_ty_inv，并修正 IH 与 wf_ty premise 名称；第 205 步 typing_lc 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        286,
+        289,
+        292,
+        295,
+        298,
+        301,
+        304
+      ],
+      "qualification": "同时修正 fresh 的 not-in 只对 append list 成立、IH 与 wf_ty premise 名称等局部问题。"
+    },
+    {
+      "title": "nth_insert：插入元素导致后续 index shifting，原公式不成立",
+      "intervals": [
+        {
+          "after": 214,
+          "through": 225
+        }
+      ],
+      "outcome": "确认 nth i (firstn k Rs ++ RU :: skipn k Rs) 在 i > k 时等于 nth (i-1) Rs，原公式不成立；改为带 i < k、i < length Rs 的 nth_insert_lt 与 k <= length Rs 的 nth_insert_eq，第 225 步编译越过这两个 lemma 并进入 V_list_agree。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        323,
+        326,
+        330,
+        333
+      ],
+      "qualification": "V_subst_gen 因同一 index shifting 需要 lc_ty_at (S k) T 前提；该 statement 改动与 V_list_agree 的修复落在同一步，归入下一项。"
+    },
+    {
+      "title": "V_list_agree：relation equality→iff、IH depth 与 Arrow/All 方向；同时加 V_subst_gen 的 lc 前提",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 245
+        }
+      ],
+      "outcome": "把 Hagree 的 relation equality 改写为 iff、为 IH1/IH2 显式传 k，新增 lc_ty_bvar/arrow/all_inv 并按 contravariance 交换 proj1/proj2、去掉多余 bullet；同一步给 V_subst_gen 加 lc_ty_at (S k) T 与 k <= length Rs 前提，第 245 步 V_list_agree 通过并进入 V_subst_gen。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        336,
+        342,
+        345,
+        348,
+        351,
+        357,
+        363
+      ],
+      "qualification": "V_subst_gen 的新 statement 与 V_list_agree 的 BVar 修复由同一条编辑完成，故合并计时；V_subst_gen 证明的后续错误见下三项。"
+    },
+    {
+      "title": "V_subst_gen BVar：nth_insert rewrite 匹配与 side-goal 关闭",
+      "intervals": [
+        {
+          "after": 245,
+          "through": 271
+        }
+      ],
+      "outcome": "inline lia side condition 报 Cannot find witness；改为具名 inequality 后显式 nth_insert rewrite 又找不到 subterm；最终用 bare rewrite + exact 已有 inequality 关闭 n < k、n < length Rs，第 271 步在 dbg7.v 中 BVar case 通过并推进到 Arrow。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        366,
+        369,
+        372,
+        381,
+        384,
+        387,
+        390,
+        396,
+        399,
+        402
+      ],
+      "qualification": "最小测试与 dbg7.v 显示 rewrite 本身可用；最终用 exact 关闭 side goals，dev.v 中的同步在下一项完成。"
+    },
+    {
+      "title": "V_subst_gen Arrow：codomain 需 E_def_congr，proj 方向相反",
+      "intervals": [
+        {
+          "after": 271,
+          "through": 285
+        }
+      ],
+      "outcome": "Arrow codomain 的 IH 只给 pointwise equivalence，需用 E_def_congr 转换；交换 domain 的 proj1/proj2、翻转 backward 的 IH2 iff，并把调试有效的 BVar exact 修正同步回 dev.v；第 285 步编译推进到 All case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        405,
+        408,
+        411,
+        414,
+        417,
+        420,
+        423
+      ],
+      "qualification": "Arrow case 的投影方向错误与 V_list_agree 同类，但发生在 V_subst_gen 的不同验证轮次。"
+    },
+    {
+      "title": "V_subst_gen All：S k <= S (length Rs) 的算术与完整 iff",
+      "intervals": [
+        {
+          "after": 285,
+          "through": 301
+        }
+      ],
+      "outcome": "用 le_n_S 完成 S k <= S (length Rs)，forward 直接传完整 IH equivalence、backward 显式 split 翻转；第 301 步 dev.v 编译通过，V_subst_gen 完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        426,
+        429,
+        432,
+        435,
+        438,
+        441,
+        444,
+        447
+      ],
+      "qualification": "Nat.le_n_S 不存在、Nat.succ_le_mono 写法未完成后续 goal，测试后采用 le_n_S。"
+    },
+    {
+      "title": "V_rho_agree / multi_value_inv：rho equivalence 方向与 induction 变量消失",
+      "intervals": [
+        {
+          "after": 303,
+          "through": 309
+        }
+      ],
+      "outcome": "交换 V_rho_agree Arrow domain 的 proj1/proj2；multi_value_inv 改用 match goal 捕获实际 source value，避免引用已被 induction 替换的 v；第 309 步 dev.v 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        453,
+        456,
+        458
+      ],
+      "qualification": "两项都在同一批 semantic helpers 的首次编译中暴露，连续处理，合并计时。"
+    },
+    {
+      "title": "upd_tm_other / upd_ty_other / upd_rel_other：y <> x 的 equality 方向用错",
+      "intervals": [
+        {
+          "after": 312,
+          "through": 318
+        }
+      ],
+      "outcome": "把 apply H 后接 symmetry 的写法改为 exact (H E)，三处 update-other lemma 通过；第 318 步编译推进到 typing_ty_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        466,
+        469,
+        472
+      ],
+      "qualification": "错误先报 No such assumption 且指向第 1208 行，需行号确认是 upd_tm_other 而非 typing_ty_lc。"
+    },
+    {
+      "title": "typing_ty_lc：Delta 无法推断、wf_ty premise 与 Arrow/All local-closure 提取",
+      "intervals": [
+        {
+          "after": 318,
+          "through": 334
+        }
+      ],
+      "outcome": "显式传 Delta := Delta，按 Show 的实际 IH 名称 H1/H0/IHhas_type 使用，并用 lc_ty_arrow_inv/lc_ty_all_inv 提取 codomain/body closure；第 334 步 typing_ty_lc 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        478,
+        484,
+        490,
+        496
+      ],
+      "qualification": "错误多次报到后续 constructor case，实际是前一个 case 的 IH 或 wf_ty hypothesis 用错。"
+    },
+    {
+      "title": "fundamental 初稿：context notation 在 custom notation 外导致 syntax error",
+      "intervals": [
+        {
+          "after": 337,
+          "through": 343
+        }
+      ],
+      "outcome": "lookup_context 中使用的 (x |-> T1; Gamma) 不在该处 custom notation 作用域，改为显式 update Gamma x T1；第 343 步编译推进到 Hbody 的 rewrite。",
+      "resolution": "resolved",
+      "category": "other",
+      "evidence_lines": [
+        503,
+        506,
+        509
+      ],
+      "qualification": "先怀疑拼写，修正后 syntax error 仍停在同一行，行号检查确认是 notation 作用域问题。"
+    },
+    {
+      "title": "fundamental T_Abs/T_App/T_TApp/T_Choice：Hbody simpl 与 IH 实例化",
+      "intervals": [
+        {
+          "after": 343,
+          "through": 361
+        }
+      ],
+      "outcome": "T_Abs 先 simpl Hbody 暴露 upd_tm lookup；T_App/T_TApp/T_Choice 的 IH 仍是带 sigma/theta 的 forall，先 pose proof 实例化再 destruct；第 361 步编译推进到 T_App 的 reduction 拼接。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        512,
+        518,
+        521,
+        524,
+        530,
+        533,
+        536
+      ],
+      "qualification": "错误多次报在 destruct 或后续行；Show 确认 IH 尚未实例化。"
+    },
+    {
+      "title": "fundamental T_App：right-side reduction 链与 not_in helper 标注",
+      "intervals": [
+        {
+          "after": 361,
+          "through": 371
+        }
+      ],
+      "outcome": "right-side 先补 multi_app_l 把 substituted function 归约到 f2，再接 argument 归约与 LR 的 application path；给 not_in_app_l/r 显式标注 atom list 参数；第 371 步编译推进到 T_TAbs。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        539,
+        542,
+        545,
+        548,
+        551
+      ],
+      "qualification": "reduction 链与 helper 标注在同一段 T_App 代码的连续编译轮次中暴露，合并计时。"
+    },
+    {
+      "title": "fundamental T_TAbs：IH 仍用旧 sigma，需 upd_ty environments",
+      "intervals": [
+        {
+          "after": 371,
+          "through": 375
+        }
+      ],
+      "outcome": "把 T_TAbs 的 IH 实例化为 upd_ty sigma a U，并 simpl Hbody 显露 upd_ty lookup；第 375 步编译推进到 relation-list 的 Hconv 转换。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        554,
+        557
+      ],
+      "qualification": "先报 Hsig1' 与 sigma1 不匹配，修 IH 参数后又报 upd_ty_same 找不到 subterm，均属同一 environment 实例化。"
+    },
+    {
+      "title": "fundamental T_TAbs：relation-list head 差异与 V_list_agree_all",
+      "intervals": [
+        {
+          "after": 375,
+          "through": 392
+        }
+      ],
+      "outcome": "新增 V_list_agree_all 与 E_list_agree_all，用 list-head equality 把 E [(upd_rel rho a R') a] 转到 E [R']，再经 E_rho_agree/E_open_fvar 完成 Hconv；第 392 步编译越过 T_TAbs 与 T_TApp 到 T_Choice。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        560,
+        564,
+        567,
+        570,
+        573,
+        576,
+        579,
+        582
+      ],
+      "qualification": "E [] 与 E [R']、head rho' a 与 R' 的多轮不匹配由同一 list-agreement lemma 解决。"
+    },
+    {
+      "title": "fundamental T_Choice：两侧应统一取 ST_ChoiceLeft",
+      "intervals": [
+        {
+          "after": 392,
+          "through": 396
+        }
+      ],
+      "outcome": "choice 的 local closure 需 inversion 取出 branch premise；right-side 原用 ST_ChoiceRight 得到第二 branch，与第一 branch 的 IH witness 不符，改为两侧统一 ST_ChoiceLeft；第 396 步 fundamental 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        585,
+        588
+      ],
+      "qualification": "ST_ChoiceLeft/Right 都合法，问题只是要与所选 IH witness 的 branch 对齐。"
+    },
+    {
+      "title": "polymorphic_identity_theorem_for_free：重复 tsubst_id rewrite 与 multi_trans 中间项",
+      "intervals": [
+        {
+          "after": 399,
+          "through": 423
+        }
+      ],
+      "outcome": "补 lc_ty_fvar 的 depth 参数；发现首次 rewrite tsubst_id 已改写全部 occurrence，删除重复；两次 multi_trans 显式指定中间项 tm_app (tm_tapp f1 U) v 与 tm_app g1 v；第 423 步 dev.v 完整编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        595,
+        598,
+        601,
+        607,
+        613,
+        614,
+        616,
+        625,
+        628
+      ],
+      "qualification": "临时调试文件中的 Admitted 未进入最终 Task.v（第 426、436 步的检查通过）。"
+    }
+  ],
+  "trace_sha256": "6603e3aefbbebb63d18f5566f3815d959f1f8474abdaf5f570a60c6cc0320033",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 13,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "6603e3aefbbebb63d18f5566f3815d959f1f8474abdaf5f570a60c6cc0320033",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r13.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r13_20261027_211825_743162"
+  }
+}

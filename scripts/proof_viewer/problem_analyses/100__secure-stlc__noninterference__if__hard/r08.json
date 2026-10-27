@@ -1,0 +1,479 @@
+{
+  "summary": "本次运行在 3030 秒预算内完成了 noninterference（Task.v 最终 2045 行、66 个 Qed，`rocq compile` exit 0，theorem statement 与原文件一致，未出现 Admitted/Axiom）。时间主要花在：开头约 316 秒（其中约 312 秒是 API idle timeout 并重建会话，不算证明困难），随后约 874 秒的 LR/证明架构设计（含约 166 秒与 574 秒两次长 thinking、约 125 秒文件系统搜索）、约 355 秒基础引理、约 616 秒 evaluation 与 multi-step inversion（multi_*_inv 反复受挫后改用 step_*_dec）、约 685 秒 LR 定义与 fundamental theorem，最后约 150 秒 Unit LR 加强和主定理收尾、约 28 秒最终核查。",
+  "phases": [
+    {
+      "title": "任务载入、Task.v 阅读与 API idle-timeout 恢复",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "LR 路线与证明架构的设计探索（含外部 development 搜索与 Rocq 机制试验）",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 33
+        }
+      ]
+    },
+    {
+      "title": "基础基础设施实现：label/security、lc/open_rec、subst_env 与 context plug",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 137
+        }
+      ]
+    },
+    {
+      "title": "evaluation 理论与 multi-step inversion 基础设施",
+      "intervals": [
+        {
+          "after": 137,
+          "through": 354
+        }
+      ]
+    },
+    {
+      "title": "LR 定义、closure lemmas 与 fundamental theorem",
+      "intervals": [
+        {
+          "after": 354,
+          "through": 524
+        }
+      ]
+    },
+    {
+      "title": "Ty_Unit LR 加强、V_ground_erase 与 noninterference 收尾",
+      "intervals": [
+        {
+          "after": 524,
+          "through": 554
+        }
+      ]
+    },
+    {
+      "title": "最终编译与文件完整性核查",
+      "intervals": [
+        {
+          "after": 554,
+          "through": 569
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_mono：induction as-pattern 顺序错与 IH 参数推断失败（Unable to find an instance for the variable k）",
+      "intervals": [
+        {
+          "after": 36,
+          "through": 54
+        }
+      ],
+      "outcome": "先把 IH 显式实例化为 k/k' 或 (S k)/(S k')，用 [lia | exact H] 分别关闭 arithmetic side condition 与已知 local closure hypothesis；仍因自动命名对不上而报 IHt 不在环境，最终改用完整的 tm constructor as-pattern（IH 紧跟 recursive 参数）后 lc_at_mono 通过，编译推进到 open_rec_lc 的 i not found。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        46,
+        70,
+        73
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "open_rec_lc / lc_open_fvar_inv：IH 应用与 open_rec_lc0 参数、变量名 n 冲突、destruct Nat.eqb 后未 simpl",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 68
+        }
+      ],
+      "outcome": "open_rec_lc 与 lc_open_fvar_inv 都改成显式 as-pattern 并显式传索引（abstraction 用 (S k)/(S m)），open_rec_lc0 改为 apply open_rec_lc with (k:=0); [lia | exact H]；lc_open_fvar_inv 把 if 分支中与新 binder 冲突的 term 参数 n 改名 nf，并在 destruct Nat.eqb 后补 simpl in *；两引理通过，编译推进到 has_type_lc 的 freshness premise。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        79,
+        85,
+        88,
+        94
+      ],
+      "qualification": "两引理在同一段连续调试中处理，故合并；根因不同（IH/索引显式化 vs 名称冲突与 destruct 后未 simpl）。"
+    },
+    {
+      "title": "has_type_lc 的 T_Case freshness：apply fresh_notin 无法把目标 list 统一为 L ++ fv body1",
+      "intervals": [
+        {
+          "after": 68,
+          "through": 70
+        }
+      ],
+      "outcome": "改为 pose proof (fresh_notin (L ++ fv body1)) 再用 in_or_app 反证 ~ In x L；has_type_lc 通过，编译错误推移到文件末尾残缺的 theorem header。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        94,
+        97
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "Theorem noninterference 的 header 首行被 step 34 的 Edit 删除",
+      "intervals": [
+        {
+          "after": 70,
+          "through": 74
+        }
+      ],
+      "outcome": "文件在 has_type_lc 之后直接从 `(T_secret T_result : ty),` 开始；补回 `Theorem noninterference : forall (C : program_context) (t1 t2 : tm)` 后编译无报错，随后与原始文件对照确认 statement 未变。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        97,
+        100,
+        103
+      ],
+      "qualification": "删除动作发生在 step 34 首次插入 helper 的编辑中；按首次暴露 syntax error 的 step 70 起算处理区间。"
+    },
+    {
+      "title": "subst_env_id：一元 constructor 缺 f_equal，case/if 三参数 constructor 的嵌套 f_equal 导致 wrong bullet",
+      "intervals": [
+        {
+          "after": 79,
+          "through": 97
+        }
+      ],
+      "outcome": "fst/snd/inl/inr/protect 先 f_equal 再用 IH；case/if 只保留外层 f_equal、改用三个 + 分支承接三个参数（去掉内层 f_equal）；if 中与新 binder 冲突的 y 改名 z；subst_env_id 通过，编译推进到 subst_env_open_rec 的 bvar 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        110,
+        116,
+        122,
+        134,
+        137
+      ],
+      "qualification": "中间一段 wrong bullet 的定位耗时主要花在用 Show（不可用）与 match goal+idtac 打印 proof state 上。"
+    },
+    {
+      "title": "subst_env_open_rec：open_rec 的 replacement/body 参数次序写反，后续 fvar 与 ++ membership 连续报错",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 113
+        }
+      ],
+      "outcome": "把结论从 `open_rec k (subst_env s body) w` 改成 `open_rec k w (subst_env s body)`；随后修 fvar 分支的 Nat.eqb_neq/open_rec_lc0 用法与一元 constructor 的 f_equal，最后加入 solve_notin（intro + repeat rewrite in_app_iff + tauto）统一处理 ++ 下的 freshness；subst_env_open_rec 通过，编译推进到 in_fv_plug。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        137,
+        143,
+        149,
+        161
+      ],
+      "qualification": "参数次序写反是根因；fvar 分支与 ++ 结合性引起的 membership 失败是修好参数后暴露的后续障碍，同属该引理。"
+    },
+    {
+      "title": "in_fv_plug 的 tauto 不处理等式对称性；subst_env_plug_hole 的 context constructor 缺 f_equal",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 137
+        }
+      ],
+      "outcome": "in_fv_plug 的 tauto 改 firstorder（处理 x=z 与 z=x 的方向差异）；subst_env_plug_hole 重写为逐 program context constructor 的 f_equal + IHC + subst_env_single_id；两引理通过，编译无报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        161,
+        167,
+        173,
+        176,
+        187,
+        195
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_lc / value_no_step：value constructor premise 次序错，且 reduct 未 generalize 导致 IH 不能用于 component step",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 170
+        }
+      ],
+      "outcome": "value as-pattern 改为 v kappa H IH（pair 为 v1 v2 kappa H1 IH1 H2 IH2）；value_no_step 先 revert t 再 induction Hv，使 IH 对任意 component reduct 可用，再用 match goal 显式调用对应 IH；两引理通过，编译暴露出 step inversion 的 as-pattern 分支数不足（实际 19 个 constructor）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        201,
+        206,
+        216,
+        221,
+        231,
+        236
+      ],
+      "qualification": "两个 value 引理的同类 induction/generalization 问题连续处理，合并为一项。"
+    },
+    {
+      "title": "multi_protect_inv：step inversion 需覆盖 19 个 constructor，subst 后 v1 名称消失，IH 实参顺序与 multi_step 前提不符",
+      "intervals": [
+        {
+          "after": 170,
+          "through": 218
+        }
+      ],
+      "outcome": "改用覆盖 19 个 reduction constructor 的 step as-pattern；两个 protect 分支先用 match goal 从 proof state 取 Hstep/Hm，再按实际实参顺序 `edestruct (IH Hv l t' eq_refl)`，并在 split 中显式给出 multi_step 的两个前提；multi_protect_inv 通过，编译推进到 multi_app_inv 的 v0 not found。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        244,
+        247,
+        252,
+        262,
+        267,
+        277,
+        297
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi_app_inv 等直接对 step 做 19 分支 inversion 无法复用（subst 后名称消失），改为 step_*_dec 单步分解引理",
+      "intervals": [
+        {
+          "after": 218,
+          "through": 305
+        }
+      ],
+      "outcome": "放弃在每个 multi_*_inv 内直接做 19 分支 inversion，先在 scratch 中为 app/protect/pair/inl/inr/fst/snd/case/if 建立 step_*_dec 分解（disjunction/exists 形式）；step_app_dec 需按 AppAbs/App1/App2 手工给出三个 disjunct，step_protect_dec 的两个分支分别用 eexists+auto 与显式 inner step witness，step_if_dec 分支顺序按 ST_If/ST_IfTrue/ST_IfFalse 修正；到 step 305 全部 step_*_dec 在 /tmp/dbg.v 中编译通过（该副本随后停在旧的 multi_app_inv 处），Task.v 本身尚未接入这些引理。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        297,
+        302,
+        312,
+        340,
+        359,
+        384,
+        407
+      ],
+      "qualification": "区间只到 step_*_dec 方案的设计与 scratch 验证；把引理写进 Task.v 并重写 multi_*_inv 属于下一项。"
+    },
+    {
+      "title": "把 step_*_dec 接入 Task.v 重写 multi_*_inv：multi_value_eq 方向、multi_step 中间 term、遗漏 step_app_dec、hypothesis 重名",
+      "intervals": [
+        {
+          "after": 305,
+          "through": 354
+        }
+      ],
+      "outcome": "multi_protect_inv 分支先删掉多余的 symmetry（multi_value_eq 已是所需方向）并补全 multi_step 的两个前提；补回遗漏的 step_app_dec；multi_step 的中间 term 改为首步实际 reduct（f'/a'/b'/t'/c'）；reflexive 分支用 eexists 取代因 subst 消失的 v1/v0 名称，fst/snd 的 multi_protect_inv 末端 term 用 wildcard；重命名 Hvf 等冲突名；修正后 Task.v 编译无报错，evaluation inversion 基础设施通过（主 theorem 仍为 Admitted）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        413,
+        428,
+        433,
+        438,
+        443,
+        448,
+        461,
+        464,
+        469
+      ],
+      "qualification": "这是接入 step_*_dec 后重写各 multi_*_inv 引入的一轮新错误；以 step 305 全部分解引理编译成功为边界。"
+    },
+    {
+      "title": "V_protect_adjust：repeat split 把 security_le 递归拆成原子 flows_to，导致 conjunct 顺序错位",
+      "intervals": [
+        {
+          "after": 359,
+          "through": 363
+        }
+      ],
+      "outcome": "按实际 conjunct 数显式嵌套 split（5 个 security_le 用 protect_security_mono 整体证明、3 个 body relation 逐个拆分），避免 repeat split 展开 security_le 的内部结构；V、R 与 V_protect_adjust 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        475,
+        480
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "V_subtype 的 S_Arrow 分支：未先把 h1 喂给 HV 就 destruct Arrow LR（split 报 Not an inductive definition）",
+      "intervals": [
+        {
+          "after": 367,
+          "through": 373
+        }
+      ],
+      "outcome": "在 destruct v1/v2 之后补 `specialize (HV h1)`，再拆 security_le 与 body relation；V_subtype 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        485,
+        493
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_App：V l (ty_protect kappa.ind T2) 在 T2 未知时无法展开，intro hgoal 失败；新增 helper 后其 Unit 分支与 apply 遗留 premise 又连续报错",
+      "intervals": [
+        {
+          "after": 387,
+          "through": 427
+        }
+      ],
+      "outcome": "引入 V_protect_intro_cond，把 flows_to 前提与 V l T v1 v2 都放在 observer flow 条件下，T_App 改为先分解两边 protection tail 再调用它（helper 需移到 fundamental 之前）；helper 自身还要处理：旧 V 在 Unit 上是 True，不能统一 intro，Unit 分支改 exact I；intro 之后 apply V_protect_adjust 会把已由 hgoal 提供的 flow 前提留成 subgoal，需在其后补 assumption（先用 scratch 确认 apply 的行为）。step 427 T_App 通过，编译推进到 T_Fst。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        510,
+        519,
+        525,
+        538,
+        543,
+        556,
+        561
+      ],
+      "qualification": "区间含 step 390 约 107 秒的设计思考（如何绕开 T 未知时 ty_protect 不可归约），该思考直接针对该错误，无法再分纯设计时间。"
+    },
+    {
+      "title": "fundamental 的 T_Fst/T_Snd：multi_fst_inv 多传一个 wildcard、Ht 重名、evaluates 需要 v_pair",
+      "intervals": [
+        {
+          "after": 427,
+          "through": 452
+        }
+      ],
+      "outcome": "multi_fst_inv/multi_snd_inv 的 wildcard 由 4 个改为 3 个（Ev1 原先落在 value 位置）；Ht 改名 Htm/Htm'；evaluates 第二项改用 `v_pair p1 p2 kr Hp1 Hp2` 构造整对的 value；T_Fst/T_Snd 通过，编译推进到 T_Case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        561,
+        567,
+        572,
+        577,
+        587,
+        592
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Case/T_If：multi_case_inv/multi_if_inv 少一个参数、tail 的 inner term 已被 subst_env 处理",
+      "intervals": [
+        {
+          "after": 458,
+          "through": 478
+        }
+      ],
+      "outcome": "为 multi_case_inv/multi_if_inv 的调用补一个 wildcard（共五个显式参数）；发现 Htail 的 inner term 是 `open (subst_env si body) wi` 而非 `open body wi`，遂把 multi_protect_inv 的 inner term 改成 `_` 由 Htail 推断，使返回的 evaluation 能与 opening identity 后的 body LR 对接；matching 分支通过，编译推进到 mixed 分支的 intro。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        600,
+        605,
+        610,
+        615,
+        620,
+        625
+      ],
+      "qualification": "核心是 tail 已被 subst_env 处理、需要与 opening identity 后的 body LR 对接，不只是参数个数。"
+    },
+    {
+      "title": "T_Case/T_If mixed sum 分支：result type 未知使 V 的 intro 失败，需 V_protect_contra",
+      "intervals": [
+        {
+          "after": 478,
+          "through": 486
+        }
+      ],
+      "outcome": "新增 V_protect_contra（若 flows_to b l 能推出 False，则 protected result 自动满足 LR，Unit 分支目标为 True 亦由同一 contradiction 关闭）；mixed 分支先分解 protection tail、由 Sum LR 构造 flow 到 False，再套用该引理；T_Case 的 mixed 分支通过，编译推进到 T_If。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        625,
+        630,
+        635
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_If：projection 少一层 proj2、`intro _.` syntax error、Hc 重名、丢失 Qed",
+      "intervals": [
+        {
+          "after": 486,
+          "through": 524
+        }
+      ],
+      "outcome": "第二个 protection premise 改为 `proj2 (proj2 (Hcond h))`；`intro _.` 改为具名 `intro hh`；mixed 分支的 contradiction hypothesis 改名 Hcontra；整段重写 T_If 时丢失的 fundamental 的 `Qed` 补回；fundamental 编译通过（noninterference 仍为 Admitted）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        638,
+        654,
+        659,
+        664,
+        672,
+        677,
+        680,
+        685
+      ],
+      "qualification": "区间内还包含一次因 Qed 与 Theorem 之间空行数不匹配而失败的编辑脚本，改以 theorem 起点为边界后完成重写。"
+    },
+    {
+      "title": "ground Ty_Unit 上的 V 只有 True，无法由此推出 erasure equality（V_ground_erase 的 Unit 障碍）",
+      "intervals": [
+        {
+          "after": 524,
+          "through": 533
+        }
+      ],
+      "outcome": "比较 canonical forms/typing preservation 等路线后，把 Ty_Unit 的 V 改为 `flows_to kappa.ind l -> erase_security v1 = erase_security v2`（不可观察时仍 vacuous），并相应更新 V_protect_adjust、V_subtype、V_protect_intro_cond、V_protect_contra 与 fundamental 的 T_Unit；用 all: 改写跨 type 分支的 tactic chain 后 step 533 编译无报错，更新后的 Unit LR、相关 helpers 与 fundamental 全部通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        686,
+        691,
+        696
+      ],
+      "qualification": "区间从 fundamental 编译通过（step 524）起算，以包含 step 525 约 66 秒关于 canonical forms/preservation 备选路线的设计思考；最终选择改 LR 而非补 preservation。"
+    },
+    {
+      "title": "noninterference 主证明：has_type_lc 隐式参数推断失败与多余的 Nat.eqb_refl rewrite",
+      "intervals": [
+        {
+          "after": 542,
+          "through": 554
+        }
+      ],
+      "outcome": "has_type_lc 的应用写成 `has_type_lc empty t1 T_secret Ht1`；删掉 simpl 之后已无对应 subterm 的 `rewrite Nat.eqb_refl`，直接以 V_vacuous + nonflow hypothesis 结束该 goal；noninterference 以 Qed 结束，Task.v 编译无报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        707,
+        712,
+        717,
+        722
+      ],
+      "qualification": "主定理在 fundamental 与 Unit LR 加强都通过后才写；这里的失败是应用细节，不代表主定理不成立。"
+    }
+  ],
+  "trace_sha256": "4dbecd9538d675bdf568e400525ddef0ed39a2a757778f5a88569cea5f56fa14",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 8,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "4dbecd9538d675bdf568e400525ddef0ed39a2a757778f5a88569cea5f56fa14",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r08.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r08_20261027_212223_397945"
+  }
+}

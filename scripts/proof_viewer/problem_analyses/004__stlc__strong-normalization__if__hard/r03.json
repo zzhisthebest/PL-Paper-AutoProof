@@ -1,0 +1,288 @@
+{
+  "summary": "时间主要用于 normalization 的 LR 与 fstep 路线推敲，以及发现 subst_open_rec 缺少 local closure 前提后，对 CR、env_ok 与 fundamental 的联动重设计；另有一次交互式 coqtop 等待占用了明显时间。后续逐项调试完成，最终 normalization 编译成功，assumptions 检查及独立目录重编译也通过。",
+  "phases": [
+    {
+      "title": "读取语言定义与 normalization 目标",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 3
+        }
+      ]
+    },
+    {
+      "title": "设计 LR 与 fstep 路线，编写首批辅助声明",
+      "intervals": [
+        {
+          "after": 3,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "诊断 sn_f_sn 的 induction hypothesis，并处理 REPL 等待",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 29
+        }
+      ]
+    },
+    {
+      "title": "编写首版 CR、CR_ok_all 与 reduction inversion lemmas",
+      "intervals": [
+        {
+          "after": 29,
+          "through": 34
+        }
+      ]
+    },
+    {
+      "title": "重设计 local closure 条件，整合 fundamental 与 normalization",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 62
+        }
+      ]
+    },
+    {
+      "title": "逐项调试 substitution、freshness、closure 与 CR proofs",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 176
+        }
+      ]
+    },
+    {
+      "title": "核验编译、assumptions、原始声明及独立构建，整理结果",
+      "intervals": [
+        {
+          "after": 176,
+          "through": 199
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "sn_f_sn 把原始 recursive premise 当成 induction hypothesis",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 15
+        },
+        {
+          "after": 25,
+          "through": 29
+        }
+      ],
+      "outcome": "通过 scratch 中打印 sn_f_ind，确认 constructor case 同时提供返回 sn_f 的原始 premise 和返回目标 predicate 的 IH。改用 induction H as [s Hs IH]，并通过 IH 与 step_fstep 完成转换；随后编译越过 sn_f_sn，停在文件中位于其后的 subst_open_rec 报错处，确认本修复被接受。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        20,
+        21,
+        33,
+        36,
+        38,
+        46
+      ],
+      "qualification": "中间等待交互式 coqtop 的时间单独归入 tooling，未计入本项。证据行 46 是后续编译在 sn_f_sn 之后的 subst_open_rec 处的报错，只用于说明编译已越过 sn_f_sn；该报错本身归入局部闭包重设计问题。"
+    },
+    {
+      "title": "sn_f_sn 的 sn_f_ind 诊断命令以交互式 coqtop 启动并等待输入",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 25
+        }
+      ],
+      "outcome": "coqtop -q -l ind.v 在载入文件后持续等待，命令达到 120 秒 timeout 后转入 background。随后用 -batch 重跑，立即取得 induction principle 与 proof state；旧进程后来由系统停止。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        22,
+        30,
+        31,
+        33,
+        244
+      ],
+      "qualification": "区间包含命令等待及改用 batch mode 的处理。旧进程继续存在期间，证明工作已经恢复，未将其整个 background 生命周期计入耗时。"
+    },
+    {
+      "title": "subst_open_rec 缺少 local closure 前提，迫使 CR、env_ok 与 fundamental 联动重设计",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 50
+        },
+        {
+          "after": 56,
+          "through": 62
+        }
+      ],
+      "outcome": "检查 fvar case 后发现，无条件 commutation 等式不成立：open_rec 会进一步作用于 sigma a 中的 free bvar。改为 subst_open_rec_lc，要求 substitution range locally closed；CR 的 arrow clause 增加 lc_at 0 argument 条件，env_ok 增加 range closure，并补充 fstep_lc、subst_lc、typing_lc 等事实。non-emptiness 改由 fvar 提供；再次遇到旧 lemma 后将其与 subst_open 删除。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        46,
+        50,
+        54,
+        56,
+        65,
+        68,
+        78,
+        79,
+        86,
+        260
+      ],
+      "qualification": "首次编译在 subst_open_rec 的 fvar case 报告 IHt 不存在：该 case 本就没有 induction hypothesis，原始思考据此检查 fvar 等式并识别出 statement 缺前提。长区间包含多项关联声明的设计与实现，并非全程都在报错；中间单独填写 normalization 的时间已排除。"
+    },
+    {
+      "title": "subst_extend_neq 的条件式 rewrite 混淆 equality goal 与 freshness side goals",
+      "intervals": [
+        {
+          "after": 70,
+          "through": 74
+        }
+      ],
+      "outcome": "先从 concatenated fv lists 显式提取各 subterm 的 freshness hypotheses，再使用完全实例化的 IH 等式 rewrite；abstraction case 也改为重写 body equality 后收尾。后续编译推进到 fresh_gt。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        99,
+        102,
+        103,
+        104,
+        108
+      ],
+      "qualification": "报错中的非 reflexive relation 来自脚本对子目标的处理，不能据此认定需要新增 RelationClasses 或数学辅助事实。"
+    },
+    {
+      "title": "fresh_gt 的 fresh 展开与 membership IH 实例化未能支持 lia",
+      "intervals": [
+        {
+          "after": 76,
+          "through": 98
+        }
+      ],
+      "outcome": "经过多次 scratch 试验与 Nat lemma 查询，最终显式 unfold fresh；head case 使用 Nat.lt_succ_r 和 Nat.le_add_r，tail case 先取得 IH x Hin 与 addition bound，再交给 lia。该版本先在 scratch 通过，再移入 Task.v，后续编译越过 fresh_gt。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        108,
+        114,
+        117,
+        129,
+        135,
+        137,
+        138,
+        140,
+        144
+      ],
+      "qualification": "部分中间诊断误判了失败 branch，另有 Show 未关闭 goal 引发的 bullet error；这些都属于同一 arithmetic proof 的定位过程，没有证据表明 lia 本身存在故障。"
+    },
+    {
+      "title": "open_rec_lc_gen 等 term induction proofs 的 abstraction IH 名称与脚本不一致",
+      "intervals": [
+        {
+          "after": 106,
+          "through": 117
+        }
+      ],
+      "outcome": "为 open_rec_lc_gen、lc_open_inv、lc_open_rec、subst_lc、subst_open_rec_lc 统一指定显式 term induction patterns，使用 IH1、IH2、IH3；同时调整 subst_extend_neq 与 subst_id 的同类命名依赖，并完全实例化 commutation rewrites。119 步编译越过 open_rec_lc_gen、lc_open_inv、lc_open_rec，确认显式命名被接受；最终整体编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        153,
+        156,
+        157,
+        159,
+        162,
+        168,
+        172,
+        260
+      ],
+      "qualification": "实际编译失败发生在 open_rec_lc_gen 的 abstraction case；其余改动是同次排查中的同步修正。subst_lc 在 119 步的报错来自 auto 提前关闭 bvar case 导致的 bullet 错位，属另一问题（120-121 步修复），不是 IH 命名问题。"
+    },
+    {
+      "title": "sn_f_app_l 的 F_App1 term application 漏传显式参数，曾被误判为 induction motive 问题",
+      "intervals": [
+        {
+          "after": 129,
+          "through": 141
+        }
+      ],
+      "outcome": "先改写为 sn_f_app_l_aux，但同一错误仍存在。最终确认 F_App1 Hstep 把 proof 放进第一个 tm 参数；改成 F_App1 t t' u Hstep 后，编译推进到 CR_ok_all。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        187,
+        188,
+        189,
+        193,
+        196,
+        197,
+        201,
+        205
+      ],
+      "qualification": "原始反馈支持显式 constructor 参数是实际阻塞原因；没有证据说明先前 remember-based induction 必须改写。"
+    },
+    {
+      "title": "fundamental 的 T_Abs environment 扩展 proof 把 eqb equation 转换后继续用于 rewrite",
+      "intervals": [
+        {
+          "after": 153,
+          "through": 161
+        }
+      ],
+      "outcome": "起初误改 true branch，随后又因 subst 消耗 E 而失败。最终两个 branches 都保留 E 的 Boolean equation 形式：true branch 用 Hy 确定 type，展开 extend 后直接 rewrite E；false branch 同样直接重写并使用原 environment hypothesis。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        223,
+        224,
+        225,
+        229,
+        230,
+        231,
+        235
+      ],
+      "qualification": "最初思考把 setoid error 归到 Nat.eqb_refl；原始代码中的 false branch 实际已将 E 转成 inequality，再尝试 rewrite。最终修改同时消除了这两种处理问题。"
+    },
+    {
+      "title": "fundamental 的 T_Abs case 中 open 未展开，subst_open_rec_lc 无法匹配 IHprem",
+      "intervals": [
+        {
+          "after": 161,
+          "through": 165
+        }
+      ],
+      "outcome": "先 unfold open in IHprem，再依次应用 subst_open_rec_lc、subst_extend_same 与 subst_extend_neq，使 typing IH 的 substituted opening 对应目标 opening。随后编译推进到 T_True，最终整体证明通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        235,
+        236,
+        237,
+        241,
+        260
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "451445c74080bad4e4a45caf388caa976bbcda9873e9b2b8d869cf4f2ab44615",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 3,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "451445c74080bad4e4a45caf388caa976bbcda9873e9b2b8d869cf4f2ab44615",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r03.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r03_20261027_211737_512874"
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "summary": "时间主要花在为 CBV value 限制设计 C、把 env_ok 加强到所有 substitution images 都满足 local closure，并推演 fundamental theorem（其中一次路线推演约 300 秒）；其余是围绕 list notation、helper lemmas、C_intro_notabs/C_abs 的 step inversion 分支和 T_Abs 的 substitution rewrite 的编译调试。最终 Task.v 编译通过（EXIT:0），Print Assumptions 显示 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读取任务并检查运行环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "探索同时支持 T_App 与 T_Abs 的 LR",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "核对任务要求并检索本地参考实现",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "确定 C 与 env_ok 的结构并编写完整证明草稿",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 22
+        }
+      ]
+    },
+    {
+      "title": "逐次编译并调试 helper lemmas、closure lemmas 与 fundamental",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 148
+        }
+      ]
+    },
+    {
+      "title": "验证编译状态、theorem assumptions 与原始声明，整理 imports 并汇报",
+      "intervals": [
+        {
+          "after": 148,
+          "through": 170
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "list_max 的 list pattern：`[]`/`::` notation 未启用，且误把 ListNotations 当作 library",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 52
+        }
+      ],
+      "outcome": "先用 probe 复现：nil/cons 写法的 list_max 可编译，`[]`/`::` 版本报 `'end' expected after [branches]`；改试 `From Stdlib Require Import ListNotations.` 又报 Unable to locate library。在 Stdlib 的 Lists.List 源码中找到 `Module ListNotations`，并用 probe6 验证 `Import ListNotations.` 可用；Task.v 改用该 Import 后编译越过 list_max 等 definitions，推进到 lc_open_rec 的 Cannot find witness。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        34,
+        40,
+        43,
+        49,
+        64,
+        67,
+        70,
+        72,
+        76
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_open_rec：false eqb 分支没有把 boolean equality 转成不等式，且先改错到 abstraction 分支",
+      "intervals": [
+        {
+          "after": 52,
+          "through": 64
+        }
+      ],
+      "outcome": "第 330 行的 goal 需要从 `i < S k` 和 `k ≠ i` 推出 `i < k`，但 E 仍是 `Nat.eqb k i = false` 的 boolean equality。首次怀疑 abstraction 分支的 `apply lc_at_mono with (k := k)`，改为显式 `apply (lc_at_mono k u Hu (S k)); lia`，重编译仍在原处报 Cannot find witness；用精确行号确认报错在 tm_bvar 的 false eqb 分支后，加入 `apply Nat.eqb_neq in E` 把 E 转成不等式，lia 完成该分支，编译推进到 subst_open_rec 的 `lc` undefined。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        76,
+        79,
+        81,
+        85,
+        88,
+        89,
+        90,
+        94
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "C_intro_notabs：non-abstraction premise 把 `t u0 = λ` 的等式当成 `t = λ` 使用",
+      "intervals": [
+        {
+          "after": 74,
+          "through": 84
+        }
+      ],
+      "outcome": "编译报 Heq 的类型是 `t u0 = λ T0. b`，而 `apply (Hnotabs T0 b)` 需要 `t = λ T0. b`。先在后面的 ST_AppAbs branch 加 `discriminate Heq`，重编译仍在第 626 行报同一 type mismatch；核对第 626 行后确认这个 premise 针对整个 application `t u0`，改为 `intros T0 b Heq. discriminate Heq.`，编译越过该错误，转为 `Expects a disjunctive pattern with 6 branches`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        109,
+        115,
+        118,
+        120,
+        121,
+        124
+      ],
+      "qualification": "这里只处理 non-abstraction premise；同一 lemma 后续的 inversion pattern、bullet 组织以及 C_abs 的同类问题另列。"
+    },
+    {
+      "title": "step inversion 的 6-branch pattern 与实际 subgoal 数不符：多余 bullets 造成 C_intro_notabs/C_abs 的 Focus 错误",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 126
+        }
+      ],
+      "outcome": "inversion 的 `as` pattern 必须列全 6 个 constructor，否则报 Expects a disjunctive pattern with 6 branches；补全后实际只有 3 个 application subgoal 需要证明，为另一侧分支多写的 3 个 `-- discriminate` 没有对应 goal，前 3 个 branch 证完就报 Focus/Wrong bullet。期间还在 ST_AppAbs branch 两次猜 hypothesis 名（Heq0、Heq）失败，用 Show 得到 proof state 后确认 t 已被 subst 成 abstraction、goal 是 `C T2 (open b u0)`，改用 `exfalso. apply (Hnotabs T0 b). reflexivity.` 收尾。最终删掉多余 bullets，C_intro_notabs 通过；C_abs 补上同样的 6-branch pattern 后也通过，编译推进到 C_if 的 `b1 is already used`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        124,
+        130,
+        136,
+        142,
+        148,
+        157,
+        163,
+        173,
+        174,
+        178,
+        183,
+        187
+      ],
+      "qualification": "把 Focus 错误归因于 braces、eapply 或 evar 的中间猜测没有经过验证；后续编译只支持 pattern 列出的 branch 数多于实际剩余 subgoal 这一解释。"
+    },
+    {
+      "title": "fundamental 的 T_Abs case：unfold σ' 后 `subst σ' t1` 不再匹配 Hsubst，rewrite 链失败",
+      "intervals": [
+        {
+          "after": 132,
+          "through": 148
+        }
+      ],
+      "outcome": "起初 `rewrite Nat.eqb_refl` 在 goal 中找不到 `?x =? ?x`；加 change 暴露 `σ' x` 并执行 `unfold σ', subst_env; simpl` 后 eqb rewrite 通过，但 goal 里的 `subst σ' t1` 已被展开成带 match 的 lambda，`rewrite Hsubst` 报 no subterm matching。用 Show 确认展开形态后，新增 `subst_env_same : subst_env σ x u x = u`，只用 change 暴露更新 atom 上的 lookup，保留 body 中的 `subst σ' t1`，依次 rewrite `subst_env_same` 与 `Hsubst`。第 148 步编译不再报 error，第 150 步运行 coqc 确认 EXIT:0。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        196,
+        199,
+        201,
+        205,
+        211,
+        212,
+        213,
+        216,
+        220,
+        223
+      ],
+      "qualification": "`subst_env_same` 只是控制 lookup 展开与 rewrite 匹配的辅助等式，不是新的语义事实；EXIT:0 只用于确认结果，不扩大处理区间。"
+    }
+  ],
+  "trace_sha256": "b08649f1e208d6ef1604548d79c8aec70590baa21883b434561b07d689ef0c93",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 2,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "b08649f1e208d6ef1604548d79c8aec70590baa21883b434561b07d689ef0c93",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r02.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r02_20261027_211735_284574"
+  }
+}

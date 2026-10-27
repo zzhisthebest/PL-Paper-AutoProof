@@ -1,0 +1,299 @@
+{
+  "summary": "本次运行约 2007 s：前约 890 s（约 44%）用于 System F parametricity LR 的方案推演（unary/binary、type substitution、CBV value/term interpretation），这段长 thinking 混合设计与自我纠错、无法按声明拆分，故整体保留为设计阶段。其余时间依次用于 local-closure/substitution 基础设施、`V`/`R` 语义层及其 environment/opening 引理的调试，以及 `fundamental` 中 `T_Abs`/`T_TAbs` 环境扩展和各 typing case 的收尾。所有可定位问题最终解决：目标 theorem 开发中暂挂 `Admitted`，最终移除并以 clean compile 和 `Print Assumptions = Closed under the global context` 结束。",
+  "phases": [
+    {
+      "title": "阅读 `Task.v`、`card.md` 与 Rocq 环境探查",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "System F parametricity LR 方案设计探索与本地相关 solution 检索",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "类型级基础设施（freshness/free variables/`lc_ty_at`/`wf_ty_lc`）编写与首轮编译",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 50
+        }
+      ]
+    },
+    {
+      "title": "term-level local closure、同时 substitution、extensionality/commutation 编写与调试",
+      "intervals": [
+        {
+          "after": 50,
+          "through": 103
+        }
+      ]
+    },
+    {
+      "title": "`V`/`R` 语义层、environment extensionality 与 opening lemmas 的设计与调试",
+      "intervals": [
+        {
+          "after": 103,
+          "through": 164
+        }
+      ]
+    },
+    {
+      "title": "`fundamental` 方案推演与 `has_type_lc_ty`/`has_type_lc_tm` 补强",
+      "intervals": [
+        {
+          "after": 164,
+          "through": 179
+        }
+      ]
+    },
+    {
+      "title": "`fundamental` 六条 typing rule 的实现与调试",
+      "intervals": [
+        {
+          "after": 179,
+          "through": 238
+        }
+      ]
+    },
+    {
+      "title": "目标 theorem、`lc_tm_fvar` 参数修正、axiom-free 核查、diff 与 clean compile 验证",
+      "intervals": [
+        {
+          "after": 238,
+          "through": 264
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`lc_ty_at_mono`/`lc_ty_at_open`/`lc_ty_at_open_inv(_gen)` 的 bullet 未闭合、`auto` 不足与 IH 深度参数",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 50
+        }
+      ],
+      "outcome": "step 26 在 `lc_ty_at_mono` 的 `Ty_All` bullet 报 `Wrong bullet`，第 402 行前一行是 `apply lc_ty_arrow; auto`；把 arrow case 拆成显式 `IHT1`/`IHT2` 并显式给出 source depth `k`、`S k` 后，step 36 推进到 `lc_ty_at_open_inv` 的 arrow case，进一步显式指定 opening depth 与 `U`。step 46 又停在 `lc_ty_at_open` 的 `+` bullet：forward opening 的 induction hypothesis 有两个 premises，单次 `assumption` 只解决一个；改成 `apply ... ; assumption` 后 step 50 `coqc` 无输出，type-level helper 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        37,
+        52,
+        67,
+        73
+      ],
+      "qualification": "step 22–24 的 `max_list_ge`（`eauto` 选不出 intermediate term）是另一处一行修正，未单列；本条只覆盖 lc_ty helper 的首轮编译。"
+    },
+    {
+      "title": "`lc_tm_at_mono`/两条 inverse term opening lemma 的 `K`/`U` 深度参数与 annotation 命名，以及 `subst_all_ext` 的 membership",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 78
+        }
+      ],
+      "outcome": "step 58 在 `lc_tm_at_mono` 的 abstraction body 报 `Unable to find an instance for the variable K`；step 62 只是把 IH 显式命名后仍报同一错误，step 64 用 `idtac` 打印 goal 才确认 target depth 可由 goal 确定、source `K` 只出现在 premises，必须在 recursive call 显式给 `K`/`k`。`lc_tm_at_open_tm_ty_inv` 引用不存在的 `T` 确由匿名 constructor argument 的自动命名导致，改用显式 induction pattern；两条 inverse opening lemma 的 recursive call 又因 `U` 只出现在 premises 无法推断，逐一补 `U`。`subst_all_ext` 的 abstraction case 按 term/type atoms 的不同 membership 结构重写（term atoms 没有 annotation prefix），step 78 编译推进到新的 commutation lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        84,
+        90,
+        96,
+        102,
+        108
+      ],
+      "qualification": "IH 改名是无效尝试（step 62 仍报同一 `K` 错误），实际修复是显式传 `K`/`k`/`U` 与显式 induction pattern；已按原文改正因果描述。"
+    },
+    {
+      "title": "`ty_subst_all_open_ty_rec`/`subst_all_open_tm_rec`/`subst_all_open_tm_ty_rec` 缺少 substitution image 的 local-closure 前提，原陈述不成立",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 103
+        }
+      ],
+      "outcome": "step 78 的 `ty_subst_all_open_ty_rec` FVar case 要求 `open_ty_rec j (sigma X) (sigma a) = sigma a`；step 79 确认该等式只在 substitution image 局部封闭时成立（如 `sigma a = Ty_BVar j` 时原陈述为假）。于是给三条 commutation lemma 加 `forall Y, lc_ty_at 0 (sigma_ty Y)` / `forall y, lc_tm_at 0 0 (sigma_tm y)` 前提，补证 `open_ty_rec_lc_id`/`open_tm_rec_lc_id`/`open_tm_ty_rec_lc_id`，并把 `subst_all_term_extend`/`subst_all_ty_extend` 也加上 lc 前提；期间修正 `f_equal` 的多余 bullet、`inversion; subst` 后的 IH 深度和 identity rewrite 的 depth 参数，step 103 `coqc` 无输出，substitution 基础设施通过。两条 extend lemma 随后被 `fundamental` 使用。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        114,
+        115,
+        118,
+        151,
+        242,
+        352
+      ],
+      "qualification": "区间包含 lc-id 引理的 `f_equal`/bullet/`inversion; subst`/IH 参数调试；根因是 statement 缺前提，未另立 tactic 问题。"
+    },
+    {
+      "title": "`V_lc_env`/`V_all_congr` 的 universal clause 与 `V_all_congr`/`R_of_V_iff` 的 rho 泛化",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 142
+        }
+      ],
+      "outcome": "step 118 先在 `V_lc_env` 的 `Ty_All` case 报 `R0` 不在 context；改成先拆两个 implication、再引入 `U`/`R0` 后，step 120 又因为把 `proj1` 直接用在返回 `forall t, ... <-> ...` 的 `R_of_V_iff` 上而失败。随后引入 `V_arrow_congr`/`V_all_congr` 封装重复的 equivalence reasoning，但两个方向共用一条 tactic chain 导致 goal 数不符（step 124），fixed `U`/`R0` 下的 equivalence 也不能直接用于整个 universal clause（step 128）。最终 `V_all_congr` 先泛化到两个 `rho`，`R_lc_env` 显式给 depth `n`，`R_ext` 显式给 equivalence 与 term，`R_of_V_iff` 也泛化到两个 `rho`；step 142 编译越过这些 environment lemmas，推进到 `V_open_ty_rec`。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        173,
+        182,
+        188,
+        191,
+        197,
+        203,
+        209
+      ],
+      "qualification": "本条只覆盖 environment extensionality/congruence 引理；`V_open_ty_rec` 自身的 opening depth 与 two-type 泛化在下一问题。"
+    },
+    {
+      "title": "`V_open_ty_rec` 中 opening depth 被 `subst` 改写为 `length pre`，并把 `V_all_congr`/`R_of_V_iff` 再泛化到两个 type",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 164
+        }
+      ],
+      "outcome": "`V_open_ty_rec` 的 arrow component 在 `inversion Hlc; subst` 中被 `Hlen : length pre = k` 消去 `k`，goal 的 opening depth 变成 `length pre`，而 `IH1` 仍对 `k` 一般量化，`apply IH1; assumption` 报 `No such assumption`；step 152 把 recursive premises 改用 `auto`（同时处理 hypotheses 与 reflexivity）后 arrow case 通过，`Ty_All` case 的 local assertion `Hiff` 仍写 `open_ty_rec (S k)`，改为 `S (length pre)`（step 158）。随后 `V_all_congr` 因两侧 type 不同而失败，泛化到两个 type 后 `R_open_ty_rec` 暴露 `R_of_V_iff` 只支持同一 type，同样泛化到两个 type 后 step 164 `coqc` 无输出，semantic helper block 通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        215,
+        221,
+        230,
+        233,
+        236,
+        239,
+        242
+      ],
+      "qualification": "区间从 step 143 的 `V_open_ty_rec` arrow case 开始，包含 `k` 被 `subst` 消去后的 depth 改写与 two-type 泛化。"
+    },
+    {
+      "title": "`fundamental` 无法无条件得到 abstraction 的 local closure，需新增 `has_type_lc_ty`/`has_type_lc_tm`",
+      "intervals": [
+        {
+          "after": 167,
+          "through": 179
+        }
+      ],
+      "outcome": "step 165 的 thinking 判定：若把 local closure 放进依赖 semantic environment 的 induction conclusion，`T_Abs` 的 abstraction body lc 在拿到 related argument 前无法无条件得到（`R(T1) a` 只给出归约到的 value，不能给 `a` 本身的 lc），于是决定先证 `has_type_lc_ty : has_type Δ Γ t T -> lc_ty_at 0 T` 与 `has_type_lc_tm : has_type Δ Γ t T -> lc_tm_at 0 0 t`，让 `fundamental` 只返回 `R`。实现中按各 case 显式传 `wf_ty_lc` 的 `Delta`，纠正 `T_Abs`（premise type 恒为 `T2`，`change` 成 `open_ty` 形式报 `Not convertible`）与 `T_TAbs` 的混淆，并给 `IHbody` 显式传 `fresh L`（其 conclusion 不依赖 `x`）；step 179 两条引理 `coqc` 无输出，随后被 `fundamental` 的 value/step 前提使用。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        246,
+        252,
+        258,
+        264,
+        352,
+        359
+      ],
+      "qualification": "补 lemma 的决定发生在 step 165 的 94 s thinking（同时含 `fundamental` 整体规划，无法单独切分）；本区间从 step 167 首次报错开始。"
+    },
+    {
+      "title": "`T_Abs` 扩展环境的 `lookup_context`/`Nat.eqb` 重写失败与 `subst_all_term_extend` 的 `open_tm`/`open_tm_rec` 不匹配",
+      "intervals": [
+        {
+          "after": 186,
+          "through": 212
+        }
+      ],
+      "outcome": "step 186 的 `Henv'` 断言中 `rewrite lookup_context_eq` 报 `Found no subterm matching lookup_context y ((fresh bad, T1) :: Gamma) in Hlook`；改为展开 `lookup_context` 后出现 setoid rewrite error 与未定义 evars（step 188），显式 `Nat.eqb_refl (fresh bad)` 也无法匹配（step 190）。打印 `Hlook` 后发现 `simpl` 已把 `fresh bad` 算成 `S (max_list bad)`，true branch 的 boolean test 实际是 `max_list bad =? max_list bad`；false branch 需保留 boolean equation（`apply Nat.eqb_neq` 会把它变成 disequality 而无法 rewrite），并单独保存 `Hneq`，最后删除 `destruct` 已化简掉的多余 `rewrite E`。越过 `T_Abs` 后，`subst_all_term_extend` 又因 `HIH` 用 `open_tm` 包装定义、lemma 用 `open_tm_rec` 而不匹配，`change` 成 `open_tm_rec` 形式后 step 212 进入 `T_TAbs`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        274,
+        277,
+        289,
+        295,
+        301,
+        310,
+        313
+      ],
+      "qualification": "step 182–184 的内联 dependent `match` / `admit` 草稿未编译，不计入；本区间止于越过 `T_Abs` 的 step 212。"
+    },
+    {
+      "title": "`T_TAbs` 环境扩展中 `R_ext` 缺 equivalence/term 参数、`subst` 后 freshness 引用已消去变量、`subst_all_ty_extend` 的 pattern 不匹配",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 222
+        }
+      ],
+      "outcome": "`T_TAbs` 的 `Henv'` 把仍是「缺 environment equivalence 与 term 参数」的 `R_ext` 直接送进 `proj2`；改为先证 `Hext0`/`Hext1`，再把 equivalence 与具体 term 传给 `R_ext`。接着 `subst Y` 消去了 `Y`，但 freshness contradiction 仍在 `fv_ctx_lookup` application 中引用 `Y`，改为保留 equality 并 `rewrite <- E`，同时简化 `Hsty'` 的 boolean branch。`subst_all_ty_extend` 又因 `HIH` 使用 `open_tm_ty` 包装定义而匹配失败，改成 `open_tm_ty_rec` 形式后 step 222 越过 `T_TAbs` 的环境部分。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        313,
+        316,
+        319,
+        322,
+        325,
+        328
+      ],
+      "qualification": "与上一条同属环境扩展，但报错与修复分别在 `T_TAbs` 的 `R_ext`/freshness/`subst_all_ty_extend` 上，故单列。"
+    },
+    {
+      "title": "`R_open_ty_rec`/`V_open_ty_rec` 未先传 term/value 就取 `proj1`/`proj2`",
+      "intervals": [
+        {
+          "after": 222,
+          "through": 230
+        }
+      ],
+      "outcome": "`R_open_ty_rec ... eq_refl` 返回 `forall t, ... <-> ...`，脚本未传 term 就取 `proj1`（step 222/224）；补上当前 opened term 后越过 type abstraction。`T_TApp` 中 `V_open_ty_rec ... eq_refl` 同样缺 value witness `w`（step 228），补上 `w` 后再用 reverse implication 取得 opened-type interpretation。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        328,
+        331,
+        334,
+        337,
+        340
+      ],
+      "qualification": "两处都是 opening lemma 的等价式返回 `forall t`，取投影前缺 term/value 参数。"
+    },
+    {
+      "title": "`T_Choice` 分支 local closure 误写 `(L := L)` 并试图重建 whole choice 的 typing derivation",
+      "intervals": [
+        {
+          "after": 230,
+          "through": 238
+        }
+      ],
+      "outcome": "`T_Choice` 分支 local closure 处两处写了不存在的 `T_Choice with (L := L)`（该 constructor 没有 freshness list）；删掉 `L` 后仍报 unification error，因为 `T_Choice` 只能产生 choice term 的 typing judgment，而需要的是 branch `t1`/`t2` 的 derivation；改用已有 `H1`/`H2` 调 `has_type_lc_tm` 后 step 238 `coqc` 无输出，`fundamental` 以 `Qed` 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        340,
+        343,
+        346,
+        349,
+        352
+      ],
+      "qualification": "该轮编译成功只说明 `fundamental` 通过，目标 theorem 此时仍暂挂 `Admitted`。"
+    }
+  ],
+  "trace_sha256": "ff0e106a862aace86101b095d3acc2bd320c28172e2eb6d49f2481e952204352",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 20,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "ff0e106a862aace86101b095d3acc2bd320c28172e2eb6d49f2481e952204352",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r20.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r20_20261027_211800_605129"
+  }
+}

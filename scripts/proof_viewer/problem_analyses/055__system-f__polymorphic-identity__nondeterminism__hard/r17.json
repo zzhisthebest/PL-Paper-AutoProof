@@ -1,0 +1,258 @@
+{
+  "summary": "全程 2417s：前约 990s 是 binary LR 方案推演与递归定义工具选型（此时尚未写开发文件），其余约 1430s 主要耗在 locally nameless 的 substitution identity/agreement、opening 与 type substitution commutation、typing local closure 和 relation environment scoping 的反复修补上。所有定位到的障碍最终都已解决：fundamental theorem 于 step 365 编译通过，target theorem 随后一次写入即通过。最终 Task.v 编译成功，Print Assumptions 返回 Closed under the global context。",
+  "phases": [
+    {
+      "title": "阅读任务与 binary LR 方案设计（All/type substitution、de Bruijn type env、CBV value relation）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "递归定义工具试验（Program Fixpoint/Function/Equations）与最终 LR 方案定稿",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 38
+        }
+      ]
+    },
+    {
+      "title": "locally nameless 基础脚手架：free variables、substitution identity/agreement、opening commutation、local closure",
+      "intervals": [
+        {
+          "after": 38,
+          "through": 189
+        }
+      ]
+    },
+    {
+      "title": "well-formedness / typing local closure 与 LR 本体（rel_val/erel、rel_val_ext、rel_val_open_ty）实现",
+      "intervals": [
+        {
+          "after": 189,
+          "through": 330
+        }
+      ]
+    },
+    {
+      "title": "multi-step 辅助、inst opening 等式与 fundamental theorem",
+      "intervals": [
+        {
+          "after": 330,
+          "through": 366
+        }
+      ]
+    },
+    {
+      "title": "target theorem、安装 Task.v 与无公理/一致性验证",
+      "intervals": [
+        {
+          "after": 366,
+          "through": 388
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "递归定义工具选型：Program Fixpoint 的 foo_equation 不存在、Function 的 measure/obligation 失败，Equations by wf 可用（rel_val 最终改为 list rel_env 的普通 Fixpoint）",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 36
+        }
+      ],
+      "outcome": "Program Fixpoint 实验中 Check foo_equation 报标识符不存在；Function 的 measure clause 报 illegal application，tuple 版本留下未解决 goals；Equations by wf 起初在关闭文件时报 unsolved obligations（输出中的 EXIT:0 来自 pipeline，不代表成功），加入 Obligation Tactic 后可打印 foo，并生成 foo_equation_1/…、foo_unfold_eq、foo_elim，Print Assumptions 为 Closed under the global context。该实验确认 Equations 可用，但之后 rel_val 定为对 ty 结构递归、以 list rel_env 解释 bound variables 的普通 Fixpoint，未采用 Equations。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        14,
+        17,
+        20,
+        44,
+        53
+      ],
+      "qualification": "这是工具选型探索；step 37 的 359s 方案重推演属于设计阶段，未计入本项。"
+    },
+    {
+      "title": "基础 substitution identity/agreement 引理首次编译：in_context_dom 的 in_map unification、tm_ty_subst_env_id 的 annotation 代入与 *_agree 的 intros 顺序",
+      "intervals": [
+        {
+          "after": 44,
+          "through": 82
+        }
+      ],
+      "outcome": "in_context_dom 的 apply in_map 触发 unification 失败，改用 in_map_iff；一次文本替换的匹配串与实际代码不符，按实际文本修改后才生效。fresh_atom_notin 中 le_fold_max 需作用于 fresh_atom 的 successor；tm_ty_subst_env_id 在 congruence 处失败，需先 rewrite ty_subst_env_id 处理 term annotations；三条 *_agree 引理因 induction 前后 intros 不完整、auto 提前解决 case 导致 bullet 错位，改为显式 assert + rewrite。step 82 基础 development 编译通过（target theorem 仍 Admitted）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        64,
+        82,
+        113,
+        121
+      ],
+      "qualification": "区间内的 freshness、substitution identity 与 agreement 修复同属基础脚手架首次编译，未再细分。"
+    },
+    {
+      "title": "ty_subst_env_open_ty_rec / tm_ty_subst_env_open_tm_ty_rec 的无条件 type substitution–opening commutation 不成立，需 sigma 在 free vars 上的 lc_ty 前提，并补 lc_ty/lc_tm 与 opening identity",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 149
+        }
+      ],
+      "outcome": "FVar case 的报错显示 sigma X 与 open_ty_rec k (ty_subst_env sigma U) (sigma X) 不能统一，无条件等式不成立；改为要求 sigma 在 free_ty_vars 上 lc_ty。随后补 lc_ty/lc_tm 简写，把 monotonicity/opening identity 排到 commutation 之前，修 binder/intros 命名（k、k0）与 No product，lc_tm_at_mono 的 abstraction case 补 lia 处理 successor depth；opening identity 改为对 lc derivation 做 induction，commutation 的 FVar 用 symmetry + lc_ty_open_id、All 先 f_equal 再显式用 IH sigma (S k) U；最后把 Nat.zero_le 改为 Nat.le_0_l。step 149 编译越过这两个 commutation 引理。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        125,
+        126,
+        197,
+        221
+      ],
+      "qualification": "lc_ty/lc_tm、monotonicity 与 opening identity 是验证 commutation 前提所必需的依赖链，故与 statement 修正合为一项；不含此前的方案设计与 step 149 之后的反例。"
+    },
+    {
+      "title": "tm_ty_subst_env_tm_subst_env 作为无条件 type/term substitution commutation 是假命题，需删除；删除时 marker 顺序错位造成 dev.v block 重复",
+      "intervals": [
+        {
+          "after": 149,
+          "through": 159
+        }
+      ],
+      "outcome": "FVar case 显示 LHS = tm_ty_subst_env sigma (eta x) 与 RHS = eta x 不相等（type substitution 会进入已代入的 term），确认该 commutation 不需要也不必成立后删除。第一次删除时结束 marker 位于开始位置之前，重复拼接了 monotonicity block，编译报 lc_ty_at_mono 已存在；按行号重建 dev.v 后，step 159 编译越过该区域到达 reverse-opening 引理。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        222,
+        225,
+        236
+      ],
+      "qualification": "删除后暴露的 reverse-opening bullet 失败另列为下一项；本项只计假命题的判定与删除/重建。"
+    },
+    {
+      "title": "lc_ty_open_fvar_rev / lc_tm_open_fvar_rev / lc_tm_open_ty_fvar_rev 的 reverse-opening 证明因 constructor; auto 与 apply IH 分工留下未完成 bullet",
+      "intervals": [
+        {
+          "after": 159,
+          "through": 189
+        }
+      ],
+      "outcome": "coqtop 的 Show 显示 induction 后剩 BVar/FVar/Arrow/All 四个 goals；Arrow case 的 constructor; auto 只留下两个箭头分量的 local closure goals，All 的 IH 也未充分应用。改为显式 eapply IH1/IH2 与 eapply IH 后独立实验通过；回到 development 后 lc_tm_open_ty_fvar_rev 的 BVar case 还需 assumption 提供原 index bound，step 189 基础 development 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        236,
+        269,
+        281
+      ],
+      "qualification": "区间中的 Rev.v/interact.v 与 coqtop Show 只用于定位 proof state，未单列。"
+    },
+    {
+      "title": "wf_ty_free_vars / wf_ty_subst_lc / has_type_lc 的 free-variable 单调性、freshness append 与 opening rewrite 连环失败",
+      "intervals": [
+        {
+          "after": 189,
+          "through": 251
+        }
+      ],
+      "outcome": "补 free_ty_vars_ty_open_mono / free_ty_vars_tm_open_tm_mono / free_ty_vars_open_ty_incl 等辅助事实：BVar case 需显式消去 False membership，free_ty_vars_open_ty_incl 用 pose proof 保存 IH 结果；wf_ty_free_vars 用 notin_app_l/r 拆分 append freshness；wf_ty_subst_lc 用 exfalso 处理 impossible head-membership、先 unfold open_ty 再 simpl/Nat.eqb_refl、All 的 local closure 改用 lc_ty_all constructor；has_type_free_ty_vars 调整 rewrite 方向；has_type_lc 显式给出 Delta 并先 unfold open_tm/open_tm_ty 再 rewrite commutation。step 251 整块编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        285,
+        291,
+        373
+      ],
+      "qualification": "区间含 step 190 对该批 lemma 的约 28s 设计；同属这批 wf/free-variable 基础工作。"
+    },
+    {
+      "title": "LR extensionality 引理首次编译：env_value_rel_nil 的 nth 未化简、arrow_rel_ext 方向错误，all_rel_ext 以固定 A/A' 陈述无法处理依赖量化 R 的 All body relation",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 270
+        }
+      ],
+      "outcome": "env_value_rel_nil 需先 destruct index 才能化简空 env 的 nth；arrow_rel_ext 交换 proj1/proj2 修正 domain equivalence 方向；rel_val_ext 的 All case 无法与固定 A/A' 的 all_rel_ext 统一，改为 A A' : Rel -> Rel、要求 forall R 逐点等价，并用 R :: b1 / R :: b2 的 env_equiv 应用 IH。step 270 编译推进到 lc_env_irrel 的 induction pattern 错误。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        377,
+        386,
+        389,
+        401
+      ],
+      "qualification": "前两项是同一批 LR helper 首次编译中的小修，主要障碍是 all_rel_ext 的 statement；未把后续 lc_env_irrel 计入。"
+    },
+    {
+      "title": "rel_val_open_ty 缺 lc_ty_at (S k) T 的 scoping 前提（open_ty 只替换 index k、不移位更大 index），并连带补 wf_ty_lc / lc_ty_open / has_type_lc_ty 与 nth/BVar 处理",
+      "intervals": [
+        {
+          "after": 270,
+          "through": 329
+        }
+      ],
+      "outcome": "先在 lc_env_irrel 修 intros 顺序（T 被当成 nat）与 IH 的 depth 传递，加 lc_ty_at_arrow_inv/all_inv；rel_val_open_ty 的 BVar i>k 情形显示 open_ty 只替换 index k、不移位更大 index，语义 opening 需要 lc_ty_at (S k) T 前提，由 wf_ty_lc + has_type_lc_ty 提供；补 lc_ty_open 处理 U 的 lc（其 BVar false branch 需先 inversion HT 才能 lia）；nth 命中的 BVar 用 replace_at_app + nth_app_length，未命中用 nth_app_l 并补 reflexivity；期间一次重写误删 rel_val_open_ty 之后的 type local closure block，恢复后继续；has_type_lc_ty 需显式给 wf_ty_lc 的 Delta，All case 的 IH 补 U 参数。step 329 整块编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        414,
+        423,
+        489
+      ],
+      "qualification": "区间含 lc_env_irrel 的 intros/IH depth 修正与一次误删 block 的恢复，均为同一 semantic opening / relation environment 工作的必要修补。"
+    },
+    {
+      "title": "lookup_context_in 的 pair equality、update helpers 的 binder 类型，以及 inst_open_tm_subst / inst_open_tm_ty_subst 的 open wrapper 未展开与 free_tm_vars_ty_subst rewrite 方向",
+      "intervals": [
+        {
+          "after": 331,
+          "through": 354
+        }
+      ],
+      "outcome": "lookup_context_in 重写 induction/intros，用 Nat.eqb_eq 与 injection 取 pair 的 type equality；eta/ty/rho update helper 补全 atom/tm/ty/Rel binder 类型；inst_open_tm_subst / inst_open_tm_ty_subst 先 unfold open_tm/open_tm_ty，再在两个 commutation rewrite 之间加 simpl；free_tm_vars_ty_subst 改在已有 Hy 中正向 rewrite 以确定 sigma；has_type_inst_lc 显式给出 has_type_lc 的 Delta/Gamma/T。step 354 multi-step 与 fundamental 所需 helpers 全部通过编译。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        493,
+        514,
+        526
+      ],
+      "qualification": "step 355 的约 37s 是对 fundamental theorem 的独立设计，未计入本项。"
+    },
+    {
+      "title": "fundamental 的 T_TAbs case：rel_val_ext 的 rho_equiv_on 以 _ evar 无法 elaboration；局部 definition rho' 使 Hypothesis 中的 rho' Z 需 rho_update_other 改写，反向 implication 还需 unfold goal 中的 rho'",
+      "intervals": [
+        {
+          "after": 357,
+          "through": 365
+        }
+      ],
+      "outcome": "把 rho_equiv_on S rho' rho 与 rho_equiv_on T0 rho' rho 改为独立 assert；错误尾部显示 HH : rho' Z t1 t2 而 goal 已是 rho Z t1 t2，加入 rho_update_other 并用 X 的新鲜性得 Z ≠ X 后在 HH 中 rewrite；反向 implication 的 goal 仍含局部 definition rho'，补 unfold rho' 后才能 rewrite。step 365 fundamental theorem 编译通过（target theorem 仍为 Admitted 草稿）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        530,
+        536,
+        542
+      ],
+      "qualification": "fundamental 其他 typing case 首次即通过；本项只覆盖 T_TAbs 的 rho 等价证明。"
+    }
+  ],
+  "trace_sha256": "fb450d533b3c13ec110e3623ca44a2132e771eb5e051caf7f1c587c8623cc914",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 17,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "fb450d533b3c13ec110e3623ca44a2132e771eb5e051caf7f1c587c8623cc914",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r17.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r17_20261027_211838_698775"
+  }
+}

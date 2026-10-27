@@ -1,0 +1,449 @@
+{
+  "summary": "开头 step 7 的长 thinking 是 LR 方案与整份证明组织的设计探索，本身不构成具体障碍。实现阶段的困难依次集中在 substitution/open 的 lc_env 前提与 rewrite 实例错配、lc_at/lc_step 的 inversion 与 IH/假设命名、R_app_abs 的 context 管理与参数顺序、T_Abs 的显式参数与 type notation，以及漏写 lc_at_subst 与 Task.v 拼装边界。最终 Task.v 通过 clean compile，Print Assumptions 与 fresh-directory 编译均为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读取 Task.v、了解任务与初始状态",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "设计探索：CBV STLC 的 LR 方案比较与整份证明组织（单次长 thinking）",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "搭建 scratch、确认 has_type/strongly_normalizing induction principles、实现 substitution/open 基础设施并调试",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 34
+        }
+      ]
+    },
+    {
+      "title": "实现 step/SN/local closure 基础引理（lc_at opening lemmas、lc_step）",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 66
+        }
+      ]
+    },
+    {
+      "title": "定义逻辑关系 R 并实现 R_step、R_app_nav、R_app_abs、SN_if、R_if",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 83
+        }
+      ]
+    },
+    {
+      "title": "实现 regularity（has_type_lc）、context interpretation 与 fundamental theorem",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 126
+        }
+      ]
+    },
+    {
+      "title": "拼装 Task.v、clean compile、Print Assumptions 与 fresh-directory 验证",
+      "intervals": [
+        {
+          "after": 126,
+          "through": 162
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`subst_open_rec`：`subst`/`open_rec` 交换律在 fvar case 需要 `lc_env` premise",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 20
+        }
+      ],
+      "outcome": "fvar case 化简后目标为 `sigma a = open_rec k (subst sigma v) (sigma a)`；由于 `sigma a` 可能含 `bvar`，无前提的交换律不成立。加入 `lc_env sigma`，先证 `lc_at_open_rec_lc`（`lc_at k t -> open_rec k w t = t`），再用 `lc_at_mono` 从 `lc_at 0 (sigma a)` 得到 `lc_at k`；调整陈述后该 lemma 编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        24,
+        25,
+        27,
+        28
+      ],
+      "qualification": "属于陈述缺前提，不是单纯 tactic 问题。"
+    },
+    {
+      "title": "`subst_update_irrel` fvar case：`contradiction` 关不掉 `~ In x (x :: nil)`",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 22
+        }
+      ],
+      "outcome": "`apply Nat.eqb_eq in E. subst. simpl in H. contradiction` 报 `No such contradiction`；改用 `exfalso; apply H; simpl; left; reflexivity` 显式构造 membership。step 22 的编译越过 fvar case，转到 app case 的 freshness 子目标。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        28,
+        29,
+        31
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_update_irrel` app case：`rewrite IHt1, IHt2; auto` 生成的 freshness 子目标顺序与脚本相反",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 24
+        }
+      ],
+      "outcome": "编译报 `Hc : In x (fv t2)` 却要求 `In x (fv t1)`，说明两条 rewrite 的 side goals 顺序与 `+` 分支预期不一致。改为先 assert `~ In x (fv t1)`、`~ In x (fv t2)` 再 rewrite；step 24 的编译推进到 if case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        31,
+        32,
+        34
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_update_irrel` if case：`in_app_iff` 被套到 `In x (fv t1)`，`++` 结合路径判断有误",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 26
+        }
+      ],
+      "outcome": "if case 的第一个 assert 在 `In x (fv t1)` 上再 apply `in_app_iff`，报 unification 失败；step 25 认出 `fv t1 ++ fv t2 ++ fv t3` 是右结合，按 `fv t1 ++ (fv t2 ++ fv t3)` 重排三个 membership 路径。step 26 的编译推进到 `subst_open_fvar_eq`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        34,
+        35,
+        37
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_open_fvar_eq`：`rewrite subst_update_irrel` 误匹配 `tm_fvar x`，生成不可证的 freshness 子目标",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 34
+        }
+      ],
+      "outcome": "`rewrite Nat.eqb_refl` 报 `Found no subterm matching \"?M =? ?M\"`；最小文件证明 `subst (subst_update sigma x u) (tm_fvar x) = u` 可通过，但在原 lemma 中加 `simpl` 后仍报同一错误。`Show` 显示 `rewrite subst_update_irrel` 先匹配了 `subst (subst_update sigma x u) (tm_fvar x)`，留下 `~ In x (fv (fvar x))` 且 opening argument 变成 `sigma x`。改为显式 `rewrite (subst_update_irrel sigma x u t)`，并在 `unfold subst_update` 后再 `simpl`，两个 bridge lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        37,
+        40,
+        43,
+        46,
+        47,
+        49
+      ],
+      "qualification": "定位依赖最小复现与 `Show`；未改动 lemma 陈述。"
+    },
+    {
+      "title": "`lc_at_open_rec` abstraction case：IH 需要 `lc_at (S k) u`，缺 `lc_at_mono`",
+      "intervals": [
+        {
+          "after": 36,
+          "through": 44
+        }
+      ],
+      "outcome": "编译先报 bullet 未完成；在 bvar 分支和 false branch 用 `Show` 检查都正常，按行号回推才确认是 abstraction case 在 `apply IHt with (k := S k)` 后还缺 `lc_at (S k) u`。补 `apply lc_at_mono with (k := k); [lia | exact Hu]` 后，编译推进到 `lc_at_open_fvar`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        52,
+        55,
+        58,
+        62,
+        64
+      ],
+      "qualification": "主要耗时在把 bullet 失败定位到正确 case（先查了 bvar 与 lia）。"
+    },
+    {
+      "title": "`lc_at_open_fvar`：IH 结论不含 `x`，`apply IHt1` 报 Unable to find an instance",
+      "intervals": [
+        {
+          "after": 44,
+          "through": 50
+        }
+      ],
+      "outcome": "abstraction case 先补 `(x := x)` 仍报同一错误；读源码后确认 app 与 if case 的 `apply IHt1/IHt2/IHt3` 同样无法从 conclusion 推出 `x`。把这些 application 改成 `apply (IHt1 k x)` 等显式实例后，编译越过该 lemma，在 `lc_step` 的 bullet 处报未完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        64,
+        67,
+        70,
+        71,
+        73
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_step`：ST_AppAbs 需从 abstraction 的 `lc_at` 再取 body 的 `lc_at 1`，单层 `inversion Hlc` 不足",
+      "intervals": [
+        {
+          "after": 50,
+          "through": 54
+        }
+      ],
+      "outcome": "ST_AppAbs case 在 `inversion Hlc` 后只得到 `lc_at 0 (tm_abs T t)` 与 `lc_at 0 v`，无法直接得到 `lc_at 1 t`。新增 `lc_at_app_inv`/`lc_at_abs_inv`/`lc_at_if_inv` 显式分解 `lc_at`，再用 `lc_at_open_rec` 组合 body 与 argument 重写 `lc_step`；step 54 的编译推进到 IH 名称错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        73,
+        76,
+        77,
+        79
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_step`：step 归纳的 IH 名为 `IHstep`，脚本引用的 `IHH` 不存在",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 62
+        }
+      ],
+      "outcome": "重写后的 `lc_step` 引用 `IHH`，编译报 `The variable IHH was not found`；两次 `Show` 依次查看 ST_AppAbs 与 ST_App1 的 proof state，确认 IH 实际名为 `IHstep`（`locally_closed t1 -> locally_closed t1'`）。统一替换后，编译推进到 if case 的命名冲突。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        79,
+        85,
+        88,
+        90,
+        91
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_step` if cases：`destruct ... as [H1 [H2 H3]]` 的 `H1` 与已有 hypothesis 重名",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 66
+        }
+      ],
+      "outcome": "编译报 `H1 is already used`；未继续追查 `H1` 来源，直接把三个 if case 的 destruct pattern 改为 `HA/HB/HC`。`lc_step` 与整组 step/SN/local closure 引理编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        91,
+        94,
+        95,
+        97
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`R_app_abs`：`assert strongly_normalizing u` 时 `R A u` 还在 goal premise，未 `intros`",
+      "intervals": [
+        {
+          "after": 73,
+          "through": 81
+        }
+      ],
+      "outcome": "编译报 `Proof is not complete`，指向 `assert (Hsn : strongly_normalizing u) by (apply R_sn with A; auto)`；多轮检查 tactical、bullet 与 `Show` 后，step 80 确认 `R A u` 尚未进入 context，`auto` 无法用 `R_sn`。改为两个分支各自先 `intros Hu`，取到 SN 后 `revert Hsub Hu` 再对 `u` 做 SN induction；step 81 的编译推进到 `R_step` 参数错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        107,
+        110,
+        113,
+        116,
+        119
+      ],
+      "qualification": "报错信息含糊，耗时主要在确认缺失的 premise。"
+    },
+    {
+      "title": "`R_app_abs`：`apply R_step with A` 把 `ty` 填进 `tm` 位置",
+      "intervals": [
+        {
+          "after": 81,
+          "through": 83
+        }
+      ],
+      "outcome": "递归 argument case 中 `apply R_step with A` 报 `A` 的类型是 `ty` 而期望 `tm`；改成显式 `exact (R_step A u0 u' Hu Hs)` 后，`R_app_abs`、`SN_if`、`R_if` 一起编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        119,
+        121,
+        122
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`in_le_sum` cons case：`lia` 报 Cannot find witness，改为手写算术",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 95
+        }
+      ],
+      "outcome": "`destruct Hx as [-> | Hx]; lia` 在 cons case 报 `Cannot find witness`；独立文件 `t2.v` 复现后，改用 `Nat.le_add_r` 处理首项，其余项用 `IH`、`Nat.le_trans` 与 `Nat.le_add_l`。最小文件通过后放回 `sol.v`，step 95 的编译越过 `in_le_sum`，转到 `has_type_lc` 的 IH 名称错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        131,
+        134,
+        137,
+        140
+      ],
+      "qualification": "`in_le_sum` 只是构造 fresh atom 的辅助算术事实。"
+    },
+    {
+      "title": "`has_type_lc` T_Abs：IH 自动名为 `H0`，脚本引用的 `IHH` 不存在",
+      "intervals": [
+        {
+          "after": 95,
+          "through": 99
+        }
+      ],
+      "outcome": "编译报 `IHH` 不存在；`Show` 确认 T_Abs 的 induction hypothesis 名为 `H0`，内容是对 fresh `x` 给出 `locally_closed (open t1 (fvar x))`。改用显式 `induction H as [...]` 把该 IH 固定为 `IHprem` 后，regularity 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        140,
+        143,
+        146
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`env_match_update`：`lc_env_update` 需要 `locally_closed u`，未从 `R T u` 取 `R_lc`",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 106
+        }
+      ],
+      "outcome": "`apply lc_env_update; assumption` 报 `No such assumption`：第二个 premise 需要 `locally_closed u`，而 context 只有 `Hu : R T u`。改成 `[exact Hlc | apply R_lc with T; exact Hu]` 后，step 106 的编译推进到 fundamental 的 T_Abs case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        150,
+        153,
+        154,
+        156
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental T_Abs：`lc_at_abs_inv` 的 `T` 无法从 goal 推断，`has_type_lc` 也未完整传参",
+      "intervals": [
+        {
+          "after": 106,
+          "through": 112
+        }
+      ],
+      "outcome": "`apply lc_at_abs_inv` 报 `Unable to find an instance for the variable T`（conclusion 不含 type annotation）；改为显式 `lc_at_abs_inv 0 T1 t1`。随后编译指出 `has_type_lc Habs` 把 typing evidence 当成了 Gamma，补齐 `Gamma (tm_abs T1 t1) (T1 -> T2) Habs` 后，报错转为 `T1` 需要是 sort。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        156,
+        160,
+        162,
+        163,
+        165
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental T_Abs：`T1 -> T2` 在 custom `stlc_ty` entry 外被解析为函数类型，需写 `Ty_Arrow`",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 124
+        }
+      ],
+      "outcome": "报错称 `T1` 的 type 是 `ty` 却被要求是 `Set/Prop/Type`；先后用 `About`/`Print Implicit` 排除 implicit arguments、打印源码确认修改生效、逐项 `Check`/`About` 排除签名问题，独立测试亦可复现。step 123 认定 `T1 -> T2` 在 custom entry 外是普通 arrow，改成 `Ty_Arrow T1 T2` 后编译推进到 `lc_at_subst` 未定义。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        165,
+        166,
+        168,
+        172,
+        174,
+        177,
+        181,
+        183
+      ],
+      "qualification": "已排除隐式参数与签名猜测，问题在 type notation 的作用域。"
+    },
+    {
+      "title": "fundamental：`lc_at_subst` 只规划未写入，编译报未定义",
+      "intervals": [
+        {
+          "after": 124,
+          "through": 126
+        }
+      ],
+      "outcome": "编译报 `The variable lc_at_subst was not found`；确认该 substitution 保持 local closure 的 lemma 此前从未写入文件。补上对 `lc_at` evidence 的 induction（fvar case 用 `lc_env` 与 `lc_at_mono`，其余 case 保持结构）后，包含 fundamental 与 normalization 的 scratch 整体编译通过。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        183,
+        184,
+        186
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "拼装 Task.v：以 Target theorem 注释为界截断，漏掉 `strongly_normalizing` inductive",
+      "intervals": [
+        {
+          "after": 131,
+          "through": 135
+        }
+      ],
+      "outcome": "第一次拼装取 `Target theorem` 注释之前的原文，`rocq compile Task.v` 报 `strongly_normalizing` 未定义；step 132 发现该注释位于 inductive 之前，改为从 `Task.v.orig` 以 `Theorem normalization` 行为界保留完整定义，重新组装后编译无错误（26968 bytes）。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        193,
+        194,
+        196,
+        199
+      ],
+      "qualification": "纯文件拼装问题，与证明内容无关。"
+    }
+  ],
+  "trace_sha256": "477a3539dfa657c01f57a556b3d0efe7cbd7a878b3494afd9586ddc74195b440",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 10,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "477a3539dfa657c01f57a556b3d0efe7cbd7a878b3494afd9586ddc74195b440",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r10.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r10_20261027_211735_552131"
+  }
+}

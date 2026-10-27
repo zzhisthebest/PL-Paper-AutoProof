@@ -1,0 +1,306 @@
+{
+  "summary": "整段运行约一半时间用于 LR、env_ok、R_expand 与 abstraction 证明路线的设计推演，其余主要是基础 helper 引理的编译调试，以及 fundamental 的 T_Abs 中 environment 等式、eqb 分支与 opening rewrite 的多次错误定位。最终 normalization 通过 clean compile，Print Assumptions 返回 Closed under the global context，supplied definitions 与 theorem statement 保持一致；收尾验证不计为困难。",
+  "phases": [
+    {
+      "title": "读取任务、确认目标与 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 R、env_ok、R_expand 与 abstraction 证明路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "编写 freshness、substitution 和 local closure 基础设施",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "调试基础 lemmas 的 induction patterns、分支 tactics 与声明顺序",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 72
+        }
+      ]
+    },
+    {
+      "title": "细化并编写 LR helpers、fundamental 与 normalization",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 83
+        }
+      ]
+    },
+    {
+      "title": "调试 R_expand、R_app_abs 和 R_if 的 hypothesis 引用及变量命名",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 102
+        }
+      ]
+    },
+    {
+      "title": "定位并修复 fundamental 的 T_Abs environment、eqb 分支与 opening obligations",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 175
+        }
+      ]
+    },
+    {
+      "title": "验证编译、assumptions、原始定义和 theorem statement，复查并结束",
+      "intervals": [
+        {
+          "after": 175,
+          "through": 196
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_open_fvar、subst_cons_notin 与 step_lc_fwd/step_lc_back：induction 的 argument/IH 名称绑定不符合脚本假设",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 29
+        },
+        {
+          "after": 41,
+          "through": 48
+        }
+      ],
+      "outcome": "首次为 term induction 添加 patterns 时遗漏了交错出现的 IH 名称，导致 t2、a2 实际绑定为 IH；单纯更名无效。补齐 recursive arguments 与 IH 的显式 patterns 后编译越过 subst_cons_notin；随后为 step induction 显式绑定 recursive premise 与 IHHs，修复 step_lc_fwd 中未定义的 IH 引用，编译推进到 step_lc_back 的 if 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        18,
+        28,
+        37,
+        38,
+        40,
+        41,
+        59,
+        62,
+        63,
+        68,
+        69
+      ],
+      "qualification": "第二个区间是转去其他基础 lemmas 后再次处理同类命名困难；其间 lc_at_open_fvar 的算术修正和 lc_at_subst 调试未计入。"
+    },
+    {
+      "title": "lc_at_subst：前置 eauto 关闭部分 goals 后，后续 bullets 对错了 constructor case",
+      "intervals": [
+        {
+          "after": 35,
+          "through": 41
+        }
+      ],
+      "outcome": "编译显示 lc_bvar 被应用到 abstraction goal；确认 eauto using lc_at 已提前解决简单 case，bullets 与剩余 goals 不对应。取消统一 automation，改为对 bvar、fvar、app、abs、true、false、if 显式应用 local closure rules，abs case 用 lc_at_weaken 提升 substitution images 的 closure level。随后编译越过 lc_at_subst。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        50,
+        51,
+        53,
+        55,
+        59
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_b_iff：boolean test 与 lc_at 的 iff 两个方向不能统一使用 constructor tactics",
+      "intervals": [
+        {
+          "after": 52,
+          "through": 66
+        }
+      ],
+      "outcome": "bvar case 显式组合 Nat.ltb_lt 与 lc_bvar；fvar、true、false 的反向用 reflexivity；abstraction 的反向用 inversion 提取 body premise。修复后编译越过 lc_b_iff 和 value_dec，停在 SN_step 的声明顺序错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        75,
+        76,
+        80,
+        84,
+        85,
+        87,
+        88,
+        92,
+        96
+      ],
+      "qualification": "lc_b_iff 和 value_dec 最终保留在文件中，但最终 LR proof 没有使用 value_dec。"
+    },
+    {
+      "title": "R_expand：ST_App1 case 引用了 inversion 后并不存在的 hypothesis H",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 90
+        }
+      ],
+      "outcome": "改用 match goal 按 step t ?x 找到 reduction premise，并从 Hstep 提取 arrow application property；ST_App2 同样按 value t 匹配 hypothesis。随后编译推进到 R_app_abs。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        121,
+        124,
+        125,
+        127,
+        131
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_app_abs 与 R_if：SN_ind' 的 step case 重新引入已占用的 u、e1 名称",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 102
+        }
+      ],
+      "outcome": "R_app_abs 区分 outer argument u0 与 induction argument u，并按类型匹配 reduction hypotheses；R_if 将 induction argument 改为 e0。两者随后通过，编译进入 fundamental。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        131,
+        134,
+        136,
+        140,
+        143,
+        145,
+        149
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs：R_fvar 目标需先 rewrite cons_env_same，context 中的 S 被误读为 T1",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 125
+        }
+      ],
+      "outcome": "初始 unification 错误被误判为 induction pattern 把 T1 绑成 S，遂改用 has_type_ind 重写 fundamental，并一度多写一个 motive 参数。读到 error tail 后确认 S 只是 intros y S Hy 的局部变量，goal 为 R S (cons_env sigma y (fvar y) y)，而 Nat.eqb y y 对变量 y 不规约，故需先 rewrite cons_env_same。两个 eqb-true branches 补上该 rewrite 后，编译推进到 eqb-false 分支。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        149,
+        150,
+        163,
+        166,
+        172,
+        178,
+        179,
+        181,
+        182
+      ],
+      "qualification": "has_type_ind 改写与 motive 参数错误是定位同一 goal 时的排查，最终 proof 保留 has_type_ind。"
+    },
+    {
+      "title": "fundamental 的 T_Abs eqb-false 分支：update/rewrite E 被作用在 goal 而非 Hy，报错被误归到 cons_env_other",
+      "intervals": [
+        {
+          "after": 125,
+          "through": 167
+        }
+      ],
+      "outcome": "加入 cons_env_other 后编译报 Found no subterm matching x =? y，长时间被当作 cons_env_other 的匹配问题，先后尝试独立 Hxy、Nat.eqb_neq、打印 goal、显式 arguments、两个最小测试和 replace。按 character slice 确认报错落在 apply Henv 之后的 rewrite E：此时 goal 已是 Gamma0 y = Some S，update 与 eqb 等式都在 Hy 中。改为 unfold update in Hy; rewrite E in Hy 后该错误消失，编译转为 setoid rewrite 失败。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        182,
+        185,
+        186,
+        191,
+        194,
+        200,
+        203,
+        206,
+        212,
+        215,
+        218,
+        224,
+        227,
+        232,
+        238,
+        241,
+        242,
+        243,
+        244
+      ],
+      "qualification": "两个最小测试 test1.v、test2.v 均通过，说明 inequality 证明与 cons_env_other 的 statement 本身无误。"
+    },
+    {
+      "title": "fundamental 的 T_Abs eqb-false 分支：E 被 Nat.eqb_neq 转成 x<>y 后 rewrite in Hy 触发 setoid rewrite 失败",
+      "intervals": [
+        {
+          "after": 167,
+          "through": 173
+        }
+      ],
+      "outcome": "unfold update in Hy; rewrite E in Hy 编译报 setoid rewrite failed（Nat.eqb 的 Proper obligations），因为此前 apply Nat.eqb_neq in E 已把方程换成不等式；批量修改又因 assertion 计数失败未写入，并发现 value-argument 分支早先被误写成 tm_fvar x。改为保留 eqb 方程 E、另 assert Hxy 供 cons_env_other，并把 Henv2 改回 v 后，编译推进到 subst_open_rec。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        244,
+        245,
+        246,
+        247,
+        248,
+        252,
+        253
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs：subst_open_rec rewrite 在 HR/HRv 中匹配不到未展开的 open",
+      "intervals": [
+        {
+          "after": 173,
+          "through": 175
+        }
+      ],
+      "outcome": "rewrite (subst_open_rec ...) in HR 报 Found no subterm matching；确认 HR 中仍是 open t1 (fvar x)，而 rewrite 按语法匹配 open_rec 形式。在 HR、HRv 中先 unfold open 后 rewrite 成功，coqc 无输出，完整文件编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        253,
+        254,
+        255,
+        256
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "3f5f33ee6e280fd56dcba9ea1a8c8840243ff6623c40fdd69f38eaf78913ae1f",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 15,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "3f5f33ee6e280fd56dcba9ea1a8c8840243ff6623c40fdd69f38eaf78913ae1f",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r15.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r15_20261027_211735_822479"
+  }
+}

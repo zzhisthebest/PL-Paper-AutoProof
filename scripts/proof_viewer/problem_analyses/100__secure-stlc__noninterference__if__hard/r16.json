@@ -1,0 +1,625 @@
+{
+  "summary": "本次运行最终成功：`Task.v` 经 fresh `coqc` 通过，`Print Assumptions noninterference` 返回 `Closed under the global context`，未使用 `Admitted`/axiom，原文件前 405 行与 theorem statement 保持不变；下列 interval 均以 step 编号表示。最大非证明块是 step 8 的 API stream idle timeout（期间没有 proof 活动）；step 6/13/17 的 LR 路线设计与 step 141/258/311 的后续规划属于混合设计时间，保留在 phases，未逐条计入 problems。其余时间为 helper、substitution、LR/V_subtype、transparent_ground_erase 与 fundamental 的编写-编译-调试及最终验证。",
+  "phases": [
+    {
+      "title": "阅读 Task.v/card.md 与首轮 LR 路线推演",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "API stream idle timeout（无 proof 活动）",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "重开会话、确认 Task.v 未修改、本地搜索参考并重新设计 LR（收敛到 Low observer）",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "编写与调试基础 helper：label/security/value/multi-step decomposition/head-step",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 140
+        }
+      ]
+    },
+    {
+      "title": "编写与调试 substitution infrastructure、LR V/E、fresh_atom 与 V_subtype",
+      "intervals": [
+        {
+          "after": 140,
+          "through": 310
+        }
+      ]
+    },
+    {
+      "title": "编写与调试 transparent_ground_erase 与 fundamental theorem",
+      "intervals": [
+        {
+          "after": 310,
+          "through": 378
+        }
+      ]
+    },
+    {
+      "title": "完成最终 noninterference proof",
+      "intervals": [
+        {
+          "after": 378,
+          "through": 388
+        }
+      ]
+    },
+    {
+      "title": "最终验证与收尾（escape grep、Print Assumptions、fresh compile、diff）",
+      "intervals": [
+        {
+          "after": 388,
+          "through": 401
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "value_no_step：value constructor 归纳未闭合，需按 value 分支排除 step",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 29
+        }
+      ],
+      "outcome": "改为对 value derivation 逐 constructor destruct；pair/inl/inr 用 induction hypothesis（IH1/IH2/IH）排除 step，unit/abs 由 inversion 直接矛盾；编译推进到 multi_unit_eq。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        37,
+        39,
+        43
+      ],
+      "qualification": "43 是 step 31 的后续编译，显示已越过 value_no_step、进入 multi_unit_eq，仅作验证引用，未计入区间。"
+    },
+    {
+      "title": "multi_unit_eq / multi_abs_eq：固定 source 的 multi induction 与 subst 目标错位",
+      "intervals": [
+        {
+          "after": 31,
+          "through": 43
+        }
+      ],
+      "outcome": "用 remember + revert 泛化 source，reflexive case 改 reflexivity，step case 用 inversion Hstep 排除；两 lemma 通过，编译推进到 pair_multi_decomp。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        43,
+        52,
+        58,
+        61,
+        64
+      ],
+      "qualification": "同一处先后出现 incomplete proof、No such hypothesis x1 与 t=t 期望 mismatch，均归入本项；64 为后续已越过这两 lemma 的记录。"
+    },
+    {
+      "title": "pair_multi_decomp：固定 source 的 induction 使 IH 不能用于中间项",
+      "intervals": [
+        {
+          "after": 45,
+          "through": 51
+        }
+      ],
+      "outcome": "把 statement 改为 `forall x u, multi x u -> value u -> forall a b k, x = tm_pair a b k -> ...`，使 induction 泛化 source、IH 能用于中间项；改后编译越过 reflexive case，随后在 step inversion 上遇到新的 19-branch 障碍。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        64,
+        71,
+        73,
+        79,
+        113
+      ],
+      "qualification": "79 是 step 55 的编译，显示 x1 错误已消失、pair 的 step inversion pattern 成为下一障碍；113 是 step 78 的编译，显示 pair 已通过、错误转到 fst decomposition；两条均在区间外，仅作验证。step 53 把同一 statement 形式推广到其余 decomposition lemmas。"
+    },
+    {
+      "title": "step inversion：`inversion ... as [...]` 需覆盖 19 个 constructor branches",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 76
+        }
+      ],
+      "outcome": "新增 step_pair_inv/step_inl_inv/step_inr_inv/step_app_inv/step_fst_inv/step_snd_inv/step_case_inv/step_if_inv/step_protect_inv，并把各 multi_decomp proof 改为使用它们。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        79,
+        82,
+        109,
+        149
+      ],
+      "qualification": "149 是 step 102 的后续编译，已越过所有 decomposition、进入 head-step lemma，未据此扩大区间。"
+    },
+    {
+      "title": "fst/snd/case/protect_multi_decomp：binder 名与 statement 的 `t` 冲突",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 84
+        }
+      ],
+      "outcome": "把 fst/snd/case/protect_multi_decomp 的 statement 与 induction pattern 中的 `t` 改名为 `s`；后续编译进入 repeat split 错误，说明命名冲突已解决。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        113,
+        116,
+        118,
+        121,
+        125,
+        149
+      ],
+      "qualification": "125 是 step 86 的编译，错误已变为 fst decomposition 的 repeat split 目标错位；149 是 step 102 的编译，显示全部 decomposition 通过。"
+    },
+    {
+      "title": "fst/snd/case/if/protect_multi_decomp：`repeat split` 施到错误 conjunct",
+      "intervals": [
+        {
+          "after": 86,
+          "through": 100
+        }
+      ],
+      "outcome": "对 fst/snd/case/if/protect_multi_decomp 改为显式 split、`apply v_pair`/`v_inl`/`v_inr` 与 multi_step 组合。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        131,
+        133,
+        145,
+        149
+      ],
+      "qualification": "149 显示后续编译已越过该组 lemma。"
+    },
+    {
+      "title": "head-step lemmas：首个 step 的 inversion、injection/subst 与 value_no_step",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 138
+        }
+      ],
+      "outcome": "修正 multi inversion 的 constructor 参数、改用 step_*_inv、去掉对 variable equality 的 injection 与冗余 subst，显式 value_no_step 排除 value 继续 step；coqc 无输出通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        149,
+        158,
+        170,
+        176,
+        206
+      ],
+      "qualification": "该组 lemma 连续调试，内部小错误按同一 first-step proof pattern 合并；206 是 step 140 的后续 compile OK，未据此扩大区间。"
+    },
+    {
+      "title": "substitution lemma：`tm_ind` 的 IH 紧跟 recursive arg，手写 pattern 顺序错误",
+      "intervals": [
+        {
+          "after": 145,
+          "through": 146
+        },
+        {
+          "after": 156,
+          "through": 179
+        }
+      ],
+      "outcome": "按 `tm_ind` 的「recursive arg 后紧跟 IH」重写 subst_env_id/subst_env_ext/open_rec_lc_gen/subst_env_open/subst_env_plug_x 的 pattern，并修正 `_` 用在 conclusion 与 case/if 的 f_equal 分支；subst_env_id/ext 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        213,
+        214,
+        227,
+        242,
+        248,
+        254,
+        257,
+        263
+      ],
+      "qualification": "213 为 step 145 的报错，214 为 step 146 的 tm_ind 诊断；中间 step 147-156 的 coqtop 挂起另列 tooling problem；第二区间从 step 157 的 tm_ind 解读开始，结束于最后一次 pattern 修正；263 是 step 181 的后续编译，显示错误已转到 subst_env_id_on_fv，确认两 lemma 通过。"
+    },
+    {
+      "title": "coqtop -l 检查 `tm_ind` 时挂起约 120 s",
+      "intervals": [
+        {
+          "after": 146,
+          "through": 156
+        }
+      ],
+      "outcome": "改用 `coqc` 打印 `tm_ind`（piped `coqtop` 未加载定义，找不到 `tm_ind`），确认 IH 紧跟 recursive argument，随后回到 substitution pattern 修改。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        223,
+        226
+      ],
+      "qualification": "该 120 s 是 coqtop 命令阻塞等待的实测时长，期间无证明进展，未计入其它 lemma 的处理区间；实际切换到 coqc 的处理在 step 155-156。"
+    },
+    {
+      "title": "open_rec_lc_gen：`_` pattern、bvar eqb 与 f_equal 失败",
+      "intervals": [
+        {
+          "after": 184,
+          "through": 205
+        }
+      ],
+      "outcome": "显式命名 constructor 参数、对 bvar destruct `Nat.eqb` 并用 lc bound 矛盾、按 constructor 拆 f_equal；lemma 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        269,
+        275,
+        287,
+        293,
+        302
+      ],
+      "qualification": "区间从 step 185 首次 `_` 命名错误开始；302 是 step 207 的后续编译，已越过该 lemma、进入 subst_env_open。"
+    },
+    {
+      "title": "subst_env_open：bound variable 名 `ti`、fvar witness 与 IH 固定 k",
+      "intervals": [
+        {
+          "after": 207,
+          "through": 223
+        }
+      ],
+      "outcome": "修正 bound variable 参数名 `ti` 与 case/if 的 f_equal 分支，给 fvar case 显式 `open_rec_lc_gen` 参数与 `Nat.le_0_l`，并把 statement 改为 `forall t k x`、induction t 后再 intros k x；lemma 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        302,
+        305,
+        311,
+        317,
+        323,
+        326,
+        329
+      ],
+      "qualification": "302 是首次在 subst_env_open 暴露的错误；329 是 step 225 的后续编译，已越过该 lemma、进入 subst_env_plug_x。"
+    },
+    {
+      "title": "subst_env_plug_x：AppLeft 的 IHC 需显式 premises；Ltac 封装失败",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 255
+        }
+      ],
+      "outcome": "显式应用 `subst_env_stored sigma x s`；补 notin_app3_* freshness；放弃在定义期解析局部名的 Ltac，展开为显式 apply IHC 三 premises；lemma 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        329,
+        335,
+        341,
+        344,
+        356,
+        368,
+        374,
+        377
+      ],
+      "qualification": "本项包含一次顶层残留文本删除；377 是 step 257 的后续 compile OK，未据此扩大区间。"
+    },
+    {
+      "title": "max_list_gt / fresh_atom_notin：max-based arithmetic 失败，改用 sum_list",
+      "intervals": [
+        {
+          "after": 262,
+          "through": 282
+        }
+      ],
+      "outcome": "把 fresh_atom 从 max_list 改为 `S (sum_list l)`，用 lia 完成 bound；并补 `unfold fresh_atom`，fresh_atom_notin 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        384,
+        387,
+        396,
+        399,
+        402,
+        405,
+        414
+      ],
+      "qualification": "414 是 step 282 的编译，显示 fresh_atom 已通过、错误推进到 lc_open_S；区间据此结束于 282。"
+    },
+    {
+      "title": "lc_open_S / has_type_lc：binder order、IH 的 `x` 推断与 premise 错位",
+      "intervals": [
+        {
+          "after": 282,
+          "through": 298
+        }
+      ],
+      "outcome": "把 lc_open_S 改为 `forall t k x`、显式 `(x := x)`；修正 has_type_lc 的 `Ht IH Hflow` 顺序；两 lemma 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        414,
+        417,
+        420,
+        426,
+        432,
+        435,
+        438
+      ],
+      "qualification": "首次错误在 step 282 的编译暴露（414）；区间从 step 283 的决定与 step 284 的修复开始，结束于 step 298 的最后一次 pattern 修正；438 是 step 298 的编译，显示错误已转移到 V_subtype，确认两 lemma 通过。"
+    },
+    {
+      "title": "V_subtype：label branch order、Hw1 命名与 arrow codomain endpoint",
+      "intervals": [
+        {
+          "after": 298,
+          "through": 310
+        }
+      ],
+      "outcome": "重写 V_subtype 四个 type cases：Low/Low 做 strict transport、High 用 V_high；重命名 arrow case 中与 well-formedness 冲突的 value hypotheses；arrow 处完整应用 Hbeh 的两个 endpoint 后交给 codomain IH。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        438,
+        441,
+        450,
+        453,
+        456
+      ],
+      "qualification": "438 是 step 298 的编译，暴露 V_subtype 的 Low/High 分支颠倒；456 是 step 310 的 compile OK，确认该 lemma 通过。"
+    },
+    {
+      "title": "transparent_ground_erase：误用 `security_le_ind_low_flow`（要求 equality）",
+      "intervals": [
+        {
+          "after": 316,
+          "through": 322
+        }
+      ],
+      "outcome": "把 Hk 推导改用 `security_le_ind_low`（第二 premise 是 flows_to），不再误用要求 equality 的 helper。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        463,
+        466,
+        469,
+        472
+      ],
+      "qualification": "472 的报错已转移到 fundamental 的 T_Unit，说明本 lemma 通过。"
+    },
+    {
+      "title": "fundamental：T_Unit..T_If 的 `destruct kappa.ind` 分支顺序错放",
+      "intervals": [
+        {
+          "after": 322,
+          "through": 326
+        }
+      ],
+      "outcome": "用脚本交换每个 case 的两个 bullet（Low first、High second），并保留 T_Protect 已正确的顺序；编译推进到 T_Abs 的 value_lc 错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        472,
+        477,
+        478,
+        556
+      ],
+      "qualification": "同一 label constructor 顺序误解在 V_subtype 也出现过，因声明不同且中间隔了其它工作，另列；556 是 step 378 的 fundamental 整体 compile OK，确认 T_Snd/T_Case/T_If 的同一分支顺序修改也已生效。"
+    },
+    {
+      "title": "fundamental.T_Abs：`value_lc Hvalw1` 把 proof 当 explicit term 参数",
+      "intervals": [
+        {
+          "after": 326,
+          "through": 338
+        }
+      ],
+      "outcome": "改用 `apply value_lc` 让 goal 推断 term（并在 assert 中 `exact Hvalw1`），不再把 proof 放到 tm 参数位置；编译转入 `subst_env_open_env_update` 的 rewrite 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        478,
+        481,
+        490,
+        496
+      ],
+      "qualification": "478 是 step 326 的错误；496 是 step 338 的编译，显示 value_lc 参数问题已消失、下一障碍是 open_rec 与 open 不匹配。"
+    },
+    {
+      "title": "fundamental.T_Abs：`subst_env_open_env_update` 的 `open_rec` 与 `open` 不匹配",
+      "intervals": [
+        {
+          "after": 338,
+          "through": 342
+        }
+      ],
+      "outcome": "先 assert 以 `open body (tm_fvar x)` 表述的 Hrew1/Hrew2，再 rewrite HEbody，使 helper conclusion 的表面形式与目标一致。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        496,
+        499,
+        501
+      ],
+      "qualification": "496 是 step 338 的错误；501 是 step 342 的编译，显示 rewrite 已通过、转入 abstraction behavior branch 的 endpoint goal。"
+    },
+    {
+      "title": "fundamental.T_Abs：endpoint equality 被 `subst` 误消，改 `rewrite Hu1eq`/`Hu2eq`（误改 V_to_E_value）",
+      "intervals": [
+        {
+          "after": 342,
+          "through": 352
+        }
+      ],
+      "outcome": "用 `rewrite Hu1eq, Hu2eq` 消去 endpoint 的 `protect_value u' Low`，不再让 subst 选择不合适的等式；恢复被全局替换误改的 V_to_E_value；T_Abs 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        502,
+        505,
+        508,
+        511,
+        516
+      ],
+      "qualification": "511 是 step 348 的编译，暴露批量替换误改了 V_to_E_value；516 是 step 352 的编译，显示 T_Abs 已通过、错误转到 T_App 的 Hty。"
+    },
+    {
+      "title": "fundamental.T_App..T_If：`Hty : ty_protect ... = ...` 在 destruct 后无法 rewrite",
+      "intervals": [
+        {
+          "after": 352,
+          "through": 356
+        }
+      ],
+      "outcome": "把 Hty 直接陈述为 `ty_protect Low T = T` 并用 `apply ty_protect_low`，避免 destruct 已把 projection 换成 Low 后 rewrite 失败。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        517,
+        520,
+        522,
+        556
+      ],
+      "qualification": "522 是 step 356 的编译，显示 T_App 已通过、错误转到 T_Fst 的 Hu1eq；556 是 step 378 的 fundamental 整体 compile OK，确认 T_Snd/T_Case/T_If 的同一修改也已生效。"
+    },
+    {
+      "title": "fundamental.T_Fst/T_Snd：`subst u1'` 清除 `Hu1eq`",
+      "intervals": [
+        {
+          "after": 356,
+          "through": 360
+        }
+      ],
+      "outcome": "改为一次 `rewrite Hu1eq, Hu2eq, Hw1eq, Hw2eq`，不再先 subst u1'/u2'。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        523,
+        526,
+        528
+      ],
+      "qualification": "528 是 step 360 的编译，显示 T_Fst/T_Snd 已通过、错误转到 T_Case 的 Hb1。"
+    },
+    {
+      "title": "fundamental.T_Case：`Hb1/Hb2` 与 body typing premise 冲突",
+      "intervals": [
+        {
+          "after": 360,
+          "through": 364
+        }
+      ],
+      "outcome": "把 sum strict destruct 的 Hb1/Hb2 改名为 Hka1/Hka2。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        529,
+        532,
+        534
+      ],
+      "qualification": "534 是 step 364 的编译，显示 Hb 重命名已通过、转入 value_inv 的 intro pattern 错误。"
+    },
+    {
+      "title": "fundamental.T_Case：`destruct (value_inv_inl ...) as Hva1` 不是合法 intro pattern",
+      "intervals": [
+        {
+          "after": 364,
+          "through": 366
+        }
+      ],
+      "outcome": "改用 `pose proof (value_inv_inl ...) as Hva1`（inr 同理）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        535,
+        537
+      ],
+      "qualification": "537 是 step 366 的编译，显示 pose proof 已接受、错误转入 T_Case inl branch 的 value_lc 参数。"
+    },
+    {
+      "title": "fundamental.T_Case：`value_lc Hva1` 把 proof 当 explicit term 参数",
+      "intervals": [
+        {
+          "after": 366,
+          "through": 376
+        }
+      ],
+      "outcome": "把 `value_lc Hva1` 改为 `value_lc a1 Hva1`，恢复显式 term 参数。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        538,
+        541,
+        544,
+        550,
+        552
+      ],
+      "qualification": "552 是 step 376 的编译，显示 value_lc 参数已补齐、错误转入 open_rec 与 open 不匹配。"
+    },
+    {
+      "title": "fundamental.T_Case：`subst_env_open_env_update` 的 `open_rec` 与 `open` 不匹配",
+      "intervals": [
+        {
+          "after": 376,
+          "through": 378
+        }
+      ],
+      "outcome": "先 assert 以 `open b (tm_fvar x)` 表述的 Hrew1/Hrew2，再 rewrite HEbody。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        553,
+        555,
+        556
+      ],
+      "qualification": "556 为 case 两个 branch 都改完后 fundamental 的 compile OK。"
+    },
+    {
+      "title": "noninterference：Hres/Hsec 的 no-flow 推导 rewrite/flows_to 化简失败",
+      "intervals": [
+        {
+          "after": 382,
+          "through": 388
+        }
+      ],
+      "outcome": "在 Hres/Hsec 的 no-flow 推导中 destruct 另一侧 label，使 flows_to 归约到 True；最终 theorem 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        562,
+        568,
+        571
+      ],
+      "qualification": "571 为包含 noninterference proof 的完整 coqc 成功。"
+    }
+  ],
+  "trace_sha256": "6d24013241195fd8bcf06afe50f9f47c40a017a6902747481c72a4f8c791a0d8",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 16,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "6d24013241195fd8bcf06afe50f9f47c40a017a6902747481c72a4f8c791a0d8",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r16.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r16_20261027_212252_174723"
+  }
+}

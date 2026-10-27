@@ -1,0 +1,734 @@
+{
+  "summary": "本次 run（2978 秒，final status proved）前约 1200 秒用于理解 Task.v 与两轮设计 Church-style System F 的双侧 LR：step 5（约 201 秒）、step 11（约 284 秒）和 step 24（约 590 秒）三次长 thinking，其间 step 20 还有一次约 120 秒的后台文件检索；1200 秒之后进入实现与调试，主要耗时在 Stage 1 的 local closure/opening/substitution 基础设施（约 1269–1823 秒）、LR 的 tsub/trel/Adm 定义与 opening/semantic correspondence（约 1950–2339 秒）以及 fundamental theorem 的调试（约 2556–2856 秒，主要在 T_Abs/T_TAbs）。目标定理于 step 443/444（约 2932 秒）编译通过，随后用 rocq check 与 Print Assumptions 验证为 Closed under the global context；step 24 的长 thinking 混合路线设计与比较，无法再拆分归属，只计入 phases。",
+  "phases": [
+    {
+      "title": "初始化、读取 Task.v、首轮 LR 路线与 Church-style T_TAbs 难点推演（step 5 约 201 秒、step 11 约 284 秒）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "环境/可用库探查与后台文件系统搜索（含 step 20 约 120 秒搜索等待）",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 20
+        }
+      ]
+    },
+    {
+      "title": "第二轮深度设计：T_TAbs type substitution 难点下的 tsub/trel/Adm/protected atoms 路线（step 24 约 590 秒）",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 24
+        }
+      ]
+    },
+    {
+      "title": "工具链与基础 tactic/freshness 试验（scratch 文件）",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 39
+        }
+      ]
+    },
+    {
+      "title": "Stage 1：local closure、opening inversion、typing 不变量、substitution 与 multi-step 基础设施",
+      "intervals": [
+        {
+          "after": 39,
+          "through": 207
+        }
+      ]
+    },
+    {
+      "title": "Stage 2：tsub/trel/Adm 与 V/E 定义、opening 引理、trel_step/trel_multi",
+      "intervals": [
+        {
+          "after": 207,
+          "through": 245
+        }
+      ]
+    },
+    {
+      "title": "Stage 2b：type substitution identity、protected atoms、Adm 基础与 V_benv_irrel",
+      "intervals": [
+        {
+          "after": 245,
+          "through": 262
+        }
+      ]
+    },
+    {
+      "title": "sem_open_gen / sem_subst_gen 两个语义 opening/substitution 对应引理",
+      "intervals": [
+        {
+          "after": 262,
+          "through": 285
+        }
+      ]
+    },
+    {
+      "title": "V_E_trel_same / Adm_V：LR 在 admissible type change 下的保持性",
+      "intervals": [
+        {
+          "after": 285,
+          "through": 310
+        }
+      ]
+    },
+    {
+      "title": "Stage 3：ctx_wf/env_rel、wf_ty weakening/fvs 与 environment irrelevance",
+      "intervals": [
+        {
+          "after": 310,
+          "through": 321
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem：六条 typing rule 的归纳证明",
+      "intervals": [
+        {
+          "after": 321,
+          "through": 422
+        }
+      ]
+    },
+    {
+      "title": "目标定理：以 P = fvs_tm v、R a b := a -->* v ∧ b -->* v 实例化 free theorem",
+      "intervals": [
+        {
+          "after": 422,
+          "through": 443
+        }
+      ]
+    },
+    {
+      "title": "最终验证与交付报告：clean compile、rocq check、Print Assumptions",
+      "intervals": [
+        {
+          "after": 443,
+          "through": 456
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "fresh / fresh_notin：fold_right max 定义无法通过 simpl/unification",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 38
+        }
+      ],
+      "outcome": "初始 fresh 用 fold_right (fun a acc => max (S a) acc) 0 L，simpl 展开成对 acc 的 match，Nat.le_max_l 的 side condition 无法与 S x <= ... 统一；中途还因 nil case 未关闭出现 No such contradiction 与连续 Wrong bullet。改述为 S (fold_right max 0 L)、先证 In x L -> x <= fold_right max 0 L，并把界引理 in_le_fold_max 提为顶层 lemma（step 38 独立通过）；写入 Task.v 后 step 43 编译越过 freshness 部分，报错推进到 lc_ty_at_mono。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        33,
+        36,
+        39,
+        42,
+        45,
+        48,
+        51
+      ],
+      "qualification": "只是辅助引理；与最终定理的数学难点无关。"
+    },
+    {
+      "title": "lc_ty_at_mono / lc_tm_at_mono_K 的 All/tabs case：Cannot find witness 与一次 Edit 误删 lemma 尾部",
+      "intervals": [
+        {
+          "after": 43,
+          "through": 57
+        }
+      ],
+      "outcome": "eapply IHT 在 binder 递增层留下未定 evar；改为显式 eapply IHT with (k := S k) 以及 IHt with (K := S K) (K' := S K') 后两个 monotonicity lemma 通过。期间 step 53 的 Edit 把 lc_tm_at_mono_K 后半段和 Qed 截掉，step 57 整体重写恢复 lc_tm_at_mono_K 并补回 lc_tm_at_mono_k；step 59 编译推进到 open_tm_rec_lc_inv，确认修复。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        58,
+        64,
+        67,
+        73,
+        76,
+        78,
+        79,
+        82
+      ],
+      "qualification": "文件损坏属编辑操作失误（tooling），与 tactic 问题时间交织。"
+    },
+    {
+      "title": "open_tm_rec_lc_inv 的 tabs case：IH 参数/evars 与 auto 之后多余的 lia",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 77
+        }
+      ],
+      "outcome": "直接 eapply IHt 时 substitution term 的 evar 无法确定；补 (s := s) 无效，加入 assert (Hs' : lc_tm_at (S K) 0 s) 并用 eapply IHt with (K := S K) (k := k) (s := s)。最终 No such goal 的原因是 assert 内的 auto 已关闭目标、后面的 lia 无 goal；删除多余 lia 后编译推进到 wf_ty_lc 的 freshness 使用处。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        82,
+        85,
+        88,
+        91,
+        97,
+        106,
+        109
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "wf_ty_lc 的 freshness list 不匹配与 fresh_notin_1/2",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 83
+        }
+      ],
+      "outcome": "apply H0; apply fresh_notin 把 L 与 L ++ fvs_ty T 混为一谈；新增 fresh_notin_1/2 从 append 两侧提取 freshness，并把 helper 内的 apply fresh_notin 改为 apply (fresh_notin (L1 ++ L2))，编译推进到 wf_ty_lc 的 Delta 推断。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        109,
+        112,
+        115,
+        118
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "has_type_lc_ty / has_type_lc_tm：induction premise/IH 错位、T_App 缺 inversion 与未 focus goals",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 127
+        }
+      ],
+      "outcome": "先是 apply wf_ty_lc 无法从 lc_ty_at 的 goal 推断 Delta；T_Abs 的 forall premise 被当成 IH（H0 而非 IHbody），T_TAbs 需以 fresh 变量显式实例化 IHbody，且中途把 T 误写成 T2。改用显式 induction H as [...] 后，T_App 仍需 inversion IH1 才能从 arrow 的 lc 得到 result type 的 lc；之后 T_TApp/T_Choice 的 bullet 仍未结束，Show 证明当前 case 已关闭、剩下的是未 focus 的 T_TApp/T_Choice goals。最终以显式 patterns 重写两个 typing invariant（T_TApp 用 open_ty_rec_lc_fwd + lc_ty_at_all_inv）后通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        124,
+        127,
+        130,
+        133,
+        141,
+        147,
+        153,
+        183,
+        184
+      ],
+      "qualification": "该段还包含判定何时 auto 能解 assumption、何时必须显式给 Delta 的经验性调整，以及一段围绕 unfocused goals 的误诊。"
+    },
+    {
+      "title": "subst_map_open_tm_rec / subst_map_open_tm_ty_rec 缺 substitution image 的 local closure 前提（及 lc_id 的 depth 参数）",
+      "intervals": [
+        {
+          "after": 127,
+          "through": 175
+        }
+      ],
+      "outcome": "原无条件的 commutation 在 fvar case 为假：σ a 可能含 bvar，open_tm_rec/open_tm_ty_rec 会继续替换它。加入 (forall x, lc_tm_at 0 0 (σ x)) 前提，并证明 open_ty_rec_lc_id / open_tm_rec_lc_id / open_tm_ty_rec_lc_id（分别要求 k ≤ j 与 K ≤ j）。随后清理旧 block 未删除造成的重复定义，显式给出 IH 的 k/K，修正 induction pattern 中 recursive arg 与 IH 的交错顺序，把 tabs case 的 type opening index 改为 S j，并清理 commutation 中 auto 后多余的 reflexivity；step 175 两个 commutation 引理通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        184,
+        187,
+        190,
+        196,
+        205,
+        217,
+        229,
+        241,
+        244,
+        256
+      ],
+      "qualification": "这是对 helper lemma 陈述的实质加强；后续 fundamental theorem 中由 global lc of σ 提供该前提。"
+    },
+    {
+      "title": "lc_tm_subst_map 的 tabs case：type-binder depth 提升",
+      "intervals": [
+        {
+          "after": 175,
+          "through": 179
+        }
+      ],
+      "outcome": "eapply IHt; eauto 留下未定的 depth，auto 关闭目标后 lia 报 No such goal；改为 eapply IH0 with (K := S K)，并用 lc_tm_at_mono_K 把 σ 的 local closure 从 level 0 提升到 S K 后通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        257,
+        260,
+        262
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_tm_ty_subst 的 constructor 层数（value 与 locally_closed_tm 需分别拆解）",
+      "intervals": [
+        {
+          "after": 179,
+          "through": 183
+        }
+      ],
+      "outcome": "只 apply v_abs/v_tabs 后 goal 仍是 locally_closed_tm (abs ...)，直接 eapply lc_tm_tm_ty_subst 无法匹配 unfolded form；改为先 apply v_abs/v_tabs，再 constructor 拆 lc_tm_abs/lc_tm_tabs，最后分别用 lc_ty_ty_subst 与 lc_tm_tm_ty_subst。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        262,
+        265,
+        268
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "ty_subst_open_ty_rec / tm_ty_subst_open_tm_ty_rec 缺 lc_ty_at 0 U premise",
+      "intervals": [
+        {
+          "after": 183,
+          "through": 193
+        }
+      ],
+      "outcome": "fvar case 在 X 被替换时要求 open_ty_rec j W U = U，只有 U 无 free bvar 时成立；为 type substitution/opening commutation 加上 image type 的 lc_ty_at 0 前提，并用 open_ty_rec_lc_id 消去 opened image、用 symmetry 处理等式方向后通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        268,
+        270,
+        274,
+        277,
+        280,
+        283
+      ],
+      "qualification": "同样是补前提；该前提在后续 step_tm_ty_subst 中由 lc_ty_at 0 U 提供。"
+    },
+    {
+      "title": "multi_app_cong 的中间项与 multi_trans 参数名",
+      "intervals": [
+        {
+          "after": 193,
+          "through": 199
+        }
+      ],
+      "outcome": "eapply multi_trans 留下中间 evar，使第一个 bullet 关闭后剩余 goal 不是多步的 app 形式；改为 apply multi_trans with (b := tm_app A' B)，并注意 multi_trans 的 binder 名是 a/b/c（y 不存在）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        283,
+        286,
+        289,
+        292
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_tm_ty_subst 的 reduct commutation（folded open_tm/open_tm_ty）与 step induction pattern",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 207
+        }
+      ],
+      "outcome": "ST_AppAbs/ST_TAppTabs 的 reduct 是 folded open_tm / open_tm_ty，直接 rewrite *_open_*_rec 找不到 subterm；增加 folded corollaries tm_ty_subst_open_tm、tm_ty_subst_open_tm_ty 以及 lc_abs_tm_ty_subst、lc_tabs_tm_ty_subst。step induction 中 recursive premise 的 IH 紧跟 premise（Hstep IHstep Hlc），原先把 Hlc 与 IHstep 写反。修正后 Stage 1 全通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        292,
+        295,
+        298,
+        301,
+        304
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "V_value_l / V_value_r 的 destruct S 引入 atom a 与后续 intros 冲突",
+      "intervals": [
+        {
+          "after": 219,
+          "through": 225
+        }
+      ],
+      "outcome": "插入 Stage 2a 后首报 Error: a is already used；先误改 trel_refl 的 induction pattern 无效，读 V_value_l 附近代码后确认 destruct S 引入的 atom 与 intros a 重名，把两个 helper 的 term binders 改为 x/y，编译推进到 tsub_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        324,
+        327,
+        330
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "tsub_lc 的量词顺序使 intros H 捕获 nat K，induction 落在 nat 上",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 233
+        }
+      ],
+      "outcome": "原述 forall P T T' K, tsub P T T' -> ...，intros P T T' H 把 H 绑成 nat K；scratch Show 确认 induction 实际作用在 nat 参数上，改为 tsub P T T' -> forall K, ... 后 tsub_lc 通过，编译推进到 trel opening helper。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        333,
+        336,
+        339,
+        342
+      ],
+      "qualification": "只重排量词顺序，不改变数学内容。"
+    },
+    {
+      "title": "trel_open_tm_rec / tsub_open_ty / trel_open_ty_rec 的 induction pattern 与 tapp case",
+      "intervals": [
+        {
+          "after": 233,
+          "through": 243
+        }
+      ],
+      "outcome": "induction as 模式对两个 recursive args 需 t1 IH1 t2 IH2、对 tm_tapp 需 t0 IH0 T，原顺序导致 IH 被当成 term；scratch 输出确认 IH 紧跟 recursive arg。trel_open_tm_rec 的 tapp case 误传 tsub_refl，应传已给的 Htsub；tsub_open_ty 又出现 U 名称重复，改名并显式给出 patterns 后 opening 引理通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        345,
+        348,
+        351,
+        354,
+        357
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "trel_step 的 ST_AppAbs 需要先 inversion application 再 inversion abstraction",
+      "intervals": [
+        {
+          "after": 243,
+          "through": 245
+        }
+      ],
+      "outcome": "把 trel_abs_inv 直接套在 trel P (app (abs T t) v) a' 上无法 unify（Htr 是 application relation）；改为先 trel_app_inv 得到 trel (abs T t) t1' 与 trel v v'，再 trel_abs_inv 拆 abstraction，构造 ST_AppAbs 并保持 trel。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        358,
+        360
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "tsub_same_of_atoms 的 P 只出现在 premise，apply 无法推断 P",
+      "intervals": [
+        {
+          "after": 250,
+          "through": 254
+        }
+      ],
+      "outcome": "protected support helper 的调用报 Unable to find an instance for the variable P；在 apply 中显式给出 (P := P) 后编译推进到 V_benv_irrel 的 bvar case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        370,
+        373
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "V_benv_irrel 的 bvar 不等式、arrow/All 的 k:S k 实例化与 All 中 R 的 scope",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 262
+        }
+      ],
+      "outcome": "bvar case 需用 match goal 取 inversion 得到的 n < k（inversion/subst 会改名，直接引用 H0 或 i 会消失）；arrow 的 IH 需显式 (k := k)，All 的 IH 需 (k := S k)，且 assert 必须写成 forall R a b（原稿在外层引用尚未引入的 R）。重写后本批 helpers 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        376,
+        379,
+        382,
+        385
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "sem_open_gen / sem_subst_gen 的 opening index 与 Hlen : length Λs = j 冲突",
+      "intervals": [
+        {
+          "after": 265,
+          "through": 285
+        }
+      ],
+      "outcome": "inversion Hlc; subst 借助 Hlen 把 j 消成 length Λs，随后 Nat.eqb j n 报 j 不存在；改为不做 subst，新增 lc_ty_at_bvar_inv/arrow_inv/all_inv 取所需 lc。All case 的 assert 里 apply IH0; auto 已关闭部分 premise，导致后续 bullet No such goal；改为显式 apply IH0 with (j := S j) 并处理 (S j + 1) 与 (S (j+1)) 的转换；bvar case 用 app_nth1/app_nth2 + lia 处理 nth。最终两个核心语义对应引理通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        393,
+        397,
+        401,
+        404,
+        409,
+        415,
+        419
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "V_E_trel_same / Adm_V：binder 顺序、arrow/All 的 E/V 分工与 tm_tapp/tm_app 误用",
+      "intervals": [
+        {
+          "after": 288,
+          "through": 310
+        }
+      ],
+      "outcome": "先补 trel_value 的 P 参数；IH 的 term binder 原为 a b a' b'，与 Adm 的 a a' b b' 不一致，导致 M1 从 app a a1 出发而 goal 需要从 app a' a1 出发；统一后，arrow/All 的 value 部分不能复用 IH 的 V 部分，而要把两侧 application 作为整体用 IH 的 E 部分（proj2）搬运；V_All 的 tapp 不能写成 tm_app 且需 trel_tapp + tsub_refl；Adm_V 用 proj1 并按 a a' b b' 传参。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        426,
+        429,
+        435,
+        438,
+        441,
+        447,
+        450,
+        456
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fvs_ty_open_rec_incl 的 arrow case：incl_app 不能直接套用 IH",
+      "intervals": [
+        {
+          "after": 313,
+          "through": 315
+        }
+      ],
+      "outcome": "simpl 后 apply incl_app; [apply IH1 | apply IH2] 无法统一（open_ty_rec 的 j/V 仍是 evar，IH 结论与 arrow 的 fvs 形状不符）；改为 intros x Hx，用 in_app_or 分支并分别 apply (IH1 j V)/(IH2 j V)，编译推进到 wf_ty_fvs。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        461,
+        463
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "wf_ty_fvs 的 induction 后各 case 未 intros Z/Hin，报 H0 不存在",
+      "intervals": [
+        {
+          "after": 315,
+          "through": 317
+        }
+      ],
+      "outcome": "重写后编译报 No such hypothesis: H0；为三个 case 显式 intros Z Hin（并 simpl in Hin），再证 inclusion，编译推进到 E_env_irrel。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        464,
+        466
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "E_env_irrel 的 split/semicolon 链使 bracket dispatch 作用于过多 goal",
+      "intervals": [
+        {
+          "after": 317,
+          "through": 321
+        }
+      ],
+      "outcome": "split 后共用一串 semicolon tactics，报 Incorrect number of goals (expected 4 tactics)；改为 iff 两个方向各写 bullets，Stage 3 helpers 全部通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        469,
+        472
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs：wf_ty_lc/typing-lc 的显式参数、ctx_wf/env_rel 展开与 Hsub change",
+      "intervals": [
+        {
+          "after": 324,
+          "through": 336
+        }
+      ],
+      "outcome": "首次编译报 wf_ty_lc 无法推断 Delta；改 eapply 后 has_type_lc_tm 又无法推断 Delta/Gamma/T，改为显式实例。随后 unfold ctx_wf/env_rel，发现 Hctx 结论不含 lookup key，需 apply (Hctx y Ty)；Hsub1/Hsub2 的 folded open_tm 需先 change 成 open_tm_rec 形式。修完后进入 T_Abs 末段的 Wrong bullet。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        479,
+        482,
+        485,
+        488,
+        491
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs 末段：+ bullet 位于未结束的 * 内导致连续 Wrong bullet（E_multi 的 shelved evars 为误导）",
+      "intervals": [
+        {
+          "after": 336,
+          "through": 356
+        }
+      ],
+      "outcome": "连续报 Wrong bullet +（current * not finished）。Show 显示 eapply E_multi 后有 3 focused/2 shelved goals；移除 E_multi、改 destruct Hih' 取 witnesses 并显式 multi_trans 后错误不变。最终确认 + bullet 位于尚未结束的 * 内，部分内层 proof 改用 braces，T_Abs 通过并推进到 T_App。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        500,
+        503,
+        509,
+        512,
+        515,
+        518,
+        521,
+        524
+      ],
+      "qualification": "E_multi 的 shelved evars 是诊断中的误导线索；真正阻塞是 bullet 层级。"
+    },
+    {
+      "title": "fundamental 的 T_App：HVf 是 V conjunction，不能直接当函数应用",
+      "intervals": [
+        {
+          "after": 356,
+          "through": 362
+        }
+      ],
+      "outcome": "HVf : V (Arrow T1 T2) η benv f1 f2 需先 simpl 再 destruct 出 Hvf1 Hvf2 与 forall 部分；second multi_app_cong 的 value witness 应为 Hvf2（value f2），原写 Hvf1。修正后 T_App 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        527,
+        530,
+        533
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_TAbs：v_tabs/ST_TAppTabs 的 local closure、wf_ty_weaken、E_env_irrel 方向与末段 bullet 嵌套",
+      "intervals": [
+        {
+          "after": 362,
+          "through": 408
+        }
+      ],
+      "outcome": "主要卡点：(1) v_tabs / ST_TAppTabs 的 premise 是 locally_closed_tm (tabs u)，需 lc_tm_tabs，不能直接传 lc_tm_at 1 0 u；(2) 扩展 ctx_wf 的 wf_ty_weaken 有两个 premise，auto 后 intros 落在错误 goal，需显式分 bullet（此前还有 auto 已关闭目标后多余的 lia）；(3) E_env_irrel 需先证 HAgree 并用 proj1（从原 η 到 upd η X R）；(4) IHbody 的 benv 参数是外层 benv，Hbenv'（R::benv）只用于 LR transport；(5) open_tm_ty 的第二参数需 Ty_FVar X，直接写 X 是 atom；(6) Hopen1/Hopen2 需 change 成 open_tm_ty_rec 后 rewrite，且 Hih 上是正向 rewrite Hopen1；(7) 末段同样把 + bullet 放在未结束的 * 内，改用 braces 后才越过 T_TAbs。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        536,
+        539,
+        542,
+        545,
+        548,
+        551,
+        554,
+        557,
+        560,
+        563,
+        566,
+        569,
+        572,
+        575,
+        578,
+        581,
+        584,
+        587,
+        590,
+        593,
+        596,
+        599,
+        602
+      ],
+      "qualification": "这是 fundamental 中较长的连续调试（约 118 秒），由多个独立小错组成，未逐项切分时间。"
+    },
+    {
+      "title": "fundamental 的 T_TApp：lc_ty_at 0 (Ty_All T0) 与 lc_ty_at 1 T0 不是 definitional 相等",
+      "intervals": [
+        {
+          "after": 408,
+          "through": 412
+        }
+      ],
+      "outcome": "has_type_lc_ty 给出 lc_ty_at 0 (Ty_All T0)，直接用作 lc_ty_at 1 T0 报类型不匹配；改为先得 Htmp : lc_ty_at 0 (Ty_All T0)，再用 lc_ty_at_all_inv 提取 body。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        605,
+        607,
+        608
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Choice：两侧必须选同一分支（ST_ChoiceLeft）",
+      "intervals": [
+        {
+          "after": 412,
+          "through": 422
+        }
+      ],
+      "outcome": "T_Choice 的 has_type_lc_tm 调用仍沿用 T_App case 的 T1，先改为 T。随后第二侧 choice reduction 出现 branch term 不匹配：IH1 的 witnesses 都来自第一分支（multi (subst σ1 t1) v1 与 multi (subst σ2 t1) v2），因此 goal 的左右两侧都必须用 ST_ChoiceLeft 化简到 t1；原先第二侧写 ST_ChoiceRight，要求 subst σ2 t2 -->* v2，与已有 Mv2 矛盾。修正后 fundamental theorem 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        611,
+        614,
+        620,
+        622,
+        623
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "目标定理：rewrite subst_map_id in Hfund 失败（原因未确认），以及写 proof 时误删 End",
+      "intervals": [
+        {
+          "after": 425,
+          "through": 443
+        }
+      ],
+      "outcome": "在 Hfund 上 rewrite subst_map_id 报 Found no subterm matching；Check 显示 Hfund 类型中确有 subst_map id t 实参，显式 subst_map_id t 仍失败，原因始终未确认（模型对 E 是否展开的推测未被验证）。改为先 destruct Hfund 取 witnesses，在 goal 侧 rewrite <- (subst_map_id t) 后接 Mf1。另一次 head+new 覆盖到文件尾，删掉 End SystemFParametricityNondeterminismHardTask.；补回 End 后 rewrite 报错仍在，直至 step 443 的改写生效 coqc 才无输出通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        630,
+        633,
+        636,
+        639,
+        642,
+        645,
+        651,
+        653,
+        654
+      ],
+      "qualification": "rewrite 失败的原因始终是推测；End 丢失属编辑操作失误（tooling），两者在时间上交织。"
+    }
+  ],
+  "trace_sha256": "6b8439b4d04ba28ad3dc420e374be0b9595a650a626bfb11545ef29e5381e3ca",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 5,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "6b8439b4d04ba28ad3dc420e374be0b9595a650a626bfb11545ef29e5381e3ca",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r05.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r05_20261027_211849_683328"
+  }
+}

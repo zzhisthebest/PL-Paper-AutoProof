@@ -1,0 +1,481 @@
+{
+  "summary": "本次运行共约 2948 秒，前约 1545 秒主要是读任务与对 LR/IR、protect、subtyping 及 locally nameless 环境替换的方案推演（step 5 的输出截断后 resume），之后约 1400 秒用于实现和编译调试，其中约 910 秒可归因到具体声明上的困难。困难依次集中在 subst_env 系列引理的 induction 命名/重写、multi 的 evaluation decomposition、VR 的 unit clause 设计缺陷、fundamental theorem 的 label 分支顺序与环境关系/IH 实例化、ty_protect 类型参数以及 T_Case 的 freshness 证明；这些均在本次运行内解决，最终 coqc 通过、无 Admitted、Print Assumptions 为 closed（clean compile 约 1.2 秒）。",
+  "phases": [
+    {
+      "title": "阅读任务与逻辑关系设计探索（LR/IR、protect、subtyping、环境替换；含一次输出截断后的 resume）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "基础 infrastructure：labels/security 引理、lc_at、fresh、subst_env、fv_context",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 78
+        }
+      ]
+    },
+    {
+      "title": "value 引理、step inversion 与 evaluation decomposition lemmas",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 141
+        }
+      ]
+    },
+    {
+      "title": "has_type_lc、VR/IR 定义及关系性质（VR_protect、VR_cross_high、subtype_VR、VR_erase）",
+      "intervals": [
+        {
+          "after": 141,
+          "through": 182
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem 的设计与实现（13 个 typing cases、binder environments）",
+      "intervals": [
+        {
+          "after": 182,
+          "through": 266
+        }
+      ]
+    },
+    {
+      "title": "主定理 noninterference 证明与最终验证（无 Admitted、Print Assumptions、diff、clean compile）",
+      "intervals": [
+        {
+          "after": 266,
+          "through": 284
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`lc_at_mono` / `open_rec_fvar_lc_inv`：`tm_case` 两个 body 的 binder depth 用错（k 应为 S k）",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 27
+        }
+      ],
+      "outcome": "编译在 `lc_at_mono` 的 case 分支报 `lc_at (S k) t2` 与期望的 `lc_at k t2` 不一致；改为对两个 body 用 `IHt2 (S k) (S k')`/`IHt3 (S k) (S k')`，并同步修正 `open_rec_fvar_lc_inv` 的同一问题；coqc 随后越过该段，在 `in_lt_fresh` 报下一处错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        28,
+        30,
+        34,
+        37
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`in_lt_fresh`：`List.In` 在 `a::l` 上是 fixpoint（`a = x \\/ In x l`），首次修复被 `subst` 清掉 `a`",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 39
+        }
+      ],
+      "outcome": "先尝试 `destruct Hin as [-> | Hin]` 仍报 `The variable a was not found`；用 scratch 执行 `Print In`，确认 `In x (a::l)` 展开为 `a = x \\/ In x l`；改为 `destruct Hin as [Hx | Hin]` 并在 head case `rewrite Hx`，freshness 引理通过，coqc 越过该段并在 `subst_env_lc` 报下一处错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        37,
+        43,
+        49,
+        52,
+        55
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_env_lc` / `open_rec_subst_env` / `subst_env_extend_fresh` / `subst_env_upd_id`：induction `as` pattern 的 IH 名称/位置错误",
+      "intervals": [
+        {
+          "after": 39,
+          "through": 56
+        }
+      ],
+      "outcome": "编译报 `The variable IHt was not found`；通过 scratch（t3/t4）打印 induction principle，确认 `as` pattern 必须按“argument、IH、argument、IH…”位置书写；据此重写四个 substitution lemmas 的 induction patterns（含 case body 的 `S k` 深度），coqc 随后越过这些 lemma，在新增的 list helper 处报下一处错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        55,
+        61,
+        64,
+        67,
+        77,
+        80
+      ],
+      "qualification": "该区间包含为确认 Rocq 命名规则而做的 scratch 实验；真正的整段重写发生在区间末端。"
+    },
+    {
+      "title": "`not_in_app_l/r`、`subst_env_extend_fresh`、`subst_env_upd_id`：类型标注、`extend/upd` 展开、参数推断与 `++` 右结合的一连串编译错误",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 68
+        }
+      ],
+      "outcome": "依次补 `(x:atom)(l1 l2:list atom)` 类型标注；`unfold extend/upd` 后再 `rewrite E`（`eqb = false`）；显式给 `not_in_app_*` 传入 l1/l2；按 `++` 右结合 `L ++ (fv b1 ++ fv b2)` 拆 freshness；这些 helper 全部编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        80,
+        86,
+        89,
+        92,
+        95,
+        98
+      ],
+      "qualification": "同一轮重写内混有多个根因不同的小错误（类型标注、delta 展开、参数不可推断、结合性），按连续失败合并；无法可靠再拆分时间。"
+    },
+    {
+      "title": "`subst_env_plug`：hole case 的 `Nat.eqb_refl` 无匹配 subterm，且 `program_context` induction 命名与 `C` 冲突",
+      "intervals": [
+        {
+          "after": 68,
+          "through": 78
+        }
+      ],
+      "outcome": "hole case 改为 `unfold upd; rewrite Nat.eqb_refl`；重写整个 plug lemma，对 17 个 constructor 显式命名并逐 case 用 `not_in_app_*` 拆 `fv_context`；外层 context 改名 `C0` 以便 recursive case 继续用 `C`；`coqc` 返回 EXIT 0。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        98,
+        104,
+        107,
+        110,
+        113
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`value_no_step` / `value_lc` / `value_protect_value`：`value` induction 的 premise/IH 位置错误，`eauto` 用不上 IH",
+      "intervals": [
+        {
+          "after": 81,
+          "through": 99
+        }
+      ],
+      "outcome": "scratch 打印 `value_ind`，确认 `v_pair` 为 `v1 v2 kap H1 IH1 H2 IH2`、`v_inl/v_inr` 为 `v1 kap H1 IH1`；pattern 修正后，component-step 的矛盾由 `eauto` 改为 `inversion Hstep; subst; firstorder` 关闭。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        117,
+        123,
+        126,
+        141,
+        144
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`step_app_inv` 等 step inversion lemmas：inversion 后仍是整条 disjunction，`eauto` 无法构造 nested existential",
+      "intervals": [
+        {
+          "after": 99,
+          "through": 111
+        }
+      ],
+      "outcome": "`Show` 显示 ST_AppAbs case 的 goal 是完整 disjunction 且已有 T/body/kappa/value/flow hypotheses；对 ST_AppAbs 显式 `exists T, body, kappa; repeat split`；其余 step inversion lemmas 改用 `intros; inversion H; subst; firstorder`（scratch t8 验证）；首轮批量替换漏掉 `intros` 导致 `No such hypothesis: H`，补回后编译越过这些引理。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        144,
+        150,
+        153,
+        156,
+        159,
+        162
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`multi_pair_inv` / `multi_app_inv` / `multi_protect_inv` / `multi_fst_inv` 等 evaluation decomposition lemmas 的连续调试",
+      "intervals": [
+        {
+          "after": 111,
+          "through": 141
+        }
+      ],
+      "outcome": "修掉 refl case 中不存在的 `subst v`、`Hvf` 重名、step case target 应为 `u`、`multi_app_inv` 需显式拆分 conjunction、`multi_protect_inv` 多余的 `symmetry`、以及不带参数的 `subst` 用掉 `Hu` 导致 `mid` 消失等问题；最后 `multi_app_abs_inv` 用显式 `value_no_step w Hw a' Hst` 关闭，整块编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        162,
+        168,
+        174,
+        177,
+        180,
+        183,
+        186,
+        198,
+        201,
+        204,
+        207
+      ],
+      "qualification": "该块是对 `multi`（reflexive-transitive closure）分解的一组连续失败，个别小错（重名、方向）难以从主症状中再分离计时。"
+    },
+    {
+      "title": "`VR_protect`：`rewrite protect_value_low` 只改写一个 occurrence，且 `simpl` 不化简 `join _ High`",
+      "intervals": [
+        {
+          "after": 144,
+          "through": 152
+        }
+      ],
+      "outcome": "Low case 用 `rewrite !protect_value_low` 处理两个值；High case 发现 goal 中仍是 `join kappa.ind High`，补 `join_high/join_low/join_low_l`，用 `rewrite join_high; apply flows_to_high` 统一化简；VR_protect 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        211,
+        214,
+        220,
+        223
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subtype_VR`：destruct projection 已同步改写假设、`repeat split; auto` 打乱 goal、arrow case 的 security 参数错位",
+      "intervals": [
+        {
+          "after": 152,
+          "through": 164
+        }
+      ],
+      "outcome": "确认 `destruct (kappa2.ind)` 会自动把 Hi 变成 `flows_to _ Low`，删除冗余 `rewrite E2 in Hi`；sum/prod structural cases 显式 split 并逐个 apply IH；arrow case 先实例化 `Hclause` 得 `Hc`，在 `Hc` 中 `rewrite Hk1, protect_security_low`，再经 codomain IH；编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        223,
+        229,
+        232,
+        235,
+        241
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`VR` 的 unit clause 过强：High indirect 时仍要求 unit shape，与 arrow clause 无法组合",
+      "intervals": [
+        {
+          "after": 164,
+          "through": 171
+        }
+      ],
+      "outcome": "在 VR 的 unit branch 也加入 `kappa.ind = High \\/` escape disjunct（与 sum/prod/arrow 一致）；相应把 VR_protect 的 High case 化为 `join_high`+`flows_to_high`，VR_cross_high 改为统一取 self-relation 的 coherence；subtype_VR 的 S_Unit 先处理 Low 情况、High 情况从 source High 推出（补 `left`）；编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        242,
+        245,
+        248,
+        251
+      ],
+      "qualification": "这是设计 fundamental theorem 时才暴露的 LR 定义缺陷，区间包含发现该缺陷的长 thinking 与 VR/VR_protect/VR_cross_high/S_Unit 的连锁修改，无法把设计思考与修正分开计时。"
+    },
+    {
+      "title": "`env_rel_update`：`Nat.eqb` 等式被转成 `y <> x` 后无法 rewrite，触发 setoid undefined evars",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 178
+        }
+      ],
+      "outcome": "保留 `E : (y =? x) = false` 供 `unfold extend; rewrite E`，另建 `Hneq : y <> x` 传给 `lookup_update_neq`；env_rel_update 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        255,
+        258,
+        261
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`VR_coh1` / `VR_coh2`：对未知 type `T` 直接 destruct `VR` 报 Not an inductive product",
+      "intervals": [
+        {
+          "after": 178,
+          "through": 182
+        }
+      ],
+      "outcome": "确认 `VR` 是按 `T` 递归的 Fixpoint，`T` 为变量时不展开；改为 `destruct T; simpl in *; tauto` 先按 constructor 展开再抽取 coherence。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        261,
+        264,
+        267
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental`：`Proof is not complete` —— T_Unit 的 `multi_value` 需要 `value (tm_unit kappa)` 而 `auto` 构造不出 `v_unit`",
+      "intervals": [
+        {
+          "after": 188,
+          "through": 201
+        }
+      ],
+      "outcome": "错误始终落在 T_Unit 的 `assert (E1 : v1 = tm_unit kappa) by ...`；确认 `auto` 不能应用 constructor `v_unit` 后改为 `[exact Hm1 | apply v_unit]`（E2 同理）；同时把此前只写了 4 个 case 的 fundamental 补成 13 个 case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        275,
+        279,
+        291,
+        292,
+        294
+      ],
+      "qualification": "区间同时包含把 fundamental theorem 从 4 个 case 补写到 13 个 case 的工作；补写本身不是错误，但与同一 `Proof is not complete` 的定位无法分时。"
+    },
+    {
+      "title": "`fundamental`：`label` destruct 顺序是 Low 在前、High 在后，多个 typing case 分支写反/漏写 High branch",
+      "intervals": [
+        {
+          "after": 201,
+          "through": 204
+        },
+        {
+          "after": 230,
+          "through": 242
+        },
+        {
+          "after": 248,
+          "through": 264
+        }
+      ],
+      "outcome": "第一轮修 T_Abs/T_App/T_Pair/T_Fst（`destruct ...; [idtac | left; reflexivity]` 或 `[idtac | rewrite protect_security_high; apply VR_secret]`）；第二轮修 T_Snd/T_Inl/T_Inr，并把 T_Case/T_If 的 High 分支先移出；第三轮在 Low proof 之后补回 T_Case/T_If 的 High proof。期间 Python 模板两次因缩进/结尾不同 assert 失败（重写 snd block 与插入 High proof 各一次），最后用 `cat -A` 对齐空白后写入；fundamental 在 step 266 整体编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        294,
+        298,
+        337,
+        343,
+        349,
+        355,
+        364,
+        370,
+        376,
+        388
+      ],
+      "qualification": "同一根因在不同 case 反复出现，中间被其他问题打断，故按协议列三个 intervals；最后一段同时含“补上缺失 High branch”的修补。"
+    },
+    {
+      "title": "`fundamental`：`destruct Henv` 破坏 `env_rel_body`/IH 所需的环境关系，`pose proof Henv as Henv0` 副本也被一起清除",
+      "intervals": [
+        {
+          "after": 204,
+          "through": 222
+        }
+      ],
+      "outcome": "先发现 `env_rel_body` 因 `Henv` 已被 destruct 而失前提，改为显式 `split` 重建 env_rel；随后报 `Unable to find an instance for gamma1, gamma2`，确认 IH 需显式实例化，加入 `env_rel_intro` 与 `Henv0`；`assert (...) := Henv` 语法非法、且 `Henv0` 依赖被 destruct 的 `Henv` 一同消失，最终改为 `pose proof (proj1 Henv)`、`proj1 (proj2 Henv)`、`proj2 (proj2 Henv)` 抽取 lc 与 pointwise IR，保留原 `Henv` 并显式写 `apply (IH1 gamma1 gamma2 Henv)`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        298,
+        304,
+        313,
+        316,
+        322,
+        325
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental`：goal 的 type argument 仍是 `ty_protect Low T`，`security_of_ty_protect` 只改了 security 参数",
+      "intervals": [
+        {
+          "after": 222,
+          "through": 226
+        }
+      ],
+      "outcome": "报错显示 `Hres : VR T2 ...` 与 goal `VR (ty_protect Low T2) ...` 不符；确认 `security_of_ty_protect` 只改了 security 参数，而 `VR` 忽略 type 的 top annotation，新增 `VR_ty_protect_fwd`/`VR_ty_protect_bwd`，并在 T_App/T_Fst/T_Case/T_If/T_Protect 的 Low cases 用 `VR_ty_protect_bwd` 包装结果；T_Snd 的同一改动在后续重写 snd block 时补上。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        328,
+        329,
+        331
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` T_Pair：product clause 的 existential witness 顺序写错",
+      "intervals": [
+        {
+          "after": 226,
+          "through": 230
+        }
+      ],
+      "outcome": "VR 的 Prod clause 顺序是 `k1 k2 w1 w2 x1 x2`（两值各自 first/second component）；原写 `exists kappa, kappa, u1, u2, u1b, u2b`，改为 `exists kappa, kappa, u1, u1b, u2, u2b`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        331,
+        334,
+        337
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` T_Case：HxL 的多层 freshness 证明中第二次 `apply in_app_iff` 的 goal 已不是 append",
+      "intervals": [
+        {
+          "after": 242,
+          "through": 248
+        }
+      ],
+      "outcome": "`apply Hx0` 后先由 `apply in_app_iff; left` 得到 `In fresh L`，再对 L 用 `apply in_app_iff` 无法匹配；compiler 输出显示 goal 已是 `In ... L`。改用已编译的 `not_in_app_l`/`not_in_app_r` 显式传入各段 list，重写 T_Case 的 HxL/Hxb1/Hxb2（并同步 T_Abs 的同类两条）证明。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        355,
+        361,
+        362,
+        364
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` T_Protect/T_Sub：引用不存在的 `IH`（induction pattern 中实际名为 `IH1`）",
+      "intervals": [
+        {
+          "after": 264,
+          "through": 266
+        }
+      ],
+      "outcome": "把 `unfold IR in IH` / `apply IH` 改为 `IH1`；fundamental theorem 编译通过，目标 theorem 仍保持 `Admitted`（随后由主定理 proof 取代）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        388,
+        391
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "5e5b45624f54f54cd5f8e06eb594d8227cabf682f2ed09f52d0cc9f235dab430",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 5,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "5e5b45624f54f54cd5f8e06eb594d8227cabf682f2ed09f52d0cc9f235dab430",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r05.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r05_20261027_212140_803829"
+  }
+}

@@ -1,0 +1,347 @@
+{
+  "summary": "前期大部分时间用于 V/E 逻辑关系路线与整份脚本的推演和写入，首次编译后进入密集的声明级调试。调试集中在 lc_at_mono 的构造子自动命名、named argument 与 successor 不等式问题，value 与 LR helper 的 tactic 错误，subst_open_comm 的 freshness/rewrite 对齐，以及 fundamental 的 T_Abs case 中 value reduct、context update 与 opening commutation。最终 rocq compile 成功，Print Assumptions 为 Closed under the global context，independent checker 报 Modules were successfully checked。",
+  "phases": [
+    {
+      "title": "读取任务文件并检查 workspace 与 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 V/E 逻辑关系、检查 induction principle 并写入完整 Task.v",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 20
+        }
+      ]
+    },
+    {
+      "title": "首次编译并逐个修复 lc_at_mono、value/V_E 及 application helper 的声明级错误",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 87
+        }
+      ]
+    },
+    {
+      "title": "调试 subst_open_comm 的 freshness/rewrite 对齐与 fundamental 的 T_Abs case",
+      "intervals": [
+        {
+          "after": 87,
+          "through": 111
+        }
+      ]
+    },
+    {
+      "title": "确认编译成功、核对 supplied definitions 与 assumptions、运行 independent checker",
+      "intervals": [
+        {
+          "after": 111,
+          "through": 133
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_mono：induction 自动命名的构造子参数 n、a 与 intros 的深度参数冲突",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 39
+        }
+      ],
+      "outcome": "首次编译在 lc_at_mono 的 induction t; intros n m 处报 n is already used（最初还把位置误猜在 open_rec_lc）；把深度参数改成 a、b 后变为 a is already used。最小 scratch 复现同一错误后，用 Show 看到 tm_bvar case 引入 n、tm_fvar case 引入 a，遂改用 i、j；step 39 重新编译时该冲突消失，错误变为 named argument 问题。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        31,
+        37,
+        47,
+        53,
+        54,
+        56
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_mono/lc_at_any：改名后 IH 调用仍写 (n := ...)，报 No such bound variable n",
+      "intervals": [
+        {
+          "after": 39,
+          "through": 41
+        },
+        {
+          "after": 59,
+          "through": 61
+        }
+      ],
+      "outcome": "step 39 报 No such bound variable n (possible names are: i and j)；step 41 把 lc_at_mono 内的 with (n := ...) 全部改成 (i := ...)，编译推进到 abstraction case 的 No such assumption。同一遗留的 apply lc_at_mono with (n := 0) 直到 step 59 才在 lc_at_any 暴露；step 61 改成 (i := 0) 后编译推进到 value_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        56,
+        57,
+        59,
+        86,
+        87,
+        89
+      ],
+      "qualification": "两次报错同因：深度参数改名时没有同步更新 named arguments，因此作为同一问题的两个区间。"
+    },
+    {
+      "title": "lc_at_mono 的 abstraction case：apply Nat.succ_le_mono 取了 iff 的反方向，goal 变成 S (S i) <= S (S j)",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 59
+        }
+      ],
+      "outcome": "step 41 在 apply Nat.succ_le_mono; assumption 处报 No such assumption。scratch 中 Show 出 apply 前 goal 为 S i <= S j、apply 后变成 S (S i) <= S (S j)；Check 确认 Nat.succ_le_mono 是 n <= m <-> S n <= S m，说明 apply 用了反方向。改用 le_n_S（n <= m -> S n <= S m）后 step 59 编译越过 lc_at_mono，错误转向 lc_at_any 的旧 named argument。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        59,
+        62,
+        65,
+        68,
+        71,
+        74,
+        75,
+        80,
+        85,
+        86
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_lc：destruct Hv; auto using lc_true, lc_false 留下 locally_closed tm_true/tm_false，Qed 报 incomplete proof",
+      "intervals": [
+        {
+          "after": 61,
+          "through": 69
+        }
+      ],
+      "outcome": "step 61 编译在 value_lc 的 Qed 报 remaining open goals。用同 definitions 的 scratch 复现后 Show 出剩余 goal 是 locally_closed tm_true 与 locally_closed tm_false（abstraction case 已由 assumption 关闭）。改成 destruct Hv 后显式使用 assumption、apply lc_true、apply lc_false，step 69 编译推进到 V_E。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        89,
+        95,
+        98,
+        100,
+        101
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "V_E 的 arrow case：对一般 term t 直接 apply sn_abs，未先用 HV 中的 t = tm_abs T' t1 代入",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 71
+        }
+      ],
+      "outcome": "step 69 报 Unable to unify strongly_normalizing (lambda ...) with strongly_normalizing t。step 70 确认 HV 已含 t = tm_abs T' t1 而脚本未使用；改为 destruct HV 取出等式并 subst t 后再 apply sn_abs，step 71 编译越过 V_E，错误推进到 E_value_V。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        101,
+        102,
+        104
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "E_value_V / E_step_fwd：apply H with u、apply Hvr with u 报 Not the right number of missing arguments",
+      "intervals": [
+        {
+          "after": 71,
+          "through": 79
+        }
+      ],
+      "outcome": "step 71 在 E_value_V 的 apply H with u 处报 Not the right number of missing arguments (expected 0)；step 75 改成 apply H 后，同样的错误出现在 E_step_fwd 的 apply Hvr with u，再改成 apply Hvr，step 79 编译越过这两个 helper，错误推进到 sn_app。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        104,
+        107,
+        109,
+        110,
+        113,
+        115,
+        116
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "sn_app：enough Hgen 后未清除外层 t1/t2、HE1/HE2，intros 报 t1 is already used",
+      "intervals": [
+        {
+          "after": 79,
+          "through": 83
+        }
+      ],
+      "outcome": "step 79 报 t1 is already used，step 81 查看确认位于 sn_app 的 Hgen 证明开头，外层 intros 留下的 t1/t2、HE1/HE2 仍在 context。step 82-83 在 sn_app、E_app、sn_if、E_if 进入泛化证明前 clear 这些名字，step 83 编译越过 sn_app，错误推进到 E_app。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        116,
+        119,
+        120,
+        122
+      ],
+      "qualification": "只有 sn_app 实际报错，E_app/sn_if/E_if 的同批 clear 是预防性修改，不能算作各自发生过失败。"
+    },
+    {
+      "title": "E_app 的 SN 分量：apply sn_app 无法推断 T1、T2，改用 eapply sn_app 并由 HE1、HE2 确定类型",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 87
+        }
+      ],
+      "outcome": "step 83 在 E_app 的 apply sn_app; assumption 处报 Unable to find an instance for the variables T1, T2；该 subgoal 只含 strongly_normalizing (tm_app t1 t2)，无法反推类型。step 87 改成 eapply sn_app; [exact HE1 | exact HE2]，编译越过 E_app，错误推进到 subst_open_comm。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        122,
+        125,
+        126,
+        128
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_open_comm 的 fvar case：extend 未展开致 open_rec_lc 无法匹配；改用 rewrite E 又因 E 已是 disequality 触发 setoid rewrite 失败",
+      "intervals": [
+        {
+          "after": 87,
+          "through": 93
+        }
+      ],
+      "outcome": "step 87 报 Unable to unify open_rec ?k ?v ?t = ?t with extend rho x w a = open_rec k w (rho a)。step 89 改为 unfold extend; rewrite E，但 E 已由 apply Nat.eqb_neq in E 变成 disequality，setoid rewrite 报 UNDEFINED EVARS。step 92-93 改为先 unfold extend; simpl 再 destruct (Nat.eqb x a)，false branch 直接用 symmetry、open_rec_lc、lc_at_any，编译越过该 rewrite，转为 focus 错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        128,
+        129,
+        131,
+        134,
+        136,
+        137
+      ],
+      "qualification": "setoid 失败的原因是拿 disequality E 去 rewrite，而不是该处 Nat.eqb 等式 rewrite 的工具缺陷。"
+    },
+    {
+      "title": "subst_open_comm 的 app case：rewrite IHt1, IHt2; auto 未从拼接的 freshness 拆出子项前提，focus 错误一度定位到 fvar case",
+      "intervals": [
+        {
+          "after": 93,
+          "through": 101
+        }
+      ],
+      "outcome": "step 93 的 focus 错误（下一 bullet 未完成）最初被理解为 fvar case 还有 open goals；用 Admitted 暂代 lc_at_mono/open_rec_lc 的 scratch 显示 fvar case 已关闭，step 99 的准确行号显示停在 app case 的 rewrite IHt1, IHt2; auto 之后。step 100-101 加入 not_in_app_l/not_in_app_r，assert 两个子项的 freshness，并显式 rewrite (IHt1 k Hlc Hw Hf1)、rewrite (IHt2 k Hlc Hw Hf2)，编译越过 app case，转到 if case。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        137,
+        140,
+        146,
+        149
+      ],
+      "qualification": "该 scratch 以 Admitted 暂代两个已验证的 helper，只用于定位剩余 goal，不构成最终证明依据。"
+    },
+    {
+      "title": "subst_open_comm 的 if case：按左结合分解 fvs t1 ++ fvs t2 ++ fvs t3，与 ++ 的右结合不符",
+      "intervals": [
+        {
+          "after": 101,
+          "through": 103
+        }
+      ],
+      "outcome": "step 101 报 Hfresh 的类型与期望的 ~ In x ((fvs t1 ++ fvs t2 ++ fvs t3) ++ fvs t2) 不一致。step 102 判定 ++ 右结合，step 103 依次用 not_in_app_l 分出 fvs t1、用 not_in_app_l/not_in_app_r 分出 fvs t2、用两次 not_in_app_r 分出 fvs t3；编译越过 subst_open_comm，错误推进到 fundamental 的 T_Abs case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        149,
+        150,
+        152
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case：value reduct u 未先由 abs_multi_eq 改写成原 abstraction，reflexivity 失败",
+      "intervals": [
+        {
+          "after": 103,
+          "through": 107
+        }
+      ],
+      "outcome": "step 103 在 V (T1->T2) u 的存在量词见证处报 Unable to unify lambda ... with u：goal 是 u = tm_abs T1 (subst_f rho t1)，脚本直接 reflexivity。step 105 确认收到 Hm、Hvalu 后未使用 abs_multi_eq；step 107 先 assert u = tm_abs T1 (subst_f rho t1)（由 abs_multi_eq 和 Hm 得到）再 subst u，编译越过该处，转到扩展 environment 的 rewrite。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        152,
+        155,
+        156,
+        158
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case（扩展 environment）：unfold update 后拿已是 disequality 的 E rewrite，触发 setoid rewrite 失败",
+      "intervals": [
+        {
+          "after": 107,
+          "through": 109
+        }
+      ],
+      "outcome": "step 107 在 sem_env 的 typing 分量报 setoid rewrite failed: UNDEFINED EVARS，位置是 unfold update in Hy; rewrite E in Hy，而 E 已由 Nat.eqb_neq 变成 x <> y。step 108-109 引入 update_eq、update_neq，并在两分支分别 rewrite update_eq in Hy 和 rewrite (update_neq Gamma x y T1 E) in Hy，编译越过该处，转到 rewrite subst_open_comm in HE。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        158,
+        159,
+        161
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case：HE 中 open t1 (fvar x) 与 subst_open_comm 的 open_rec 形式不匹配，rewrite 找不到 subterm",
+      "intervals": [
+        {
+          "after": 109,
+          "through": 111
+        }
+      ],
+      "outcome": "step 109 报 Found no subterm matching subst_f (extend ?rho ?x ?w) (open_rec ?k (fvar ?x) ?t) in HE，因为 HE 用的是 open t1 (fvar x)（open 定义为 open_rec 0）。step 110-111 先 assert 以 open 表述的 Hcomm，其证明中用 change 展成 open_rec 0 再 apply subst_open_comm 并给出 closure/freshness premises，随后 rewrite Hcomm in HE；step 111 编译无报错输出，step 113 以 EXIT: 0 和生成的 Task.vo/Task.vok/Task.vos 确认整份文件编译成功。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        161,
+        162,
+        164,
+        167
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "bad2e25f2cae4e752ed9d121b27bf005e9c8430023c8d87d4993e2ed5b5f251e",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 1,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "bad2e25f2cae4e752ed9d121b27bf005e9c8430023c8d87d4993e2ed5b5f251e",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r01.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r01_20261027_211728_763223"
+  }
+}

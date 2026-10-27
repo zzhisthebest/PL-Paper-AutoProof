@@ -1,0 +1,560 @@
+{
+  "summary": "本次 2215 s 的已 proved 运行中，设计探索与 scratch 推演（step 4-14 约 909 s，其中 step 5 一次长思考约 762 s）以及后续 step 152、257 等长 thinking 占去大部分时间。可定位的实际困难集中在 opening/substitution 引理、environment extensionality/identity extension 以及 fundamental theorem 的脚本衔接，多为数秒到数十秒的 compile-修正往返，最终都在同一次运行内解决。目标定理于 step 312 编译无输出，step 315 得 COMPILE_OK，step 319 clean compile 通过且 Print Assumptions 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读取 Task.v、workspace 与 Rocq 工具链确认",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "设计探索：LR/parametricity、may-nondeterminism、CBV 与 annotation/substitution 方案（含 scratch Sem fixpoint 测试）",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "实现 Sem/RelSem/ValSem 定义与 local-closure/opening 基础引理",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 74
+        }
+      ]
+    },
+    {
+      "title": "建立 wf_ty/has_type 的 local closure，以及 substitution/commutation 基础库",
+      "intervals": [
+        {
+          "after": 74,
+          "through": 151
+        }
+      ]
+    },
+    {
+      "title": "建立 relation environment、environment extensionality、identity extension 与 reduction/RelSem helper",
+      "intervals": [
+        {
+          "after": 151,
+          "through": 226
+        }
+      ]
+    },
+    {
+      "title": "补 has_type_lc_ty/lc_ty_open_tight，并规划 fundamental theorem",
+      "intervals": [
+        {
+          "after": 226,
+          "through": 258
+        }
+      ]
+    },
+    {
+      "title": "实现并修复 fundamental theorem 的 typing induction",
+      "intervals": [
+        {
+          "after": 258,
+          "through": 303
+        }
+      ]
+    },
+    {
+      "title": "完成目标定理 polymorphic_identity_theorem_for_free",
+      "intervals": [
+        {
+          "after": 303,
+          "through": 312
+        }
+      ]
+    },
+    {
+      "title": "clean compile、禁止构造与无 axiom 检查、原始定义/定理陈述一致性核对、最终报告",
+      "intervals": [
+        {
+          "after": 312,
+          "through": 323
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`lc_ty_at_mono_le` / `lc_tm_at_mono_K` 的 Nat.le_exists_sub 方向、k+0 与 S m 算术改写失败",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 40
+        }
+      ],
+      "outcome": "先按 le induction 重写，再确认 Nat.le_exists_sub 给出 k'=d+k，改用 lia 做加法交换并把 k+0 化成 k；step 40 的 compile 已越过两引理、在 lc_ty_open_inv 处报下一错，说明此问题已清除。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        33,
+        57,
+        60
+      ],
+      "qualification": "纯 arithmetic rewriting，不涉及 LR 语义；step 40 的 compile 同时报出下一问题（lc_ty_open_inv），故区间止于实际完成修正的 step 40。"
+    },
+    {
+      "title": "opening inversion/forward 引理 `lc_ty_open_inv`/`lc_ty_open_fwd` 与 term opening 引理的 inversion/constructor/annotation 处理错误",
+      "intervals": [
+        {
+          "after": 40,
+          "through": 55
+        },
+        {
+          "after": 64,
+          "through": 74
+        }
+      ],
+      "outcome": "对 type opening 先 inversion Hopened 取 component lc 并显式用 lc_ty_arrow/lc_ty_all，forward 引理用 lc_ty_at_mono 把 U 的 lc 提升到 K；term opening 改为 inversion Hopened; subst（避免 7 分支 disjunctive pattern），确认 open_tm_rec 不改 TApp annotation，并为 lc_ty_open_inv 显式提供 U；step 74 compile 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        60,
+        69,
+        72,
+        75,
+        78,
+        81,
+        99,
+        105,
+        108,
+        111
+      ],
+      "qualification": "两个区间之间被 theorem 头部缺失的排查与修复（step 56-64）打断；step 55 的 thinking 仍属本问题，故并入第一段。"
+    },
+    {
+      "title": "编辑 lc 引理时误删 `Theorem polymorphic_identity_theorem_for_free` 头部，Python 重写脚本找不到 marker",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 64
+        }
+      ],
+      "outcome": "step 56 的 ValueError 与后续 grep/tail 确认 theorem 首行在 step 20 的 Edit 中被 new_string 顶掉，只余 `has_type [] empty t`；step 64 用 Python 重写 term opening 引理时重新插入完整头部，compile 越过头部并在后面的 tapp 引理处报错。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        84,
+        87,
+        90,
+        93,
+        95,
+        96
+      ],
+      "qualification": "删除实际发生在 step 20 的 Edit；由于 coqc 先停在更早的 lc 引理，直到 step 56 的脚本找不到 Theorem marker 才暴露，故按检测后的处理步骤计时。"
+    },
+    {
+      "title": "`wf_ty_lc` / `has_type_lc` 的 cofinite rule 中 IH 名称、freshness 与 Delta 推断错误",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 92
+        }
+      ],
+      "outcome": "用 Show 查看 WF_All/T_Abs/T_TAbs 的实际证明状态，按构造子使用 H0/H1，freshness 改用 `fresh_atom L`，并用 `eapply wf_ty_lc; eassumption` 解决 Delta 不可推断；step 92 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        117,
+        120,
+        126,
+        129,
+        132,
+        135,
+        138
+      ],
+      "qualification": "cofinite premise 下 Coq 自动生成的 IH 名称随构造子不同，必须看 proof state；这是脚本层面问题，不是 lemma statement 错误。"
+    },
+    {
+      "title": "substitution 基础库 `open_*_rec_lc_id`、`subst_*_agree`、`subst_*_id` 的 conditional rewrite、字段/IH 名与 induction pattern 错误",
+      "intervals": [
+        {
+          "after": 95,
+          "through": 135
+        }
+      ],
+      "outcome": "把 eqb 条件改为先 assert 再 rewrite，确认 open_tm_rec 不改 TApp annotation；用显式 assert 的组件等式取代 conditional rewrite，修正 abs 的 t/t0、tapp 的 tm/ty 字段与 IHt 名称，放弃手写 induction pattern 并按七个 constructor 重写 identity lemma；step 135 compile 越过这些引理、在 subst_ty_env_open_ty_rec 处报下一错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        142,
+        145,
+        148,
+        154,
+        160,
+        169,
+        175,
+        181,
+        187,
+        193,
+        196,
+        202
+      ],
+      "qualification": "包含多个小的 field/命名错误（opening identity 与 agreement/identity 两组），主要是 Coq 脚本工程问题，没有改动数学定义；区间止于实际完成 identity 修正的 step 135。"
+    },
+    {
+      "title": "`subst_ty_env_open_ty_rec` / `subst_tm_ty_env_open_tm_ty_rec` 对任意 substitution image 不成立，缺少 `lc_ty_at 0 (sub X)` premise",
+      "intervals": [
+        {
+          "after": 135,
+          "through": 143
+        }
+      ],
+      "outcome": "诊断出 FVar case 的 `open_ty_rec k (sub X) (sub a)` 不能等同 `sub a`，给 type/term type-opening commutation 补 `forall X, lc_ty_at 0 (sub X)`；随后用 symmetry、显式 K=0 与 `open_tm_rec_lc_id` 方向修正 FVar case；step 143 compile 推进到 lc preservation。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        203,
+        206,
+        211,
+        214
+      ],
+      "qualification": "这是 statement 层面的缺口，不是单纯 tactic 问题；补 premise 后原证明方向才成立；区间止于完成修正的 step 143。"
+    },
+    {
+      "title": "`subst_ty_env_lc` / `subst_tm_ty_env_lc` / `subst_tm_env_lc` 的 induction、bullet 与 premise 处理错误",
+      "intervals": [
+        {
+          "after": 143,
+          "through": 151
+        }
+      ],
+      "outcome": "改为对 syntax 做 induction、把 K/k 作为可变量引入，FVar case 使用 image lc 加 monotonicity；补齐 `subst_ty_env_lc` 的两个 premise 和 tapp 的 IH premise；step 151 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        215,
+        220,
+        226
+      ],
+      "qualification": "与上一项同属 substitution 库，但对应不同引理与不同 compile 阶段，故单列。"
+    },
+    {
+      "title": "`nth_rel_set_at_lt` / `envB_agree_set_at_cons` 的 nth_error/firstn、ltb 方向、S 变量遮蔽、length premise 与 iff 方向",
+      "intervals": [
+        {
+          "after": 152,
+          "through": 168
+        }
+      ],
+      "outcome": "改用 `nth_error_firstn` 与 ltb/eqb 的 iff 形式，把 relation variable 从 `S` 改名为 `Q` 以避免与 nat successor 构造子冲突，补 `k <= length envB` premise，并把两次 relation rewrite 都改为正向；step 168 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        230,
+        236,
+        239,
+        242,
+        245,
+        248,
+        251
+      ],
+      "qualification": "list-index 与 name shadowing 占主导；missing length premise 属于 lemma application 的接口问题。"
+    },
+    {
+      "title": "`multi_trans`、`multi_value`、`RelSem_multi_l/r`、`ValSem_of_RelSem` 等 reduction/RelSem 转换引理的 IH 名称与 equality 方向",
+      "intervals": [
+        {
+          "after": 170,
+          "through": 178
+        }
+      ],
+      "outcome": "补 `multi_trans`/`multi_value`/`multi_app_l/r` 等 reduction 引理，使用 IHmulti，并去掉 `ValSem_of_RelSem` 等三处 assert 中 `multi_value` 前多余的 symmetry；step 178 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        254,
+        257,
+        260,
+        266
+      ],
+      "qualification": "多数组件是常规 reduction helper；失败集中在自动 IH 名与 multi_value 前的 symmetry/equality 方向。"
+    },
+    {
+      "title": "`ValSem_envB_ext` / `RelSem_envB_ext` / `ValSem_envF_ext` 的 environment extensionality：ValSem 与 RelSem 混淆、All case 的 envB 扩展与 IH 实例化错误",
+      "intervals": [
+        {
+          "after": 180,
+          "through": 208
+        },
+        {
+          "after": 210,
+          "through": 212
+        }
+      ],
+      "outcome": "避免手写 induction pattern，改用默认 constructor/IH 名；用 `RelSem_congr_gen` 把 ValSem equivalence 提升为 RelSem equivalence，并在 All case 把 `Srel :: envB` 传给 IH；envB 与 envF 两个 extensionality 引理分别通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        269,
+        272,
+        275,
+        278,
+        281,
+        287,
+        296,
+        302,
+        308,
+        311,
+        314,
+        317
+      ],
+      "qualification": "两个区间分别对应 envB 与 envF；中间 step 209 是下一引理的规划，不作为处理耗时。"
+    },
+    {
+      "title": "`ValSem_set_at_cons` 与 `ValSem_open_ty` / `RelSem_open_ty` 的 identity extension：BVar 的 eqb/destruct、Arrow 的 relation 方向",
+      "intervals": [
+        {
+          "after": 214,
+          "through": 216
+        },
+        {
+          "after": 218,
+          "through": 226
+        }
+      ],
+      "outcome": "`ValSem_set_at_cons` 用 `intros a b` 处理 rel_iff；`ValSem_open_ty` 的 BVar case 在 destruct eqb 后直接 cbn，Arrow case 的 HA1 改为 opened type 并使用 `RelSem_congr_gen`，All case 用 `ValSem_set_at_cons` 连接 set_at 与 cons；step 226 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        320,
+        323,
+        326,
+        332,
+        338
+      ],
+      "qualification": "第一个 interval 是 All case 所需的 set_at helper，第二个是主 identity extension；中间 step 217 为规划。"
+    },
+    {
+      "title": "`lc_ty_open_tight` / `has_type_lc_ty` 的 BVar eqb→inequality、自引用/前向引用、T_Abs cofinite IH 与 T_App/T_TApp IH 名称",
+      "intervals": [
+        {
+          "after": 228,
+          "through": 256
+        }
+      ],
+      "outcome": "BVar false branch 增加 `apply Nat.eqb_neq in E`；去掉 has_type_lc_ty 内对自身与尚未定义的 has_type_All_lc 的引用，T_TAbs 改用 cofinite IH（H0）经 lc_ty_open_inv 还原，T_Abs 用 fresh_atom L 实例化 H1，T_App/T_TApp 分别改用 IHhas_type1 与 IHhas_type；step 256 只剩最终 theorem incomplete。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        341,
+        344,
+        353,
+        359,
+        368,
+        371,
+        374,
+        377,
+        380,
+        383
+      ],
+      "qualification": "cofinite IH 的自动命名造成多次 Show 往返；lc_ty_open_tight 与 has_type_lc_ty 是连带的两个声明，合为一项。"
+    },
+    {
+      "title": "fundamental 的 T_Abs/T_TAbs opening equality 未展开 `open_tm` / `open_tm_ty`，substitution commutation rewrite 无法匹配",
+      "intervals": [
+        {
+          "after": 259,
+          "through": 261
+        },
+        {
+          "after": 279,
+          "through": 281
+        }
+      ],
+      "outcome": "T_Abs 的 Heq1/Heq2 先在 equality 中 `unfold open_tm` 再 rewrite `subst_tm_ty_env_open_tm_rec`，step 261 compile 推进到 has_type_lc 参数推断错误；T_TAbs 的 Heq1/Heq2 再 `unfold open_tm_ty`，step 281 compile 推进到 RelSem 的多余 [] 参数错误，两处 equality 均已通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        387,
+        390,
+        417,
+        420
+      ],
+      "qualification": "两处是同类定义未展开问题，中间被其他 fundamental 错误打断，故用两个区间。"
+    },
+    {
+      "title": "fundamental 的 T_App/T_Choice local closure 证明中 `has_type_lc` 隐式参数 Delta/Gamma/T 无法推断",
+      "intervals": [
+        {
+          "after": 261,
+          "through": 269
+        }
+      ],
+      "outcome": "把六处 `apply has_type_lc; exact H/H0` 改为显式 `has_type_lc Delta Gamma t2 T1 H0`（T_App）与 `has_type_lc Delta Gamma t1 T H`（T_Choice）；step 269 compile 推进到 T_TAbs freshness 拆解。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        390,
+        396,
+        399,
+        402
+      ],
+      "qualification": "同一隐式参数问题在 T_App 两处与 T_Choice 四处连续出现，合并计时。"
+    },
+    {
+      "title": "fundamental 的 T_TAbs freshness 拆解：嵌套 `eapply notin_app_r` 让 list 元变量错配",
+      "intervals": [
+        {
+          "after": 269,
+          "through": 271
+        }
+      ],
+      "outcome": "改为 `intro Hc; apply HX_all; repeat rewrite in_app_iff; tauto` 分别证明 HX_L/HX_T/HX_t/HX_ctx；step 271 compile 推进到 `apply ... in` 的 bullet 错位。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        402,
+        405
+      ],
+      "qualification": "这是 freshness 提取脚本的 eapply 元变量问题，不涉及 lemma statement。"
+    },
+    {
+      "title": "fundamental 的 T_TAbs inverse opening 引理用 `apply ... in` 留下未完成 side goal 与 bullet 错位",
+      "intervals": [
+        {
+          "after": 271,
+          "through": 275
+        }
+      ],
+      "outcome": "改用 `pose proof (lc_tm_open_ty_inv 0 0 0 (Ty_FVar X) t Hbody_lc_tm0 (lc_ty_fvar 0 X))` 与 `lc_ty_open_inv ...`，直接给出 U 的 lc；step 275 compile 推进到 value(tm_tabs) 的 local closure 需求。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        405,
+        408,
+        411
+      ],
+      "qualification": "apply-in 的 side goal 顺序与 bullet 结构不匹配，改用 pose proof 显式提供 premise。"
+    },
+    {
+      "title": "fundamental 中 `value (tm_tabs u)` 与 `ST_TAppTabs` 需要整个 tabs 的 local closure，不能直接用 body 的 lc_tm_at 1 0",
+      "intervals": [
+        {
+          "after": 275,
+          "through": 279
+        },
+        {
+          "after": 295,
+          "through": 299
+        }
+      ],
+      "outcome": "value 与 reduction premise 都改为 `apply lc_tm_tabs` 从 body 的 lc_tm_at 1 0 构造 lc_tm_at 0 0 (tm_tabs u)；step 279 compile 推进到 open_tm_ty 未展开，step 299 推进到 T_TApp 的 HIE 实例化。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        411,
+        414,
+        417,
+        441,
+        444,
+        447
+      ],
+      "qualification": "同一个 tabs local closure 需求在 value 证明和 ST_TAppTabs premise 两处出现，中间被其他错误打断，故分两个区间。"
+    },
+    {
+      "title": "fundamental 的 RelSem 语句在 envB 后多写 `[]`，占掉 envF 位置",
+      "intervals": [
+        {
+          "after": 281,
+          "through": 287
+        }
+      ],
+      "outcome": "确认 `RelSem T [Srel] [] envF'` 应为 `RelSem T [Srel] envF'`，删除 HR1/HR2/HR 中多余的空 list；step 287 compile 推进到 HIE 需实例化。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        420,
+        423,
+        426,
+        429
+      ],
+      "qualification": "错误是局部 assert 的RelSem 参数写错，实际 RelSem 定义不变。"
+    },
+    {
+      "title": "fundamental 中 identity extension `HIE` 是 `forall t1 t2` 的 iff，直接 exact/proj2 无法使用",
+      "intervals": [
+        {
+          "after": 287,
+          "through": 291
+        },
+        {
+          "after": 299,
+          "through": 303
+        }
+      ],
+      "outcome": "T_TAbs 改为 `exact (HIE (open_tm_ty u1 A0) (open_tm_ty u2 A0))`，T_TApp 改为 `proj2 (HIE (tm_tapp v1 A0) (tm_tapp v2 A0))` 后再 cbn [set_at_rel]；step 291 compile 推进到 reduction 顺序，step 303 fundamental 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        429,
+        432,
+        435,
+        447,
+        450,
+        453
+      ],
+      "qualification": "两处同为 HIE 量词未实例化，中间被 reduction 顺序问题打断，故分两个区间。"
+    },
+    {
+      "title": "fundamental 的 T_TAbs 先 `apply (proj1 HR)` 后做 beta multi-step，goal 仍是 tapp tabs 而非 opened bodies",
+      "intervals": [
+        {
+          "after": 291,
+          "through": 295
+        }
+      ],
+      "outcome": "改为先用 `RelSem_multi_l/r` 配 `ST_TAppTabs` 把 tapp tabs 归约到 open_tm_ty u A0，再 `apply (proj1 HR)` 并 `rewrite <- Heq1, <- Heq2` 使用 Hbody_rel；step 295 compile 推进到 ST_TAppTabs 的 local closure premise。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        435,
+        438,
+        441
+      ],
+      "qualification": "这是证明顺序问题，HR 本身正确，只是使用前需先完成 beta reduction 的 multi-step 连接。"
+    },
+    {
+      "title": "`polymorphic_identity_theorem_for_free` 的 HV2 重名与 ValSem/RelSem 环境参数多写 `[]`",
+      "intervals": [
+        {
+          "after": 306,
+          "through": 312
+        }
+      ],
+      "outcome": "把第二个 `HV2` 改名 `HV2b`，并按 RelSem/ValSem 的 envB/envF 参数顺序删除多余的 `[]`；step 312 coqc 无输出，step 315 得 COMPILE_OK，step 319 clean compile 与 Print Assumptions 为 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        457,
+        460,
+        463,
+        466,
+        470,
+        476
+      ],
+      "qualification": "目标定理本身的收尾错误；fundamental 已在 step 303 通过，故本项不包含前面的 LR 证明时间。"
+    }
+  ],
+  "trace_sha256": "0a8aa84f209b75cf46e5024c2c14a3f0271bc8e02975e822d451f4d846054472",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 7,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "0a8aa84f209b75cf46e5024c2c14a3f0271bc8e02975e822d451f4d846054472",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r07.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r07_20261027_211831_376081"
+  }
+}

@@ -1,0 +1,391 @@
+{
+  "summary": "本次 3601s run 以 timeout 结束：大部分时间用于 LR 语义/证明架构的长篇设计与路线比较（中途被 output token limit 打断一次），其余用于 fsubst/lc/opening、sem/value_sem、environment-irrelevance 等基础设施的反复实现与编译修复。到 run 结束时 never_stuck 仍只有空 proof body；最后一批 lc opening inversion/erasure lemmas 在 lc_tm_open_inv 的 tapp case 因多余 lia 报 No such goal 而中断，lc_tm_ty_open_inv 等后续未验证。长设计段与纠错混合、无法可靠分时，整体保留在 phases 中。",
+  "phases": [
+    {
+      "title": "阅读 Task.v/card.md、确认 Rocq 9.1 环境并做首轮 progress/preservation vs LR 路线推演",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "LR 语义长篇设计探索（value argument、context interpretation、fuel/well-founded recursion 等），被 output token limit 中断",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "继续 LR 设计（substitution environment、rty binder semantics）并检索本地参考实现（未找到）",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "确定 has_rtype/subtype 的 mutual induction principle 与整体证明架构（Scheme/Combined Scheme）",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 41
+        }
+      ]
+    },
+    {
+      "title": "第一轮语法基础设施实现：ty/tm/qual/rty fsubst、lc 单调性、opening/substitution commutation",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 143
+        }
+      ]
+    },
+    {
+      "title": "第二轮语法基础设施实现：value/step、rty opening/fsubst commutation、freshness/update laws、derived lc opening lemmas",
+      "intervals": [
+        {
+          "after": 143,
+          "through": 230
+        }
+      ]
+    },
+    {
+      "title": "定义 vty/qinst/sem/value_sem 并调试 sem_value_sem、sem_step、sem_back_step、step_det",
+      "intervals": [
+        {
+          "after": 230,
+          "through": 276
+        }
+      ]
+    },
+    {
+      "title": "重设计 semantic introduction/Qpred、environment irrelevance 与 lc invariant 路线（长 thinking）",
+      "intervals": [
+        {
+          "after": 276,
+          "through": 277
+        }
+      ]
+    },
+    {
+      "title": "实现 type-only lc、instantiation env-irrelevance、sem_env_irrel_and 与 sem_open_env_and",
+      "intervals": [
+        {
+          "after": 277,
+          "through": 366
+        }
+      ]
+    },
+    {
+      "title": "添加 lc opening inversions 与 erasure local closure（为 has_type/has_rtype 的 local-closure invariants 作准备；未完成，run 超时）",
+      "intervals": [
+        {
+          "after": 366,
+          "through": 395
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "has_rtype_subtype_ind 名称不存在，且 has_rtype_ind 的 RT_Sub 没有 subtype IH（mutual induction 需 Scheme/Combined Scheme）",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 41
+        }
+      ],
+      "outcome": "在 scratch 中确认普通 has_rtype_ind 的 RT_Sub 只给 typing IH，随后用 Scheme 生成 has_rtype_mutind + subtype_mutind，再用 Combined Scheme has_subtype_ind 得到同时覆盖 has_rtype 与 subtype 的 conjunction principle；该 principle 只在 scratch 中验证，尚未接入 Task.v 的 proof。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        30,
+        36,
+        45,
+        54,
+        57,
+        60
+      ],
+      "qualification": "scratch 文件用 Admitted 跳过原始 never_stuck、并 Import SystemFRefinementTyping 才能检查；不是 Task.v 内的证明。"
+    },
+    {
+      "title": "lc_ty_fsubst / lc_tm_fsubst 的 induction 泛化失败（K 被 hypothesis 使用、intros 把 nat 当 syntax argument）",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 76
+        }
+      ],
+      "outcome": "把 lc_tm_fsubst 的 K/k 移到 induction 后引入，并在 lc_ty_fsubst 中先 intros 再 revert K0 后对 T 归纳；显式给出 IH 的 depth 参数，并修正 FVar case（用 lia 关闭 depth 不等式），两个 lc_fsubst lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        85,
+        94,
+        100,
+        106,
+        115
+      ],
+      "qualification": "属于 induction setup/proof engineering，未修改给出的语言定义；区间从 step 58 的 lc_fsubst 错误算起，不含此前 lc_ty_at_closed_any 的 auto 小修。"
+    },
+    {
+      "title": "open_tm_rec_absorb / open_tm_ty_rec_absorb / tm_fsubst_open_tm 的证明失败：term 与 type opening 混淆、binary case 未显式用 IH、type-opening counter 未与 lc_tm_at 的 term depth 分离",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 128
+        }
+      ],
+      "outcome": "显式给出各 IH 的 depth 参数，修正 open_tm_rec_absorb 的 abs/tabs 与 binary cases，并把 open_tm_ty_rec_absorb 的 type-opening counter 独立成 kt（statement 改为 lc_tm_at K k 与 K<=kt），同步更新 tm_fsubst_open_tm 的 FVar case；step 130 编译越过这些 lemmas，转而暴露缺失的 ty_fsubst_open_ty。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        115,
+        121,
+        125,
+        127,
+        129,
+        181,
+        190,
+        193
+      ],
+      "qualification": "该区间还包含 tm_fsubst_open_tm 的 FVar local-closure weakening 与 open_tm_ty_rec_absorb 的 counter 修正；未改动语言定义，只改 helper lemma statement/script。"
+    },
+    {
+      "title": "重写文件 tail 时丢失 ty_fsubst_open_ty 定义与 End SystemFRefinementSemantics，Task 无法 import semantics module",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 142
+        }
+      ],
+      "outcome": "补回 ty_fsubst_open_ty，补上 End SystemFRefinementSemantics；文件恢复到只在 never_stuck 的 incomplete proof 处停止。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        193,
+        196,
+        202,
+        205,
+        208,
+        211
+      ],
+      "qualification": "由脚本化字符串替换造成，不是数学困难。"
+    },
+    {
+      "title": "lc_ty_open_gen / lc_tm_open_gen 的 BVar false 分支未把 Nat.eqb=false 转成 disequality，abs/tabs 分支还需 lc_tm_at_weaken_k/weaken_K 提升 term/type depth",
+      "intervals": [
+        {
+          "after": 147,
+          "through": 177
+        }
+      ],
+      "outcome": "在 false 分支用 Nat.eqb_neq 取得不等式，并新增 lc_tm_at_weaken_k / lc_tm_at_weaken_K 处理 abs/tabs 的 depth 提升；step 177 编译越过 lc_*_open_gen，推进到 step_preserves_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        218,
+        240,
+        245,
+        254,
+        257,
+        261,
+        263
+      ],
+      "qualification": "属于第二轮 derived lc opening lemmas 批次；同批的 lc_tm_ty_open_gen 也在同一次编译中通过。"
+    },
+    {
+      "title": "step_preserves_lc 缺少 local-closure component 反演（ST_AppAbs 需 lc_app_inv/lc_abs_inv，ST_TAppTabs 需先 lc_tapp_inv 再 lc_tabs_inv），IH 自动命名也不稳定",
+      "intervals": [
+        {
+          "after": 177,
+          "through": 189
+        }
+      ],
+      "outcome": "补充 lc_app_inv/lc_abs_inv/lc_tabs_inv/lc_tapp_inv/lc_div_inv/lc_arith_inv；ST_TAppTabs 先用 lc_tapp_inv 取 function component，再用 lc_tabs_inv 取 body；IHH 改为 IHstep；step_preserves_lc 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        269,
+        272,
+        275,
+        278,
+        281
+      ],
+      "qualification": "lc_tabs_inv 需要 type abstraction 本身的 local closure，而非整个 tapp 的；IH 自动命名不稳定。"
+    },
+    {
+      "title": "ty_fsubst_upd_ty_notin / tm_fsubst_upd_ty_notin / qualifier / rty 的 freshness 与 environment-update laws 反复失败（upd_ty/upd_te 内隐藏 Nat.eqb、induction patterns、notin_app 未拆分）",
+      "intervals": [
+        {
+          "after": 189,
+          "through": 215
+        }
+      ],
+      "outcome": "用 AsTest.v 最小测试确认 induction as-pattern 中 recursive argument 与 IH 交错排列；固定 patterns、unfold upd_ty/upd_te，并用 Nat.eqb_neq 与 notin_app_l/notin_app_r 显式分拆；这组 freshness/update lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        287,
+        290,
+        302,
+        314,
+        320
+      ],
+      "qualification": "line 320 显示编译已越过 freshness 组，转而进入 derived opening lemmas 的新错误。"
+    },
+    {
+      "title": "tm_fsubst_te_open / rty_fsubst_te_open / tm_fsubst_ty_open / rty_fsubst_ty_open 的 derived opening 证明：wrapper 未 unfold、update side goal/rewrite 方向错误、type substitution image 未化简",
+      "intervals": [
+        {
+          "after": 215,
+          "through": 229
+        }
+      ],
+      "outcome": "先 unfold open_tm/open_rty_tm/open_tm_ty/open_rty_ty 再 rewrite commutation lemma；用 replace/symmetry 处理 upd_ty/upd_te 的 side goals，并在 tm_fsubst_ty_open 中显式 replace ty_fsubst (upd_ty sigma X U) (Ty_FVar X) = U；四个 derived opening lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        323,
+        326,
+        329,
+        332,
+        338,
+        341
+      ],
+      "qualification": "该组数学内容简单，耗时主要是 unfolding/方向/依赖顺序与 substitution image 的工程问题。"
+    },
+    {
+      "title": "sem_value_sem / sem_step 的 conjunction 与 value clause proof：repeat split 自动穿过 forall 导致 goal 分解错误",
+      "intervals": [
+        {
+          "after": 232,
+          "through": 244
+        }
+      ],
+      "outcome": "用显式 split 与显式 bullets 替代 repeat split；sem_value_sem 与 sem_step 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        351,
+        354,
+        357,
+        360,
+        363
+      ],
+      "qualification": "同时出现 Rocq 的 non-full-mutual Fixpoint warning（value_sem depends on sem but not conversely），未阻塞编译，不计为单独问题。"
+    },
+    {
+      "title": "sem_back_step 无法从 sem t' 与 step t t' 反推 sem t：需要补 step determinism（step_det）与 multi_step_start",
+      "intervals": [
+        {
+          "after": 244,
+          "through": 276
+        }
+      ],
+      "outcome": "先证 step_det（values 不 step，各 step rule 两两互斥，并补 step_*_inv 与 solve_head_contra）和 multi_step_start，再用它们重写 sem_back_step 的 local-closure/safety/value components；相关 lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        366,
+        369,
+        381,
+        384,
+        405,
+        411
+      ],
+      "qualification": "该问题也暴露了 inversion 自动命名与 destruct equality pattern 的不稳定性，均由显式 match/assert 绕过。"
+    },
+    {
+      "title": "type instantiation 与 sem/value_sem 的 environment irrelevance/type-opening 对齐（inst env-irrelevance、vty_open_ty、sem_env_irrel_and、sem_open_env_and 反复调整）",
+      "intervals": [
+        {
+          "after": 277,
+          "through": 308
+        },
+        {
+          "after": 318,
+          "through": 366
+        }
+      ],
+      "outcome": "引入 lc_tm_ty/lc_qual_ty、type-only inst env-irrelevance、qinst_open_ty、sem_env_irrel_and 与 sem_open_env_and，并修正 proj1/proj2 与 opening 方向；两个 semantic environment lemmas 在 step 366 编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        414,
+        450,
+        494,
+        503,
+        512,
+        527,
+        533,
+        536,
+        539,
+        545
+      ],
+      "qualification": "第二个 interval 中包含 projection/rewrite-direction 的反复，但都属于同一组 env/opening lemmas；中间的 tcons 重复定义工具问题已单独列出并从本项时间中排除。"
+    },
+    {
+      "title": "Python 替换的 end marker 位于 start 之前，复制整段 Semantic interpretation/instantiation 定义，触发 tcons already exists",
+      "intervals": [
+        {
+          "after": 308,
+          "through": 318
+        }
+      ],
+      "outcome": "删除第二份重复的 tcons/ty_inst/tm_inst/qual_inst/vty 与 inst laws（保留含 fixed vty lemmas 的一份），文件恢复编译。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        459,
+        462,
+        465,
+        471,
+        474
+      ],
+      "qualification": "纯编辑脚本边界错误；修复后编译只停在 never_stuck 的 incomplete proof。"
+    },
+    {
+      "title": "lc_tm_open_inv / lc_tm_ty_open_inv 等 lc opening inversion lemmas 未完成（lc_tm_open_inv 最后在 tapp case 报 No such goal），run 超时",
+      "intervals": [
+        {
+          "after": 369,
+          "through": 395
+        }
+      ],
+      "outcome": "未解决：lc_ty_at_open_inv/lc_qual_ty_open/lc_tm_open_inv 等 opening inversions 反复失败；最后一次编译显式改写 lc_tm_open_inv 的 app/tabs/tapp/div/arith cases 后，在 tapp case 的 apply lc_ty_at_mono ...; auto 之后多余 lia 触发 No such goal，lc_tm_open_inv 未通过、lc_tm_ty_open_inv 等尚未验证；3601s 超时，never_stuck 的 proof body 始终为空。",
+      "resolution": "unresolved",
+      "category": "tactic",
+      "evidence_lines": [
+        549,
+        555,
+        564,
+        567,
+        573,
+        576,
+        582,
+        585,
+        588
+      ],
+      "qualification": "只把最后的实际调试窗口计入本项；此前的 lc-invariant 路线设计留在 phases。最后错误是 tactic count 问题，不能据此断言 opening inversion 路线不可行，但也不能视为已证明。"
+    }
+  ],
+  "trace_sha256": "946f48bee60019f511655bc96b997e506575451aa51e2a75cd3aa5280f2c020b",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 9,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "946f48bee60019f511655bc96b997e506575451aa51e2a75cd3aa5280f2c020b",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r09.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r09_20261027_211900_702228"
+  }
+}

@@ -1,0 +1,401 @@
+{
+  "summary": "本次 3601 秒的运行以 timeout 结束（最后记录 3595.579s）：前约 20 分钟做 erasure-based LR、candidate/neutral 与 recursion 语义的设计推演，之后大部分时间用于 R 基础引理、semantic constructor/recursion lemmas、syntactic lemmas 与 `fundamental` 的反复编译调试，两次 automation 触发的编译挂起和 prefix bisection 占去数分钟。到结束时 `fundamental` 的 T_TAbs `Hag` 仍卡在 `xi Z t` 与 `xi Z (erase t)` 的统一失败，`fundamental` 未编译通过。另一个独立缺口是目标 `normalization` 定理在 step 77 的编辑中被连带删除，step 94 的 grep 已确认文件中只剩 module 的 `End`，之后未恢复，因此 `Task.v` 最终没有该定理。",
+  "phases": [
+    {
+      "title": "读取 Task.v、card.md 与 Rocq 环境，确认任务",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "设计探索：erasure-based LR、candidate/neutral、type opening 与 recursion 语义",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 21
+        }
+      ]
+    },
+    {
+      "title": "实现基础 infrastructure：SN、erase、substitution、local closure、freshness",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 153
+        }
+      ]
+    },
+    {
+      "title": "定义 candidate/LR，处理 `cand_top` 挂起与 candidate stack 基础 lemmas",
+      "intervals": [
+        {
+          "after": 153,
+          "through": 234
+        }
+      ]
+    },
+    {
+      "title": "证明 multi-step/R 基础引理（`R_erase_eq`/`R_sn`/`R_step`/`R_neutral`）、agreement/stack lemmas 与 `R_open_ty`，并调整 neutral",
+      "intervals": [
+        {
+          "after": 234,
+          "through": 349
+        }
+      ]
+    },
+    {
+      "title": "证明 semantic constructor lemmas：`R_abs`/`R_tabs`/`R_app`/`R_tapp`",
+      "intervals": [
+        {
+          "after": 349,
+          "through": 396
+        }
+      ]
+    },
+    {
+      "title": "证明 recursion semantic lemmas：`R_natrec_num`/`R_natrec_gen`",
+      "intervals": [
+        {
+          "after": 396,
+          "through": 417
+        }
+      ]
+    },
+    {
+      "title": "补 syntactic/typing local-closure lemmas（`subst_tm_open`、`has_type_lc_*`）",
+      "intervals": [
+        {
+          "after": 417,
+          "through": 453
+        }
+      ]
+    },
+    {
+      "title": "编写与调试 `fundamental` theorem",
+      "intervals": [
+        {
+          "after": 453,
+          "through": 504
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`cand_top` 的 `repeat split` 与未实例化 `step_erase_id` 使 Rocq worker 长时间挂起",
+      "intervals": [
+        {
+          "after": 162,
+          "through": 214
+        }
+      ],
+      "outcome": "已解决：改用显式 `split`，并给 `step_erase_id` 显式提供 `erase t`、`t'` 与 erasedness 证明；调试版约 0.5s 通过，替换回主文件后编译在约 0.5s 内推进到 `cand_stack_nil`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        235,
+        246,
+        272,
+        300,
+        303
+      ],
+      "qualification": "首次挂起出现在原始 `repeat split` 版本；改成带未实例化 `step_erase_id` 的版本后仍出现 60s/45s timeout。两者各自贡献多少耗时无法由现有输出区分，因此保持合并；prefix bisection 见 step 184/191。"
+    },
+    {
+      "title": "`neutral := ~ value` 会把无 lc 的 abstraction 纳入 neutral，改用 syntactic `value_form`",
+      "intervals": [
+        {
+          "after": 235,
+          "through": 237
+        }
+      ],
+      "outcome": "已解决：加入 `value_form`（abs/tabs/zero/succ）与 `value_value_form`/`numeric_value_value_form`，令 `neutral := ~ value_form`；step 237 编译通过。之后 `R_neutral` 的 neutral premise 可按 `value_form` 的构造子排除，Arrow/All 的 R clauses 不需要额外 `value` premise。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        334,
+        336,
+        337
+      ],
+      "qualification": "问题识别在 step 235 与 LR/clause 设计混合的长 thinking 中，无法分时；这里只计 step 236–237 的修改与编译验证（约 2s），其余时间保留在 phase。"
+    },
+    {
+      "title": "`R_erase_eq` 的 `repeat split; auto` 再次触发编译挂起",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 290
+        }
+      ],
+      "outcome": "已解决：把 `R_erase_eq` 改成 `intros T; induction T; intros xi bs t; simpl; rewrite erase_idem; reflexivity`，独立 prefix 约 0.5s 通过；替换回主文件后编译推进到 `R_sn`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        359,
+        364,
+        393,
+        402,
+        405
+      ],
+      "qualification": "prefix 到 line 1024 的测试已 40s timeout；随后 line 1014 前缀加直接证明 0.5s 通过，说明原 `split; intros ...; repeat split; auto` 是挂起来源；具体是 `repeat split` 还是 `auto` 的搜索无法进一步区分。"
+    },
+    {
+      "title": "`R_open_ty` 的 Arrow case：IH 实参顺序与 domain equivalence 反变方向",
+      "intervals": [
+        {
+          "after": 337,
+          "through": 343
+        }
+      ],
+      "outcome": "已解决：把 `IHT2`/`IHT1` 的 term 实参移到 lc/HU 前提之前，并在 Arrow domain 先 `proj2 IHT1` 做反向转换、再用 `proj1 IHT2`；step 343 编译推进到 All case 的 `C0` 错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        473,
+        479,
+        482
+      ],
+      "qualification": "Arrow case 的 IH 顺序与 contravariance 是连续两个错误，都在同一 case 内修正；All case 的问题另列下一项。"
+    },
+    {
+      "title": "`R_open_ty` 的 All case：`C0` 绑定、stack agreement placeholder 与 `R_stack_congr`/`IHT0` 组合顺序",
+      "intervals": [
+        {
+          "after": 343,
+          "through": 349
+        }
+      ],
+      "outcome": "已解决：把 stack agreement assertion 显式量化 `C0` 并命名 `Hagree` 传给 `R_stack_congr`，同时将 `Heq/Heq'` 对 `C0` 参数化；反向 implication 先 `proj2 IHT0` 再 `proj2 R_stack_congr`；step 349 `R_open_ty` 编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        482,
+        485,
+        488,
+        491
+      ],
+      "qualification": "覆盖 All case 内 `C0` 未绑定、placeholder 推断失败与两次 LR conversion 组合顺序三个连续错误；以上一问题结束的 step 343 为界。"
+    },
+    {
+      "title": "`R_app` nested SN induction：inner induction 消耗 `HsnB`",
+      "intervals": [
+        {
+          "after": 374,
+          "through": 376
+        }
+      ],
+      "outcome": "已解决：用 `SN_intro b Hredb` 重建被 inner induction 消耗的 argument SN，替换 `IHa` 调用中的 `HsnB`；step 376 编译越过该错误，转到 `HsnApp` 的 erasure 重写问题。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        528,
+        529,
+        531
+      ],
+      "qualification": "只覆盖 nested induction 的 hypothesis 可用性；同一 `R_app` 的 erasure 重写另列下一项。"
+    },
+    {
+      "title": "`R_app` 的 `HsnApp` erasure 重写方向：`Eapp` 应在 `R_neutral` premises 正向消去",
+      "intervals": [
+        {
+          "after": 376,
+          "through": 384
+        }
+      ],
+      "outcome": "已解决：确认 `HsnApp` 的 goal 已是 `strongly_normalizing (tm_app a b)`，删除反向 `rewrite <- Eapp`，改为直接 `apply SN_intro` 并在 `R_neutral` premises 用 `rewrite Eapp` 正向消去二次 erasure；step 384 `R_app` 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        531,
+        534,
+        540,
+        543
+      ],
+      "qualification": "`Eapp` 方向在 step 376/380 两次失败后才确定；step 382 的 error tail 显示 `Hst` 的 source 被改成 erased application。"
+    },
+    {
+      "title": "`R_tapp` type-beta case：`open_tm_ty` 需先展开，`R_erase_congr` 需先给 erasure equality",
+      "intervals": [
+        {
+          "after": 386,
+          "through": 392
+        }
+      ],
+      "outcome": "已解决：type-beta case 先 `unfold open_tm_ty` 再 `rewrite open_tm_ty_erased`；`R_erase_congr` 先显式提供 `erase (tm_tapp a' U) = erase (tm_tapp a' Ty_Nat)`，再取 `proj1`；step 392 编译推进到 candidate stack 错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        546,
+        549,
+        552,
+        555
+      ],
+      "qualification": "`open_tm_ty` 展开与 `R_erase_congr` 参数顺序是同一 type-beta 转换的两个连续错误；pushed candidate stack 另列下一项。"
+    },
+    {
+      "title": "`R_tapp` 的 pushed candidate stack：需 `cand_stack ((fun s => R U xi bs s) :: bs)`",
+      "intervals": [
+        {
+          "after": 392,
+          "through": 396
+        }
+      ],
+      "outcome": "已解决：命名 `HcandStack : cand_stack ((fun s => R U xi bs s) :: bs)`（由 `cand_R` 与 `cand_stack_cons` 得到）并传给 `R_sn`/`R_neutral`；step 396 `R_tapp` 编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        555,
+        558,
+        561
+      ],
+      "qualification": "step 394 的 error tail 显示现有 `Hbs : cand_stack bs` 不能满足 pushed stack。"
+    },
+    {
+      "title": "`R_natrec_num` 对 `SN (erase b)` 做 induction 丢失 index 与 `b` 的联系",
+      "intervals": [
+        {
+          "after": 399,
+          "through": 413
+        }
+      ],
+      "outcome": "已解决：把 premise 改为 `SN b`/`SN s`（不再对 `SN (erase b)` 做 induction），用 `SN_intro` 重建当前 b/s 的 SN；probe 确认 `SN b` 的 motive 随 index 变化。随后 `step_natrec_inv` 的 nested disjunctive pattern 与 `IHs` 的 `step s s'` 实参也在本区间修正，step 413 `R_natrec_num` 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        565,
+        568,
+        571,
+        574,
+        586
+      ],
+      "qualification": "后续 pattern/IH 错误是改 statement 后的适配，不再单列；核心是 induction motive 不随 `b` 变化，不是单纯 tactic 改写。"
+    },
+    {
+      "title": "`subst_tm_open_ty_rec` 的 fvar case 无法闭合：无条件 type-opening commutation 不成立",
+      "intervals": [
+        {
+          "after": 424,
+          "through": 441
+        }
+      ],
+      "outcome": "已解决（通过删除该 lemma）：fvar case 的目标 `sigma a = open_tm_ty_rec k U (sigma a)` 无法闭合，模型判断该无条件 commutation lemma 对 arbitrary substitution environment 不成立；删除 `subst_tm_open_ty_rec` 及 wrapper 后编译推进到 `lc_tm_open_inv`，fundamental 改走 `erase_subst_tm`/`erase_open_tm_ty` 的 erasure 层 equality。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        602,
+        623,
+        626,
+        627
+      ],
+      "qualification": "“不成立”是模型由 fvar goal 得出的判断，trace 中没有形式化反例；可验证的是删除后该错误消失、编译推进。`subst_tm_open` 因有 lc 前提而保留。"
+    },
+    {
+      "title": "`fundamental` T_TAbs：`Delta` 扩展误用 `Ty_FVar (fresh L2) :: D4`",
+      "intervals": [
+        {
+          "after": 478,
+          "through": 484
+        }
+      ],
+      "outcome": "已解决：type context 的元素是 `atom`，把 `Ty_FVar (fresh L2) :: D4` 改为 `fresh L2 :: D4`；只有 type opening 的参数继续用 `Ty_FVar (fresh L2)`；step 484 编译推进到 `HlcT`。",
+      "resolution": "resolved",
+      "category": "other",
+      "evidence_lines": [
+        682,
+        685,
+        688,
+        691
+      ],
+      "qualification": "该错误出现在 T_TAbs 的 `has_type_lc_ty` context argument；step 482 的 grep 确认只有这一处需要改。"
+    },
+    {
+      "title": "`fundamental` T_TAbs 的 `HlcT`：误用 `lc_ty_all_inv`，应为 `lc_ty_open_rec_inv`",
+      "intervals": [
+        {
+          "after": 484,
+          "through": 488
+        }
+      ],
+      "outcome": "已解决：`HlcT : lc_ty_at 1 TT` 应使用 `lc_ty_open_rec_inv (k:=0) (U:=Ty_FVar (fresh L2))` 从 opened type 的 local closure 反推，而不是 `lc_ty_all_inv`；step 488 编译推进到 freshness。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        691,
+        694,
+        697
+      ],
+      "qualification": "step 484/486 的 error tail 显示已有 proof 是 opened type 的 lc，而 goal 是 `Ty_All TT` 的 lc。"
+    },
+    {
+      "title": "`fundamental` T_TAbs freshness：`++` right-associativity 下的 `in_app_iff` 分支方向",
+      "intervals": [
+        {
+          "after": 488,
+          "through": 492
+        }
+      ],
+      "outcome": "已解决：`++` 是 right-associative，把 `HXL`/`HXT`/`HXG` 的 `in_app_iff` left/right 分支改成 `(L2 ++ (fv_ty TT ++ fv_context G4))` 对应的结构；step 492 编译推进到 `R_agree_xi` 的 placeholder 错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        697,
+        700,
+        703
+      ],
+      "qualification": "step 490 显示对 `L2` membership 又用了 append lemma；step 491 确认结合方向。"
+    },
+    {
+      "title": "`fundamental` T_TAbs `Hag`：`In_fv_context` 反向 membership 误用 `proj1`",
+      "intervals": [
+        {
+          "after": 492,
+          "through": 498
+        }
+      ],
+      "outcome": "已解决：从 context type 的 free-variable membership 推出 `fv_context` membership 应使用 `proj2 (In_fv_context G4 X)`，不是 `proj1`；step 498 编译推进到 false eqb 分支的 `HRZ` mismatch。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        703,
+        706,
+        709,
+        712
+      ],
+      "qualification": "该投影错误与后面的 erasure mismatch 是不同障碍；后者未解决，另列下一项。"
+    },
+    {
+      "title": "`fundamental` T_TAbs `Hag` false eqb 分支：candidate erase-invariance 与 goal `xi Z t` 不匹配",
+      "intervals": [
+        {
+          "after": 498,
+          "through": 504
+        }
+      ],
+      "outcome": "未解决：最后尝试用 candidate 的 erase-invariance（`proj1 (proj2 (proj2 (proj2 (Hxi Z))) t)`）把 `xi Z t` 变成 `xi Z (erase t)`，但 goal 是 `xi Z t`，step 504 报 `Unable to unify \"xi Z (erase t)\" with \"xi Z t\"`；run 在 3595.579s timeout，`fundamental` 未编译通过。",
+      "resolution": "unresolved",
+      "category": "lr",
+      "evidence_lines": [
+        712,
+        715,
+        718,
+        721
+      ],
+      "qualification": "这是 timeout 前最后一次 active attempt；不能据此断言 LR 路线不可行，也不能把该 mismatch 当成已验证的数学障碍。目标 `normalization` 定理的缺失是独立的早期编辑问题（见 summary）。"
+    }
+  ],
+  "trace_sha256": "b9f1893bab33df3a1761198b8453f073d25ec4b92f43c68c9719f41005147377",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 11,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "b9f1893bab33df3a1761198b8453f073d25ec4b92f43c68c9719f41005147377",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r11.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r11_20261027_211843_894302"
+  }
+}

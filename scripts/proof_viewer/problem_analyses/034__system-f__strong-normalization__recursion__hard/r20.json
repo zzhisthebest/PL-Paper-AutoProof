@@ -1,0 +1,385 @@
+{
+  "summary": "本次运行 2242 秒，把原本空白的 normalization 证明补完：整个 Task.v 于 2196.765 秒编译通过，随后 Print Assumptions 返回 Closed under the global context，clean rebuild 也通过。前约 896 秒基本是两轮未落盘的设计探索（先在带注解的 term 上试推 impredicative LR，再改为 erased-term + candidate-valued LR），之后按 Part 1–8 边写边编译，最后约 43 秒做无 axiom 检查与清理。最大障碍是 Part 6 暴露的非移位 opening capture：诊断后要给 subst_open_e_gen 加 lc premise，并把 lc_e 纳入 cand/lr/env_rel 再重写 Parts 2b–6，约 540 秒；其次是 Part 2（约 130 秒）与 Part 5（约 118 秒）。",
+  "phases": [
+    {
+      "title": "读取 Task.v 并检查工作目录与 Rocq 9.1.0 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计探索一：在 annotated terms 上推演 impredicative LR，分析 natrec 的 ST_RecSucc 展开与 type abstraction 的 type-substitution 难点",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "读取 card.md 并检查本地 Rocq 库（Stdlib/stdpp/Equations）",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "设计探索二：转向 erased-term 表示 + candidate-valued LR，确定 de Bruijn valuation、natrec 嵌套 induction 与 environment/substitution 方案",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "实现 Part 1：etm/erase/open_e/subst_e/estep/sn_e 与 erasure 的 reduction、strong-normalization 传输（含首次编译修正）",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 24
+        }
+      ]
+    },
+    {
+      "title": "实现与调试 Part 2：type locality、lc_ty opening、wf_ty_lc、lc_has_type",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 77
+        }
+      ]
+    },
+    {
+      "title": "实现与调试 Part 3：cand、lr、cand_lr 与 estep inversion lemmas",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 94
+        }
+      ]
+    },
+    {
+      "title": "实现与调试 Part 4：valuation irrelevance 与 type opening 的 LR 对应",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 117
+        }
+      ]
+    },
+    {
+      "title": "实现与调试 Part 5：lr_natrec_numeral 与 lr_natrec（numeral 归纳＋嵌套 SN 归纳）",
+      "intervals": [
+        {
+          "after": 117,
+          "through": 160
+        }
+      ]
+    },
+    {
+      "title": "Part 6 首版（subst_e_id、evalue_open_e、subst_open_e_gen）并定位非移位 opening 的 capture 缺陷",
+      "intervals": [
+        {
+          "after": 160,
+          "through": 168
+        }
+      ]
+    },
+    {
+      "title": "按 lc-enriched LR 重写 Part 2b 并重建 Part 3（lc_e、lc_tm 局部闭性基础设施与 candidate）",
+      "intervals": [
+        {
+          "after": 168,
+          "through": 230
+        }
+      ]
+    },
+    {
+      "title": "重写 Part 4/5/6 以适配 lc-enriched LR（valuation、opening、natrec、substitution）",
+      "intervals": [
+        {
+          "after": 230,
+          "through": 282
+        }
+      ]
+    },
+    {
+      "title": "编写与调试 fundamental theorem 与最终 theorem normalization",
+      "intervals": [
+        {
+          "after": 282,
+          "through": 323
+        }
+      ]
+    },
+    {
+      "title": "最终验证与清理：Print Assumptions、去掉 Admitted/Axiom 搜索、clean rebuild、去 warning",
+      "intervals": [
+        {
+          "after": 323,
+          "through": 341
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "numeric_value_e_numeral / sn_erase 首次编译：IH 名称与 rewrite 方向错误",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 24
+        }
+      ],
+      "outcome": "numeric_value_e_numeral 里 `destruct IH` 报 'The variable IH was not found'（`induction H` 生成的递归假设按 Coq 规则叫 IHH），改为显式 `induction H as [| m Hm IHm]`；随后 sn_erase 的 `rewrite Heq`（Heq : erase t = u）方向反了，goal 是 `estep u (erase t')`，改成 `rewrite <- Heq`。Part 1 随即编译到尚未完成的 normalization。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        20,
+        29,
+        35
+      ],
+      "qualification": "首次实现的小型错误，合计约 26 秒，不涉及引理陈述变更。"
+    },
+    {
+      "title": "lc_ty_open_pres / lc_ty_open_refl / wf_ty_lc / lc_has_type：apply-with、bullet 与 ty 归纳 pattern 反复失败",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 77
+        }
+      ],
+      "outcome": "lc_ty_open_pres 的 `apply lc_ty_at_mono with (k := 0)` 报 'Cannot find witness'（在 /tmp 草稿中同样重现），改为显式 `(lc_ty_at_mono 0 U0 HU k)` 后又因 `subst` 已消去 k 报 'The variable k was not found'，改用 n 出现 `lc_ty_at n U0` 与 `lc_ty_at k U0` 无法统一，最终去掉 subst 直接用 k。lc_ty_open_refl 的 arrow case 因 `auto` 未实例化 IH 留下未关闭子目标，在正式文件与隔离草稿中反复出现 'Wrong bullet / No such goal'，逐 case 打印 proof state 后改为显式 inversion pattern；ty 的归纳 pattern 把 IH1 绑成 ty，纠正为交错的 `T1 IH1 T2 IH2`。最后 wf_ty_lc 在 lc_has_type 的 T_Var/T_Abs/T_App 分支无法推断 Delta，需显式写 `(wf_ty_lc Delta)`。Part 2 于 1089.259 秒通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        39,
+        45,
+        60,
+        105,
+        114
+      ],
+      "qualification": "全部是证明脚本层失败，最终引理陈述未改。"
+    },
+    {
+      "title": "sn_e_step / cand_lr / estep_natrec_inv 初版：destruct 绑定错位、多余 proj2 与 All case 用错 valuation",
+      "intervals": [
+        {
+          "after": 80,
+          "through": 94
+        }
+      ],
+      "outcome": "sn_e 的构造子同时携带 term 与 reduction premise，`destruct H as [Hprem]` 只绑到 term，报 'Unable to unify etm with sn_e u''，改为 `destruct H as [u0 Hprem]`；cand_lr 的 expansion 写成 `proj2 (proj2 (Hall ...))` 多了一层投影（在 Abort 草稿中定位），改为 `proj2 (Hall ...)`；All case 起初沿用外层 rhoB 下的 Hst1/Hexp1，`lr rhoA rhoB T1 (tapp u')` 与 `lr rhoA (consB C rhoB) T1 (tapp u')` 无法统一，改为对每个 C 用 `IH1 rhoA (consB C rhoB) (cand_val_consB ...)`；estep_natrec_inv 的 RecSucc 分支 eauto 猜不到 witness，需 `right; right; right; right; exists n0; repeat split; auto`。Part 3 于 1164.695 秒通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        118,
+        121,
+        124,
+        130,
+        139
+      ],
+      "qualification": "除 All-case 的 consB 实例属于 LR 使用语义外，其余为 tactic 失误。"
+    },
+    {
+      "title": "lr_mapB_equiv / lr_mapB_agree / lr_mapA_agree：缺 valuation-agreement 参数、把 lc_ty_at 当 conjunction 及 in_app 方向错误",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 109
+        }
+      ],
+      "outcome": "All case 调 IH 时漏传 agreement premise（`etm_tapp u` 被当成 agreement 证明），改用 `_` 又报 'Cannot infer this placeholder'，最后新增 consB_equiv/consB_agree 并显式传入。lr_mapB_agree 的 arrow case 用 `proj1 Hlc` 把 inductive lc_ty_at 当 conjunction，改用 `inversion Hlc as [k i Hi | k X | k A B HA HB | k A HA | k]` 取两侧 premise，但后文引用的自动名 H0 随之消失，改名为 HA；lr_mapA_agree 里 `in_app_or _ _ _ HX` 方向相反，补 in_app_l/in_app_r。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        143,
+        146,
+        149,
+        152,
+        158,
+        161
+      ],
+      "qualification": "含一处对 inductive premise 的误用（proj1 Hlc），但只需改证明脚本，引理陈述未变。"
+    },
+    {
+      "title": "updB_cons 陈述错误：更新位置两侧的谓词必须区分 C1 与 C2",
+      "intervals": [
+        {
+          "after": 109,
+          "through": 117
+        }
+      ],
+      "outcome": "updB_cons 原先把 LHS 与 RHS 的更新谓词都写成 C'，j=k 时目标退化成 C'↔C'，等价前提 HC 完全用不上；实际需要 `updB (consB C rho) (S k) C1` 对 `consB C (updB rho k C2)`，改陈述后调用点补上 consB 的 head C。随后为 lr_open_ty 补 updB0_consB 连接 0 处 update 与 consB，其 `destruct (Nat.eqb 0 0); [reflexivity | discriminate]` 报 'No primitive equality found'，改为 `unfold updB, consB; simpl; reflexivity`。Part 4 于 1267.717 秒通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        161,
+        164,
+        167,
+        170,
+        173
+      ],
+      "qualification": "statement 确实需要修改；updB0_consB 部分只是化简方式调整。"
+    },
+    {
+      "title": "lr_natrec_numeral / lr_natrec：嵌套 SN 归纳消耗假设、IH 参数与 binder 顺序反复不匹配",
+      "intervals": [
+        {
+          "after": 120,
+          "through": 160
+        }
+      ],
+      "outcome": "`induction Hsns` 把 Hsns 消耗掉后仍引用它（'Hsns was not found'），需在 induction 前 pose 副本；继而 IHb/IHs 额外携带 `sn_e reduct` premise，须由 Hstepb/Hsteps 提供；numeral 不发生 reduction 的分支要让 `evalue_no_step` 作用在 `numeral_e (S k')`，且其 evalue 证明的 index 也要从 numeral k' 改成 `numeral_e (S k')`。最后 lr_natrec_numeral 的 binder 顺序让位置实参错位（s 被填进 sn_e premise、Hs 被填进 etm 位置、Hb 同样），lr_sn 也需显式传 term；改为 assert 命名各 SN 证据并完整传参后，Part 5 于 1423.740 秒通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        177,
+        180,
+        186,
+        210,
+        228,
+        237
+      ],
+      "qualification": "包含两处 induction/generalization 问题（保存 SN 副本、IH 多带 sn_e 前提），其后主要是显式传参失败。"
+    },
+    {
+      "title": "evalue_open_e 陈述为假（open_e 不保持 evalue），被放弃并删除",
+      "intervals": [
+        {
+          "after": 165,
+          "through": 167
+        }
+      ],
+      "outcome": "该引理把 b 当作被打开项，`open_e b u` 在 b 为 etm_app/etm_tapp/etm_natrec 时不是 evalue（evalue 只有 abs/tabs/zero/succ 四个构造子），因此 `forall b u, evalue u -> evalue (open_e b u)` 不成立；一次证明尝试失败后识别出陈述为假，直接删除，最终证明未使用它。",
+      "resolution": "abandoned",
+      "category": "statement",
+      "evidence_lines": [
+        244,
+        245,
+        247
+      ],
+      "qualification": "非主线所需，删除不影响最终定理。"
+    },
+    {
+      "title": "subst_open_e_gen 的 fvar case 暴露非移位 opening 的 capture：substitution images 与 lr/cand/env_rel 都须带 lc_e，Parts 2b/3–6 需重写",
+      "intervals": [
+        {
+          "after": 167,
+          "through": 252
+        },
+        {
+          "after": 259,
+          "through": 282
+        }
+      ],
+      "outcome": "原陈述允许 substitution image 含自由 de Bruijn 变量（如 sb y = etm_bvar 0），此时 `subst_e sb' (open_e_rec k (efvar x) b)` 与 `open_e_rec k v (subst_e sb b)` 不相等（非移位 opening 会 capture），且 lr 只有 sn_e、不能保证 v ∈ lr T1 也局部闭。诊断后给 subst_open_e_gen 加 `forall y, lc_e (sb y)` premise（fvar case 用 lc_e_open_id 收尾），并把 lc_e 加进 cand 的每个成员条件、lr 的每个 case 与 env_rel 的 substitution images；为此新增 lc_e_at/lc_e 基础设施（lc_e_at_open、lc_e_at_subst、lc_e_step、lc_e_open_id、erase_lc、lc_tm_open_refl、lc_tm_ty_open_refl、lc_has_type_tm）并重写 Parts 2b/3/4，其间修掉 opening identity 的 j/S j generalize、lc_e_step 的 AppAbs inversion、lc_tm_at_mono 多写的 IHty、tapp 的 induction pattern 等。Part 4 于 1930.351 秒通过；之后重做 Part 6 时还要处理 natrec freshness 的 ++ 结合方向（notin_app 等），最终 Part 6 于 2045.322 秒编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        247,
+        248,
+        261,
+        340,
+        417
+      ],
+      "qualification": "区间一是诊断与 Part 2b/3/4 重写，区间二是 subst_open_e_gen 加 lc premise 后的 freshness/append 证明；中间的 255–259 是 lr_natrec 的 lc_e premise，另列一条。区间内的 lc 相关 tactic 调试与重写本身无法再分时，整体计入。"
+    },
+    {
+      "title": "lr_natrec 缺 lc_e n 前提：sn_e n 不能推出 local closure",
+      "intervals": [
+        {
+          "after": 255,
+          "through": 259
+        }
+      ],
+      "outcome": "装配带 lc 的新版 Part 5 后，lr_natrec 的 `cand_expand` 需要 `lc_e (etm_natrec n b s)`，而其中 `lc_e n` 无法从唯一假设 `sn_e n` 得到（`lr_lc ... (T := Ty_Nat)` 报 'No such assumption'）。确认 strong normalization 不提供 local closure 后，把引理陈述改成 `forall n, sn_e n -> lc_e n -> ...`，并在 RecArg 分支用 `lc_e_step n n' Hlcn Hst` 把 lc 传给递归调用；Part 5 片段于 1957.6 秒通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        377,
+        381,
+        383
+      ],
+      "qualification": "该 premise 在 fundamental 的 T_Rec case 由 `lr ... Ty_Nat` 的 local-closure 分量提供，不只是本引理的临时补丁。"
+    },
+    {
+      "title": "env_rel_update：更新环境下同一 atom 的 LR 目标无法直接化简（Nat.eqb_refl / change / upd_apply 均失败）",
+      "intervals": [
+        {
+          "after": 285,
+          "through": 301
+        }
+      ],
+      "outcome": "`rewrite Nat.eqb_refl` 报 'no subterm matching'，改用 `change` 报 'Not convertible'；抽出 upd_apply（并处理其 true branch 的 simpl 与 false branch 的 Nat.eqb_neq）后，`rewrite upd_apply` 仍报无匹配 subterm。用 Show 看到 simpl 已把目标化成 `lr rhoA rhoB T1 v`，恰好由 Hv 提供，删去多余的 rewrite、只用 `simpl; assumption` 后通过；随后编译推进到 fundamental 的 T_Abs bullet 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        421,
+        427,
+        430,
+        436,
+        442,
+        445
+      ],
+      "qualification": "upd_apply 最后没有被用在证明里，真正的修复是识别出 simpl 已完成化简。"
+    },
+    {
+      "title": "fundamental 的 T_TAbs：IH 要求 env_rel (updA rhoA X C)，fresh type variable 必须避开 context 中所有类型的自由原子",
+      "intervals": [
+        {
+          "after": 307,
+          "through": 317
+        }
+      ],
+      "outcome": "IH 需要 `env_rel (updA rhoA X C) rhoB sb Gamma`，手上只有 `env_rel rhoA rhoB sb Gamma`；要转换就必须知道 X 不在 Γ 中每个 type 的自由原子中。新增 fv_context、in_fv_context 与 env_rel_updA，把 X 取为 `fresh_atom (L ++ (fv_ty T ++ fv_context Gamma))`，再借 lr_updA_irrel 把结论从 updA 传回 rhoA；env_rel_updA 里的 lr_updA_irrel 还需显式给 freshness 与 `sb x` 参数。补齐后 fundamental 于 2184.867 秒通过检查，编译转到 sn_erase 缺失。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        454,
+        460,
+        463,
+        466,
+        469
+      ],
+      "qualification": "只影响 T_TAbs 的 environment 转换，最终 theorem 陈述未变。"
+    },
+    {
+      "title": "sn_erase 在分块重建 Task.v 时丢失，normalization 引用失败",
+      "intervals": [
+        {
+          "after": 317,
+          "through": 323
+        }
+      ],
+      "outcome": "拼接 head/parts 重建 Task.v 时把原本位于文件末尾（normalization 之前）的 sn_erase 丢掉，搜索只剩 normalization 内的调用；重新插入该引理（对 sn_e 做 induction，用 erase_step 与 `rewrite <- Heq` 传输）后，整个 Task.v 于 2196.765 秒编译通过。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        469,
+        472,
+        475,
+        478
+      ],
+      "qualification": "文件编排遗漏，不涉及证明逻辑；随后 Print Assumptions 与 clean rebuild 均通过。"
+    }
+  ],
+  "trace_sha256": "1fa3006b39e6f0c63a45219a9e8148f78531aaa2d9b1223172e7e3aaab5a7595",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 20,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "1fa3006b39e6f0c63a45219a9e8148f78531aaa2d9b1223172e7e3aaab5a7595",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r20.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r20_20261027_211834_722456"
+  }
+}

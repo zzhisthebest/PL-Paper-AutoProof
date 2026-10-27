@@ -4,15 +4,16 @@ The lists record decisions made from the declarations in the 20 final files.
 Unknown declarations stay unclassified. The original source is never rewritten.
 """
 import re
+from normalize import normalize_statement
 
 BLOCKS = [
-    ('infra', '通用基础设施', '名字、列表、映射与环境操作。'),
+    ('infra', '通用基础设施', '名字、列表、映射、环境操作，以及安全标注的基本运算。'),
     ('syntax', 'Syntax', '语法、自由变量、打开、替换与局部封闭。'),
     ('operational', 'Operational semantics', 'value、归约、求值及执行过程的性质。'),
     ('typing', 'Typing', '类型判断及其性质，包括 typing 推出局部封闭。'),
     ('lr', '语义解释与 LR', 'LR、语义环境及其辅助引理；不含单独提取目标性质的桥接引理。'),
-    ('core', '核心证明', '从 typing 推出 LR 的 fundamental theorem 及其分支。'),
-    ('target', '目标性质与最终证明', 'SN 的定义、SN 辅助引理、LR 推出 SN，以及最终 normalization。'),
+    ('core', '核心证明', '从 typing 推出 LR 的 fundamental theorem 及其分支，包括 subtyping 的语义正确性。'),
+    ('target', '目标性质与最终证明', '目标性质的定义和辅助引理、从 LR 提取目标性质，以及最终的 normalization、自由定理、type safety 或 noninterference。'),
     ('unknown', '待确认', '尚未人工确认功能的声明。'),
 ]
 
@@ -94,7 +95,7 @@ LABELS = {name: block for block, names in NAMES.items() for name in names.split(
 assert len(LABELS) == sum(len(names.split()) for names in NAMES.values())
 
 
-def mask_comments(text):
+def mask_comments(text, mask_strings=True):
     """Blank nested comments and strings, keeping offsets/newlines."""
     out = list(text)
     i, depth, quoted = 0, 0, False
@@ -111,17 +112,19 @@ def mask_comments(text):
         elif depth or quoted:
             if text[i] == '"' and not depth:
                 if pair == '""':
-                    out[i:i+2] = '  '
+                    if mask_strings:
+                        out[i:i+2] = '  '
                     i += 2
                     continue
                 quoted = False
-            if text[i] != '\n':
+            if text[i] != '\n' and (depth or mask_strings):
                 out[i] = ' '
             i += 1
         else:
             if text[i] == '"':
                 quoted = True
-                out[i] = ' '
+                if mask_strings:
+                    out[i] = ' '
             i += 1
     return ''.join(out)
 
@@ -151,13 +154,15 @@ def sections(snapshot):
     return result
 
 
-def classify(run):
+def classify(run, labels=None, alpha=True):
+    if labels is None:
+        labels = LABELS
     initial = {d['name']: d for d in sections(run['snapshots'][run['initial']])}
     result = sections(run['snapshots'][run['final']])
     normalize = lambda s: re.sub(r'\s+', '', s)
     for d in result:
         original = initial.get(d['name'])
-        d['block'] = LABELS.get(d['name'], 'unknown')
+        d['block'] = labels.get(d['name'], 'unknown')
         if original and normalize(original['code']) == normalize(d['code']):
             d['origin'] = 'original'
             d['addedLines'] = 0
@@ -170,5 +175,9 @@ def classify(run):
         else:
             d['origin'] = 'new'
             d['addedLines'] = sum(bool(line.strip()) for line in d['code'].splitlines())
+        if alpha and d['kind'] in {'Lemma', 'Theorem', 'Corollary', 'Proposition'}:
+            source = '\n'.join(run['snapshots'][run['final']]['text'].splitlines()[d['line']-1:d['end']])
+            statement = re.split(r'\b(?:Proof|Admitted|Abort)\b', mask_comments(source, mask_strings=False), maxsplit=1)[0].strip()
+            d['alpha'] = normalize_statement(statement)
         del d['code']
     return result

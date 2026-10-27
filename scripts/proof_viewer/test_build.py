@@ -111,6 +111,13 @@ class ViewerTests(unittest.TestCase):
             trace.write_text('\n'.join(json.dumps(e) for e in events))
             proof.write_text(final)
             r = parse_run(trace, proof, {'repeat': 1, 'status': 'proved', 'time_s': 10})
+            # Some runs only read with Bash: Edit's originalFile still records
+            # the complete source before the first tracked change.
+            trace.write_text('\n'.join(json.dumps(e) for e in events[2:]))
+            no_read = parse_run(trace, proof, {'repeat': 1, 'status': 'proved', 'time_s': 10})
+            self.assertEqual(no_read['snapshots'][no_read['initial']]['text'], original)
+            unclassified = classify(no_read, labels={}, alpha=False)
+            self.assertTrue(all(d['block'] == 'unknown' and 'alpha' not in d for d in unclassified))
         self.assertEqual(r['snapshots'][r['initial']]['text'], original)
         self.assertIsNone(r['steps'][1]['after'])
         self.assertEqual(r['steps'][1]['kind'], 'compile')

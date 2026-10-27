@@ -1,0 +1,302 @@
+{
+  "summary": "本次运行过半时间用于比较多种 LR 方案并最终定型按类型递归的 RR，真正的调试集中在 subst_open_rec 缺少 env_lc 前提这一陈述错误，以及它引发的 local closure/substitution 重构。此后依次处理 subst_update_fresh 的两个分支、RR_app/RR_if 的 multi-step clause、has_type_ind 的 premise/IH 参数布局和 fundamental 的 T_Abs case。normalization 在步骤 185 首次整份编译通过，随后的 clean build 与 Print Assumptions 检查均成功。",
+  "phases": [
+    {
+      "title": "阅读任务、语言定义与运行环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "反复设计 RR 与 normalization 的证明架构",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "编写首批 auxiliary lemmas、调整声明顺序并首次调试",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 30
+        }
+      ]
+    },
+    {
+      "title": "修正 subst_open_rec 的前提并重构完整 development",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 40
+        }
+      ]
+    },
+    {
+      "title": "调试 local closure 与 substitution auxiliary proofs",
+      "intervals": [
+        {
+          "after": 40,
+          "through": 101
+        }
+      ]
+    },
+    {
+      "title": "调试 RR_app，并同步修正 RR_if",
+      "intervals": [
+        {
+          "after": 101,
+          "through": 119
+        }
+      ]
+    },
+    {
+      "title": "澄清 has_type_ind 的参数结构，重写 has_type_lc 与 fundamental",
+      "intervals": [
+        {
+          "after": 119,
+          "through": 142
+        }
+      ]
+    },
+    {
+      "title": "完成 fundamental 的 abstraction case 与 normalization，首次编译通过",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 185
+        }
+      ]
+    },
+    {
+      "title": "检查 assumptions、clean build、核对原始声明并整理报告",
+      "intervals": [
+        {
+          "after": 185,
+          "through": 207
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "subst_open_rec 缺少 env_lc 前提，导致 RR 与 fundamental 的 local closure 条件必须补回",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 40
+        }
+      ],
+      "outcome": "fvar case 的报错显示 sigma a 不能无条件等于 open_rec k (subst sigma v) (sigma a)，即缺少 env_lc 时该 commutation 不成立。随后为 subst_open_rec 添加 env_lc sigma，恢复 RR 在 base 与 arrow types 上的 locally_closed conjunct，让 fundamental 接收 locally_closed t 与 env_lc sigma，并补写 lc_at_weaken、lc_open_rec、lc_open_inv、lc_at_open_id、lc_at_subst、has_type_lc 等辅助引理；修正后的 subst_open_rec 在步骤 86 的编译中通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        43,
+        44,
+        51,
+        53,
+        57,
+        126
+      ],
+      "qualification": "区间覆盖报错暴露后的 LR 重设与 auxiliary development 整体重写；修正后的 commutation proof 直到步骤 86 的编译才被验证，故证据含该行。"
+    },
+    {
+      "title": "lc_at_weaken、lc_open_rec、lc_open_inv、lc_at_open_id 的 depth 不等式与 generalized IH 实例化连续失败",
+      "intervals": [
+        {
+          "after": 40,
+          "through": 86
+        }
+      ],
+      "outcome": "先显式应用带 forall k' 与 inequality premise 的 IHlc_at1/2/3；用 le_n_S（在 auto with arith 因无 arith database 失败后）解决 S k <= S k'；用 eqb 不等式与 lia 完成两个 opening lemma 的 bvar 分支；为 binder 下的 lc_at_weaken 调用补 k <= S k；删除已被 destruct/simpl 消去的多余 rewrite E；给 lc_at_open_id 的 IH 显式传入 j、u、Hle；最后在 subst_open_rec 中指定 lc_at_open_id 的 index k := 0。编译随后推进到 subst_update_fresh。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        57,
+        75,
+        78,
+        84,
+        94,
+        110,
+        114,
+        122,
+        125,
+        126
+      ],
+      "qualification": "这些是同一批新写 local closure 引理的连续编译—修复链，故合并；未发现需要修改 lemma statement。末尾也包含 subst_open_rec 使用 lc_at_open_id 时的 index 推断问题。"
+    },
+    {
+      "title": "subst_update_fresh 的 fvar false branch 未展开 env_update，env_update sigma x u a 无法归约为 sigma a",
+      "intervals": [
+        {
+          "after": 86,
+          "through": 90
+        }
+      ],
+      "outcome": "报错显示 env_update sigma x u a 不能与 sigma a unify；读取后确认 false branch 只写了 reflexivity，没有展开 env_update。改为 unfold env_update; rewrite E; reflexivity 后该分支通过，编译转到 tm_if case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        126,
+        127,
+        129,
+        131
+      ],
+      "qualification": "修复在步骤 90 的编译中确认，同一次编译同时暴露下一处 tm_if freshness 错误。"
+    },
+    {
+      "title": "subst_update_fresh 的 tm_if case 按左结合构造 In 路径，与 ++ 的右结合冲突",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 101
+        }
+      ],
+      "outcome": "freshness assertion 中 in_or_app 无法 unify；用独立的 list membership scratch theorem 复现后，逐步 Show 发现 fvs t1 ++ fvs t2 ++ fvs t3 按右结合解析，第一次 apply in_or_app 后 left 已到 In x (fvs t1)，第二次 apply 因而失败。按 left、right/left、right/right 重写三条路径后，freshness assertions 与整个 lemma 通过，编译推进到 RR_app。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        132,
+        133,
+        138,
+        144,
+        145,
+        148
+      ],
+      "qualification": "scratch theorem 只用于显示 goal 状态，本身未完成 proof。"
+    },
+    {
+      "title": "RR_app destruct HR1 后仍调用 RR_step，且 multi-step clause 的分支与剩余 goals 处理失配",
+      "intervals": [
+        {
+          "after": 101,
+          "through": 119
+        }
+      ],
+      "outcome": "保留完整 HR1，另用 proj2 (proj2 HR1) 提取 arrow clause，供 RR_step 与 beta branch 分别使用。通过 multi_step_inv 显式区分 reflexive equality 与 first-step case，修正 reduct LR 的 conjunction 拆分，最后用分号让 assumption 处理 Hclosy 产生的全部 premises。RR_app 与同步修改的 RR_if 均通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        151,
+        152,
+        154,
+        157,
+        165,
+        166,
+        172,
+        174,
+        175
+      ],
+      "qualification": "RR_if 没有独立的报错处理区间，其相同 clause 脚本随 RR_app 一起修改；两层 SN induction 的核心安排最终保留，不能把这些失败解释为该 induction 路线不可行。"
+    },
+    {
+      "title": "has_type_lc 与 fundamental 把 has_type_ind 的原 typing premise 当成 IH，反复误配 case arity",
+      "intervals": [
+        {
+          "after": 119,
+          "through": 142
+        }
+      ],
+      "outcome": "多次改名和 refine 尝试仍取到 typing premise。最终 Print has_type_ind 确认 T_Abs 同时提供原 premise 与 IH，T_App、T_If 也按 premise/IH pairs 排列；据此用正确 arity 的显式 refine 重写 has_type_lc 与 fundamental，并补齐 lc_fvar、lc_true、lc_false 的 index 0。has_type_lc 随后通过，编译进入 fundamental 的 environment proof。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        175,
+        187,
+        193,
+        194,
+        196,
+        202,
+        203,
+        205,
+        206,
+        208,
+        209
+      ],
+      "qualification": "困难在实际 induction principle 的参数布局与使用方式；证据不支持 T_Abs 缺少 IH，也不需要更换 typing induction 路线。末尾的 constructor index 0 属于同一次 refine 重写。"
+    },
+    {
+      "title": "fundamental 的 T_Abs 中 env_sem 更新分支的 rewrite 已被 destruct 消去，Hsem 也不能用 with 传参",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 150
+        }
+      ],
+      "outcome": "true branch 的 rewrite Nat.eqb_refl 与 false branch 的 rewrite E 都因 destruct (Nat.eqb x y) 已选定分支而找不到 subterm，删除后分别由 exact Hv 与 Hsem 完成；apply Hsem with T' 报 missing arguments 数量不正确，改为 apply (Hsem y T')。env_sem 证明通过，编译转到 IHbody 的 subst_open_rec 改写。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        209,
+        210,
+        215,
+        216,
+        218,
+        221
+      ],
+      "qualification": "三处都位于同一段 env_sem 证明的清理中，故合并；T_Abs 后续的 substitution-opening 改写另计。"
+    },
+    {
+      "title": "T_Abs 的 IHbody 中 subst 与 open 无法用 subst_open_rec 改写，最终引入 subst_open_env",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 173
+        }
+      ],
+      "outcome": "简化和调整 rewrite 顺序都无效；Show 显示 simpl 不会展开 stuck 的 open，IHbody 仍含 subst (env_update sigma x v) (open t1 (fvar x))。改为显式 unfold open 后 subst_open_rec 生效，但 env_update_eq 又找不到匹配的 env_update 子项；最后把整段 identity 封装为 subst_open_env，经 unfold open、subst_open_rec、env_update_eq 与 subst_update_fresh 完成，helper 在步骤 173 的编译中通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        221,
+        222,
+        224,
+        230,
+        232,
+        246,
+        248,
+        252,
+        254
+      ],
+      "qualification": "步骤 165 的 Python AssertionError 只是编辑未写回文件；步骤 169/173 中新 helper 自身的 rewrite 失败也属于这一段。"
+    },
+    {
+      "title": "multi_abs 的 apply ... in 留下 source abstraction 的自反 equality，阻塞 T_App bullet",
+      "intervals": [
+        {
+          "after": 173,
+          "through": 181
+        }
+      ],
+      "outcome": "apply multi_abs ... in Hm 在 abstraction clause 末尾产生两个 goals：主 goal RR T2 (open b u) 与 source abstraction 的自反相等；脚本只解决了前者，未完成的 equality 直到 T_App bullet 才以 focus 错误暴露。Show 确认第二个 goal 是 tm_abs T1 (subst sigma t1) = 自身后，改用传入 eq_refl 的完整 pose proof，fundamental 通过，编译推进到 normalization。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        259,
+        261,
+        264,
+        265,
+        266,
+        267
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "af9b35bd470cc4ce67a03f00f154940f9e2eb44c4f2a0404fdd3ba2aa049f288",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 14,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "af9b35bd470cc4ce67a03f00f154940f9e2eb44c4f2a0404fdd3ba2aa049f288",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r14.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r14_20261027_211735_135533"
+  }
+}

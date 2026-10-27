@@ -1,0 +1,257 @@
+{
+  "summary": "本次时间主要用于前期 CBV logical relation 的设计与整份证明草稿的写入，随后集中在 LR helper lemmas、substitution infrastructure 与 typing_LR 的编译调试。最实质的陈述问题是 subst_open_rec 对任意 substitution environment 不成立，需要给 sem_ctx 增加所有 substitution image 都 locally closed 的 invariant；其余多为 match/apply 的 hypothesis 与参数推断、rewrite 和 notation 问题。normalization 最终完成，并通过 rocq compile、coqc 与 Print Assumptions 验证。",
+  "phases": [
+    {
+      "title": "读取任务与检查 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 LR、semantic substitution 与 fundamental theorem，写入完整草稿",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "编译并调试 LR_of_reducts、LR_abs、LR_app_value 与 LR_app",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 112
+        }
+      ]
+    },
+    {
+      "title": "修正 subst_open_rec 前提，重构 sem_ctx 并调试 local closure helpers",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 174
+        }
+      ]
+    },
+    {
+      "title": "修复 substitution、context 与 typing_LR 脚本，完成 normalization 编译",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 204
+        }
+      ]
+    },
+    {
+      "title": "核对原始声明、检查 assumptions、重复 clean compile 并报告结果",
+      "intervals": [
+        {
+          "after": 204,
+          "through": 226
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "LR_of_reducts 的 ST_App1/ST_App2：报错行归属与 match hypothesis 匹配反复混淆",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 60
+        }
+      ],
+      "outcome": "最初 ST_App1 引用了 inversion 未生成的 H，改用 match goal；随后第 362 行的 No applicable tactic 实际属于 ST_App2 的 eassumption，却被反复当作 ST_App1 的 pattern 或 Harr application 失败来调试。经带行号查看代码与打印 hypotheses，ST_App1 最终改用全 metavariable pattern 并通过；ST_App2 则用 contra_value_step 同时匹配同一 source 的 value 与 step hypothesis，避免 eassumption 先把 source evar 实例化为 value t 而找不到 t --> _。step 60 的编译越过 LR_of_reducts，停在 LR_abs。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        14,
+        38,
+        41,
+        47,
+        59,
+        68,
+        69,
+        86,
+        89
+      ],
+      "qualification": "固定标识符 pattern 失败的具体 Ltac 原因未被确认（step 37 仍表示不确定）；这里只记录改用全 ? pattern 后通过编译这一事实。"
+    },
+    {
+      "title": "LR_app_value 的 ST_AppAbs：硬编码 v、遗漏 step relation 的 match 与 LR_step 的两个 subgoals、LR_SN 参数",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 106
+        }
+      ],
+      "outcome": "inversion 后 ST_AppAbs 的 argument 名为 t2，原脚本硬编码的 v 不存在；第一次改写的 match pattern 又遗漏了 step relation，报 No matching clauses。后续 debug 确认完整 pattern 可以匹配，但 apply LR_step 留下两个 subgoals，单个 admit 只关闭第一个（Wrong bullet / No such goal），最终拆成 apply Harr; assumption 与 assumption 关闭；Haux 中的 apply LR_SN 也改为 apply (LR_SN A t2)。step 106 的编译越过 LR_app_value，停在 LR_app。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        98,
+        103,
+        113,
+        130,
+        136,
+        146,
+        149,
+        155,
+        158
+      ],
+      "qualification": "多次 No matching clauses 的成因不完全是同一件事：pattern 遗漏 step relation 与 tactic body/subgoal 处理交织；此处按实际编辑和拆分 subgoals 后的编译结果归因。"
+    },
+    {
+      "title": "subst_open_rec 对任意 substitution environment 不成立，需给 sem_ctx 增加 local closure invariant",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 130
+        }
+      ],
+      "outcome": "fvar case 暴露 sigma x 与 open_rec k (subst_tm sigma u) (sigma x) 无法统一：opening 会作用到 substitution 引入的 free de Bruijn indices，原 commutation statement 对任意 sigma 不成立。修正为 subst_open_rec 增加所有 sigma x locally closed 的 premise，把 sem_ctx 改为 conjunction，并给 sem_ctx_extend 增加 value premise、用 value_lc 维持 invariant；同时补入 open_rec_lc0/open_rec_lc 与 lc_at_mono 骨架，在 fvar case 先 symmetry，把 k 移到 structural induction 之后并显式传入各 IH。step 174 的编译越过这组 helper、step 204 整文件编译成功，验证了该修正。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        167,
+        168,
+        171,
+        174,
+        177,
+        180,
+        183,
+        187,
+        190,
+        193,
+        259,
+        292,
+        304
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_mono 的算术支撑：Nat.le_n_S 不存在、apply Nat.succ_le_mono 选错 iff 方向",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 174
+        }
+      ],
+      "outcome": "lc_at_mono 的 abstraction case 先引用不存在的 Nat.le_n_S；搜索 Stdlib 并用临时 chk.v 的 Check 确认可用的是 Nat.succ_le_mono : n <= m <-> S n <= S m 及 lt_le_trans 等，换成 apply Nat.succ_le_mono 后又报 No such assumption。debug 显示剩余 goal 为 S (S k) <= S (S k') 而 Hle 为 k <= k'，说明 apply 选中了 iff 的反向；最终显式写出 exact (proj1 (Nat.succ_le_mono k k') Hle)。step 174 的编译越过 lc_at_mono/open_rec_lc/subst_open_rec，停在 subst_extend_neq。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        193,
+        203,
+        220,
+        223,
+        226,
+        229,
+        235,
+        254,
+        256,
+        259
+      ],
+      "qualification": "Nat.le_n_S 的缺失经库搜索和 Check 解决；真正的失败原因是 succ_le_mono 的 iff 方向选择。"
+    },
+    {
+      "title": "subst_extend_neq 的 if case 被额外 f_equal 拆成 substitution environment equality",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 180
+        }
+      ],
+      "outcome": "首次 f_equal 后又对 if 的 branch equality 继续 f_equal，goal 变成 extend sigma x v = sigma，无法套用 IH2 的 term equality。改为对 app 的两个 subterms 和 if 的三个 subterms 显式构造 freshness，再用 (IH1 H1) 等 rewrite；step 180 的编译越过 subst_extend_neq，停在 sem_ctx_extend。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        259,
+        262,
+        263,
+        265,
+        268
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "sem_ctx_extend 在 destruct 已化简 if 后仍 rewrite Nat.eqb_refl / rewrite E",
+      "intervals": [
+        {
+          "after": 180,
+          "through": 190
+        }
+      ],
+      "outcome": "true case 的 rewrite Nat.eqb_refl 报 Found no subterm matching ?M =? ?M，false case 的 rewrite E 报找不到 x =? y；原因是 destruct (Nat.eqb x y) 已把 goal 中的 if 化简到对应 branch。删除两处多余 rewrite，分别用 assumption 与 apply Hsem; assumption 完成；step 190 的编译越过 sem_ctx_extend，停在 typing_LR 的 syntax error。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        268,
+        271,
+        272,
+        274,
+        277,
+        280,
+        283
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "typing_LR 的 typing premise 未用 <{ ... }> 包裹导致 syntax error",
+      "intervals": [
+        {
+          "after": 190,
+          "through": 196
+        }
+      ],
+      "outcome": "第 640 行的 Gallina syntax error 来自裸写的 typing notation；该 notation 只声明为 <{ Gamma |-- t \\in T }>。给 theorem statement 的 premise 补上 <{ ... }> 后，step 196 的编译进入 typing_LR proof，停在 T_App 的 LR_app 参数错误。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        283,
+        286,
+        287,
+        289,
+        292
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "typing_LR 的 T_App 无法推断 LR_app 的 domain type A，normalization 的 sem_ctx/LR_SN 需同步适配",
+      "intervals": [
+        {
+          "after": 196,
+          "through": 204
+        }
+      ],
+      "outcome": "T_App 的 apply LR_app 报 Unable to find an instance for the variable A，因为 A 只出现在 premise；改为 apply (LR_app T1 T2)。同时 normalization 中旧的 sem_ctx proof 按新的 conjunction 用 split 证明每个 sigma x locally closed，并把 apply LR_SN 改为 apply (LR_SN T t) in H。step 204 的 rocq compile 无输出，整文件首次编译成功。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        292,
+        295,
+        296,
+        298,
+        301,
+        304
+      ],
+      "qualification": "normalization 的 Hsem/LR_SN 修改是对 sem_ctx 陈述变更的同步适配，编译前尚未独立暴露为报错。"
+    }
+  ],
+  "trace_sha256": "a01a2d1e03eecde42e916115f74917e14e7ce4815021978a28765241ea695ec5",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 18,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a01a2d1e03eecde42e916115f74917e14e7ce4815021978a28765241ea695ec5",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r18.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r18_20261027_211738_866938"
+  }
+}

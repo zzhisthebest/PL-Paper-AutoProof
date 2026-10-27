@@ -1,0 +1,524 @@
+{
+  "summary": "本次 2255 秒运行最终成功：Task.v clean compile，noninterference 无 Admitted/axioms（Print Assumptions 返回 Closed under the global context）。约 700 秒用于读题与 LR/定理架构设计（可观察 gate、binder 与 substitution 机制等混在同一长思考中，无法单独分时，整体留在 phases），其余约 1550 秒为分块实现与调试；实现期最长的单一问题是 program_context 的 subst_env_plug 不成立、改用 context_fv + identity-off 环境的重做（约 266 秒），求值分解引理族、fundamental theorem 的 IH 参数/重写与最后的环境实例化也占用较多时间。",
+  "phases": [
+    {
+      "title": "设计探索：读题、保护/安全等级语义推演与 LR/定理架构设计",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "实现准备：Rocq 版本检查、带 Admitted 的基线编译与分块计划",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 12
+        }
+      ]
+    },
+    {
+      "title": "基础 LR 骨架：value_rel/term_rel 与求值分解引理（multi_*_inv）",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 90
+        }
+      ]
+    },
+    {
+      "title": "LR 的 protection/subtyping 单调性（security_le_from_subtype、value_rel_protect、value_rel_subtype）",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 122
+        }
+      ]
+    },
+    {
+      "title": "locally nameless/substitution 基础设施与 program_context 实例化返工",
+      "intervals": [
+        {
+          "after": 122,
+          "through": 198
+        }
+      ]
+    },
+    {
+      "title": "LR inversion/环境 helpers 与 fundamental theorem 初稿",
+      "intervals": [
+        {
+          "after": 198,
+          "through": 225
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem 各 case 调试",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 295
+        }
+      ]
+    },
+    {
+      "title": "value_rel_erase 与 noninterference 的编写与调试（含文件拼接修复）",
+      "intervals": [
+        {
+          "after": 295,
+          "through": 338
+        }
+      ]
+    },
+    {
+      "title": "验证与收尾：无 Admitted/axioms、prefix/theorem 对照、Print Assumptions、clean recompile",
+      "intervals": [
+        {
+          "after": 338,
+          "through": 351
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "value_no_step：value 的 induction 提前固定 reduct，IH 不适用于任意 step 目标",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 34
+        }
+      ],
+      "outcome": "把引理改为 `forall v, value v -> forall t, ~(v --> t)`，induction 之后才 intros t，使 IH 对任意 reduct 泛化；Show 暴露四个 component case 的 False goals 后 intuition 仍留下目标，最终用 firstorder 关闭；step 34 编译越过 value_no_step，错误转到 term_rel_of_value_rel。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        29,
+        30,
+        38,
+        47,
+        50
+      ],
+      "qualification": "与下一项 term_rel_of_value_rel 相邻，但原因分别是 induction generality 与 assert 结构，分开计时。"
+    },
+    {
+      "title": "term_rel_of_value_rel：assert 块在 multi_value_inv/eauto 之后仍追加 tactics，触发 focus 错误（曾被误判为 multi_value_inv）",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 40
+        }
+      ],
+      "outcome": "先按报错把问题归到 multi_value_inv，并用 remember 固定起始值改写其 induction，但同一 focus 错误仍在；读第 685 行附近代码后确认实际位置是 term_rel_of_value_rel 的两个 assert（`{ symmetry. eapply multi_value_inv; eauto. apply value_rel_v1 in Hrel; eauto. }`）；改为显式 destruct evaluation premises、pose value_rel_v1/v2，并用 `assert ... by (eapply multi_value_inv; eauto)` 后编译越过该引理。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        53,
+        56,
+        57,
+        59
+      ],
+      "qualification": "multi_value_inv 的 remember 改写被保留，但该 focus 错误实际不在 multi_value_inv；两处 assert 修正后编译越过。"
+    },
+    {
+      "title": "value_rel_opaque：destruct T 后 is_low/security_of 形式不匹配，且剩余 8 个 flows_to _ High 需 helper",
+      "intervals": [
+        {
+          "after": 40,
+          "through": 52
+        }
+      ],
+      "outcome": "destruct T 后 `security_of (Ty_Unit κ)` 已化简为 κ，使针对未化简 security_of T 的 His 无法 rewrite；改为从 Hnot 直接 assert κ.ind = High（sec_ind_high），先 rewrite 再 simpl；Show 显示剩余 8 个 obligation 全是 `flows_to (indirect_reader (value_security v_i)) High`，补 flows_to_any_high（同时加入 flows_to_any_low）后 dbg 编译通过，step 52 同步回 Task.v 也通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        59,
+        63,
+        65,
+        68,
+        71,
+        74,
+        77
+      ],
+      "qualification": "区间包含 dbg 与 Task.v 的同步编译；flows_to_any_low 一并加入但未参与该证明。"
+    },
+    {
+      "title": "multi_app_inv：对 19 constructor 的 step 关系使用 `inversion ... as` 全分支 pattern",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 60
+        }
+      ],
+      "outcome": "`inversion H as [ ... ]` 要求为 step 关系的全部 19 个 constructor 给出 pattern，而实际只有 ST_AppAbs/ST_App1/ST_App2 可 unify；改用普通 `inversion H; subst`，用 Show 确认三个 case 与 H4/H5 等前提名；改写后的 multi_app_inv 在 step 60 编译通过（错误推进到 multi_fst_inv）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        80,
+        83,
+        86,
+        89
+      ],
+      "qualification": "此区间只解决 step 关系的 inversion 策略；同批其余 multi_*_inv 的自动命名引用见下一项。"
+    },
+    {
+      "title": "求值分解引理族（multi_*_inv）：自动命名的 binder/IH 引用不符，multi_protect_inv 需 t0 witness",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 90
+        }
+      ],
+      "outcome": "按 Show 得到的实际 context 修正 multi_*_inv 的引用：重复 binder t→t0/r0（并同步 exists 与递归调用）、multi_inl/inr 的 t0/k0、multi_protect_inv 的 ST_ProtectValue 以 t0 为 witness 并用 multi_value_inv+protect_value_value 固定 protected result、multi_if_inv 的 kappa→k；step 90 整组 decomposition 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        95,
+        98,
+        101,
+        104,
+        113,
+        116,
+        123,
+        125,
+        128,
+        131,
+        134
+      ],
+      "qualification": "同族多条引理同批写入、连续调试，均为自动命名与手写引用不符；单条耗时未分别记录。"
+    },
+    {
+      "title": "security_le_from_subtype：S_Trans 无法由 auto/security_le_trans 收尾，需显式 IHsubtype1/IHsubtype2",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 104
+        }
+      ],
+      "outcome": "`auto` 已关闭 S_Unit/S_Sum/S_Prod 后只剩 S_Trans，原来的三个 `- assumption` 与后续 `eapply security_le_trans; eauto` 都留下未完成 goal；改为 `auto using security_le_refl` 后显式 `eapply security_le_trans; [exact IHsubtype1 | exact IHsubtype2]`，step 104 编译推进到 value_rel_protect_low。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        149,
+        152,
+        155
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_rel_protect_low/high 与 term_rel_protect：value_rel projection 隐式参数无法推断、rewrite 目标错放在 Hp",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 110
+        }
+      ],
+      "outcome": "value_rel_protect_low/high 中的 `apply value_rel_v1` 无法从 goal 推断 T、v2，改为显式 `value_rel_v1 T v1 v2 Hrel` 与 `protect_value_value`；term_rel_protect 的 `rewrite Ev1, Ev2 in Hp` 找不到 v1，改为在 goal 上 rewrite 后再 exact Hp；step 110 编译推进到 value_rel_subtype。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        155,
+        158,
+        159,
+        161,
+        163
+      ],
+      "qualification": "value_rel_protect_low/high 与 term_rel_protect 相邻，两个错误都由显式参数/重写位置引起，合并计时。"
+    },
+    {
+      "title": "value_rel_subtype：subtype cases 的自动命名/κ1 引用与 repeat split 后多余 exact I bullets",
+      "intervals": [
+        {
+          "after": 110,
+          "through": 122
+        }
+      ],
+      "outcome": "Show 得到 S_Unit 用 kappa1/kappa2 与 H1 后，按五个 subtype cases 重写 value_rel_subtype（含 contravariant Arrow domain 与 security_le_reader 的 flows_to 传递）；`repeat split` 已自动关闭 True 的 case 仍保留四处 `* exact I`，删除后 step 122 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        164,
+        167,
+        170,
+        173,
+        176,
+        182
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_mono 等 tm 递归的 `induction ... as` pattern：递归参数后必须紧跟 IH 名",
+      "intervals": [
+        {
+          "after": 124,
+          "through": 132
+        }
+      ],
+      "outcome": "Show 确认 tm_abs 分支的 IH 占用了 pattern 的最后一个名字（security 参数反被自动命名成 s）；改为 `T body IHbody kap`、`a IHa b IHb r` 等后重写 chunk4 的 lc_at_mono/open_rec_lc/lc_open_rec_fvar/subst_env_open_rec；step 132 编译越过 lc_at_mono 的 pattern，进入 `auto with lia` 的 hint-database 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        185,
+        188,
+        191,
+        194,
+        195,
+        197
+      ],
+      "qualification": "此区间只解决 pattern/IH 命名；随后 open_rec_lc 的 Nat.eqb 与 lc_open_rec_fvar 的算术问题属另外的小修，未单列。"
+    },
+    {
+      "title": "subst_env_open_rec：rho 名称冲突、bvar 的 Nat.eqb 与 extend_env、fvar 的 freshness/identity",
+      "intervals": [
+        {
+          "after": 144,
+          "through": 158
+        }
+      ],
+      "outcome": "改为先 intros 再 revert 使 body 的 IH 保持 generality；bvar case 用 destruct Nat.eqb + extend_env_eq，fvar case 用 freshness 消去 extend_env（extend_env_neq）再应用 open_rec_lc；该引理通过后错误转到旧 subst_env_plug。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        224,
+        227,
+        233,
+        236
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_env_plug 对含嵌入自由变量的 program_context 不成立（context_fv + identity-off 环境返工）",
+      "intervals": [
+        {
+          "after": 158,
+          "through": 198
+        }
+      ],
+      "outcome": "发现无条件 `subst_env rho (plug C (fvar x)) = plug C (rho x)` 在 C 的固定 term 含自由变量时为假（C_AppLeft 中 t vs subst_env rho t）；引入 context_fv、in_fv_plug（精确 list equality 不成立，改为 membership）、subst_env_identity_off 与 subst_env_plug_fresh，取 x ∉ L ++ context_fv C 且 rho 在 x 外保持 identity；step 198 chunk4 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        237,
+        242,
+        245,
+        248,
+        251,
+        266,
+        269,
+        284,
+        290,
+        296
+      ],
+      "qualification": "同一返工中的 fv_plug→in_fv_plug、has_type_lc、subst_env_identity_off、subst_env_plug_fresh 均服务于 context_fv+identity-off 实例化，未再拆时。"
+    },
+    {
+      "title": "multi_app_abs_inv：ST_App1/ST_App2 的 component-step cases 未被 assumption 关闭",
+      "intervals": [
+        {
+          "after": 211,
+          "through": 225
+        }
+      ],
+      "outcome": "Show 确认 inversion 给出三个 step case：ST_AppAbs 直接提供尾部 multi，ST_App1 需 abs_no_step 排除 abstraction 的 step，ST_App2 需 value_no_step 排除 value argument 的 step；统一 assumption 失败后显式给出两个反证，step 225 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        318,
+        324,
+        333,
+        336
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs gate-open 分支：`if is_low` 未化简（rewrite Hlow 早于展开）与 Ew1'/Ew2' 多余 symmetry",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 243
+        }
+      ],
+      "outcome": "`rewrite Hlow in *` 发生在 value_rel 展开之前，simpl 展开后 goal 仍留下 `if is_low (indirect_reader kappa)`；改为先 simpl、再 rewrite Hlow、再 repeat split/intros；随后 protected-result equality 因多余的 symmetry 与 protect_value_low 方向相反，删除 Ew1'/Ew2' 的 symmetry 后 step 243 编译推进到 body IH 引用错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        354,
+        355,
+        357,
+        360,
+        361,
+        363
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs：误用 typing premise H1、open/open_rec rewrite 失配、subst 选错等式与 gate-closed 分支",
+      "intervals": [
+        {
+          "after": 243,
+          "through": 257
+        }
+      ],
+      "outcome": "H1 是 typing premise，body 的 IH 是 H2，改用 `H2 x HxL _ _ Henv'`；subst_env_open_rec 的 LHS 用 open_rec 而 Hbodyrel 是 `open`，新增以 open 表述的 subst_env_open（unfold open 后转调）使 rewrite 匹配；`subst w1 w2` 选用了原始 protected-result equalities，改为 `rewrite Ew1', Ew2'`；gate-closed 分支按 result type Ty_Arrow 改为 `simpl; exact Hhigh`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        366,
+        369,
+        372,
+        375,
+        378,
+        381,
+        384
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 各 elimination case 的 IH 名称与参数（IH 先接受 rho1/rho2 与 env_rel）",
+      "intervals": [
+        {
+          "after": 257,
+          "through": 269
+        },
+        {
+          "after": 291,
+          "through": 295
+        }
+      ],
+      "outcome": "用 Show 1..13 列出全部 typing case 的 IH 名（T_Abs 为 H2、T_Case bodies 为 H2/H4、其余为 IHhas_type/IHhas_type1..3）；把误放在 evaluated-term 位置的调用统一补上 rho1 rho2 Henv（T_App/T_Pair/T_Fst/T_Snd/T_Inl/T_Inr/T_Case/T_Protect/T_If）；T_If yes 分支的一处遗漏在文件拼接修复后补上。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        387,
+        390,
+        393,
+        399,
+        402,
+        438,
+        441
+      ],
+      "qualification": "第二段 interval 是同一类遗漏（T_If yes 分支少传 rho1 rho2 Henv）在插入 T_Fst/T_Snd 与 gate-closed 修复后再次出现。"
+    },
+    {
+      "title": "fundamental gate-closed 分支：`rewrite Hlow in *` 破坏 E 的形式，且未展开 term_rel 就 apply value_rel_high_ind",
+      "intervals": [
+        {
+          "after": 269,
+          "through": 283
+        }
+      ],
+      "outcome": "把五处 `rewrite Hlow in *` 改成只 rewrite goal，避免 E 变成 `is_low Low = true` 而失去 value_rel_arrow_inv 需要的形式；opaque branch 的 goal 是完整 term_rel，先 `unfold term_rel; intros` 取出两侧 evaluations 与 value premises，再 apply value_rel_high_ind；T_App/T_Fst/T_Snd/T_Case/T_If 的 closed 分支修好。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        405,
+        408,
+        411,
+        414,
+        420,
+        423
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Fst/T_Snd：injection/subst 消去 k1/k2，需 value_rel_prod_fst/snd/bound helpers",
+      "intervals": [
+        {
+          "after": 283,
+          "through": 289
+        }
+      ],
+      "outcome": "产品 LR inversion 后的 injection+subst 会消去 k1/k2，后续无法引用其 indirect level；改为把 extraction 封进 helper，主 proof 用 value_rel_prod_fst/snd 取 component relation、value_rel_prod_bound1/2 取 k1/k2.ind 的 flows_to；首次调用多传一个 underscore 使 E 被当作 LR proof，修正 arity 后 step 289 编译推进到 multi_case_inv。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        426,
+        428,
+        429,
+        432
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_rel_erase：type induction pattern 与 ind_bound_low 的 flows_to/equality 参数",
+      "intervals": [
+        {
+          "after": 298,
+          "through": 306
+        }
+      ],
+      "outcome": "补上 type induction 的 IH 名（`[κ0 | T1 IHT1 T2 IHT2 κ0 | ...]`）；Hflow : flows_to κ.ind Low 先经 `proj1 (flows_to_low_iff _)` 转成 κ.ind = Low 才能传给 ind_bound_low；修正后 value_rel_erase 编译通过，错误转到 noninterference 的 environment proof。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        448,
+        451,
+        454,
+        457
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "noninterference 的 environment 实例化：unfold/simpl 后 Nat.eqb_refl 失配，改用 extend_env 与 extend_env_eq/neq",
+      "intervals": [
+        {
+          "after": 306,
+          "through": 316
+        },
+        {
+          "after": 330,
+          "through": 338
+        }
+      ],
+      "outcome": "env_rel 中 `unfold rho1, rho2; rewrite Nat.eqb_refl` 按语法匹配不到 `_ =? _`，加 simpl 后仍在同一行失败；改用 `extend_env (fun y => tm_fvar y) x t_i`，range_lc 用 has_type_lc，hole lookup 用 extend_env_eq，identity-off 用 extend_env_neq；文件拼接修复后，E1/E2 的旧 Nat.eqb_refl 写法也改为 extend_env_eq，step 338 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        460,
+        463,
+        469,
+        472,
+        499,
+        502,
+        505
+      ],
+      "qualification": "两段 interval 之间是文件拼接修复；回到 environment 证明后还需处理 E1/E2 的旧 Nat.eqb_refl 写法。"
+    },
+    {
+      "title": "Task.v 拼接与删除错误：原 theorem 残留、header 被截断、重复 value_rel_erase",
+      "intervals": [
+        {
+          "after": 316,
+          "through": 330
+        }
+      ],
+      "outcome": "替换 theorem header 时未删除原 statement 与 Admitted，随后按 `(T_secret T_result : ty),` 删除又截断了新 theorem；最终从第一份 value_rel_erase 的 Qed 重建文件尾部、只接上 chunk7 的完整 noninterference block，syntax error 消失（编译随后暴露 env_rel 的旧 Nat.eqb_refl）。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        475,
+        478,
+        481,
+        487,
+        490,
+        493
+      ],
+      "qualification": "该区间只覆盖文件结构修复；修复后暴露的 env_rel 旧写法计入上一项的第二段 interval。"
+    }
+  ],
+  "trace_sha256": "7be320d44a0a24c47753f6493fcda94a6501b5a2cddea76526281d9ac96cc623",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 18,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "7be320d44a0a24c47753f6493fcda94a6501b5a2cddea76526281d9ac96cc623",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r18.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r18_20261027_212256_401092"
+  }
+}

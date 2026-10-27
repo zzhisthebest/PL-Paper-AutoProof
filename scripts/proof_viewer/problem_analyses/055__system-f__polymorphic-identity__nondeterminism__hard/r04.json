@@ -1,0 +1,531 @@
+{
+  "summary": "本次运行约 644s 用于首轮 unary logical predicate/parametricity 设计与证明组织，约 985s 用于 syntactic infrastructure（含首次插入破坏文件后的恢复、local closure/opening/substitution 修正），约 572s 用于 semantic `VR`/`TR`、`fundamental` 与最终 singleton-predicate 实例化。主要障碍是 false 或缺 premise 的 helper lemma（`lc_ty_open_elim`、substitution commutation）、多处 implicit opening depth 与 IH 自动命名、以及 `fundamental` 的 `TR`/environment 改写；这些均有后续编译推进或 step 368 clean build 验证，另有一次 `coqtop -l` 等待 stdin 的 120s tooling 卡顿。最终 `Task.v` 在 clean rebuild 中通过。",
+  "phases": [
+    {
+      "title": "阅读 `Task.v` 并完成首轮 unary logical predicate / parametricity 设计与证明组织",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "baseline 验证、修复首次插入造成的文件破坏，并重写 helper-lemma/substitution 方案",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 22
+        }
+      ]
+    },
+    {
+      "title": "syntactic infrastructure 编写与编译调试：local closure、opening、substitution agreement",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 240
+        }
+      ]
+    },
+    {
+      "title": "semantic `VR`/`TR` 定义、multi-step 与 environment agreement 基础引理",
+      "intervals": [
+        {
+          "after": 240,
+          "through": 251
+        }
+      ]
+    },
+    {
+      "title": "type-opening semantic substitution lemma `VR_open_ty_rec_subst`",
+      "intervals": [
+        {
+          "after": 251,
+          "through": 281
+        }
+      ]
+    },
+    {
+      "title": "`fundamental` theorem 的编写与调试",
+      "intervals": [
+        {
+          "after": 281,
+          "through": 351
+        }
+      ]
+    },
+    {
+      "title": "最终 theorem 的 singleton-predicate 实例化与 clean rebuild 验证",
+      "intervals": [
+        {
+          "after": 351,
+          "through": 370
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "大块 Edit 误删 `Theorem polymorphic_identity_theorem_for_free` header，并引用未定义的 `ty_subst_env_agree_fv`",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 19
+        }
+      ],
+      "outcome": "step 12 的 Edit 把 `Hint Constructors ...` 与原 theorem header 一起替换掉，插入块还调用了尚未定义的 `ty_subst_env_agree_fv`。step 14 定位插入块，step 16 的 Read 确认文件只剩 `has_type [] empty t` premise，step 17 明确认出 header 被删。step 19 用 `cp Task.v.orig Task.v` 复原文件并确认原 theorem statement 与未完成 proof 已恢复；重写后的插入在 step 22 才重新进行。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        16,
+        17,
+        20,
+        23,
+        24,
+        26,
+        27
+      ],
+      "qualification": "Edit（line 16/17）位于 after 端点，作为原因证据；区间只计察觉与恢复，step 22 的重插入在 phase 2 后半段，未计入本问题。"
+    },
+    {
+      "title": "`fv_tm` 把 type atoms 混入 term variables，使 `fv_tm_tm_ty_subst_env` 的 invariance statement 失效，并迫使 `tm_ty_subst_env_agree` 改用 `fv_tm_ty` support",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 48
+        }
+      ],
+      "outcome": "step 30 在 line 436 的 `congruence` 失败：`fv_tm` 把 annotation/type argument 中的 type atoms 也算进来，而 `ty_subst_env` 会改写这些 atoms，`fv_tm (tm_ty_subst_env σ t) = fv_tm t` 不成立。step 33 决定拆成只收集 `tm_fvar` 的 `fv_tm` 与收集 type atoms 的 `fv_tm_ty`；step 34 重定义；step 36 相应把 `tm_ty_subst_env_agree` 的 premise 改为 `fv_tm_ty`；step 38-46 补 `tm_tabs`/`tm_tapp` 的 `f_equal` 与 `tm_subst_env_agree` 的 membership proof。step 48 编译越过全部 fv lemmas，进入 commutation lemma。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        43,
+        49,
+        52,
+        55,
+        61,
+        67,
+        70
+      ],
+      "qualification": "`tm_tabs`/`in_or_app` 报错是该定义缺陷的连锁表现，未单独计时；line 43 的 step 30 为原因证据。"
+    },
+    {
+      "title": "substitution/opening commutation 在 substitution image 可含 free bvars 时不成立；补 lc premise 后 `apply_env_open_tm_fvar` 的 unfold/rewrite 形状仍需修正",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 60
+        },
+        {
+          "after": 208,
+          "through": 212
+        }
+      ],
+      "outcome": "step 48 的 `ty_subst_env_open_ty_rec` FVar case 要求 `open_ty_rec k (σ U) (σ a) = σ a`，一般不为真。step 49 给 `ty_subst_env_open_ty_rec`、`tm_ty_subst_env_open_tm_ty_rec` 加 `forall X, locally_closed_ty (σ X)`，给 `tm_subst_env_open_tm_ty_rec` 加 `forall x, locally_closed_tm (γ x)`，并补 `apply_env_open_tm_fvar`/`apply_env_open_tm_ty`；step 60 插入新 block。step 208 的编译推进到 `apply_env_open_tm_fvar` 时，rewrite 找不到 `open_tm_rec` 形状；step 211 决定先 `unfold apply_env, open_tm`，step 212 编译通过 opening commutation，转入 `wf_ty_lc`。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        70,
+        71,
+        87,
+        88,
+        306,
+        310,
+        311
+      ],
+      "qualification": "同一 block 的工作被 local-closure opening lemmas 打断，故两段；第二段只计 block 自身的 rewrite 错误，不含 steps 178-208 的 implicit-depth 修正。"
+    },
+    {
+      "title": "`lc_tm_mono` 的 `tm_tabs` case 留下 `S K ≤ S K'` 未被 `eauto` 关闭，bullet 悬空",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 71
+        },
+        {
+          "after": 81,
+          "through": 97
+        }
+      ],
+      "outcome": "step 62 报 bullet 未完成；step 64-70 定位 `lc_tm_mono` 与 prefix，step 68 的 probe 因截断在现有 proof 内失败。step 85-91 的 probe 显示 `tm_abs` subproof 已完成，剩余的是 app/tabs/tapp/choice；step 94 重新计数确认 line 531 是 tapp bullet，真正未完成的是 `tm_tabs`，其递增 type depth 的 `S K ≤ S K'` 未被 `eauto` 关闭。step 95 把 recursive cases 改为 `eauto; lia`，step 97 编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        91,
+        94,
+        100,
+        103,
+        104,
+        128,
+        131,
+        135,
+        137,
+        140
+      ],
+      "qualification": "区间被 step 72-79 的 `coqtop -l` 120s 卡顿打断，故两段；先前把失败归给 `tm_abs` 的假设已被 probe 否定。"
+    },
+    {
+      "title": "`coqtop -quiet -l` probe 等待交互输入，120s 超时后被转入 background",
+      "intervals": [
+        {
+          "after": 71,
+          "through": 81
+        }
+      ],
+      "outcome": "step 79 记录的 `coqtop -quiet -l /tmp/test.v` 在加载后表现为等待 stdin，120.058s 未返回并被移到 background。step 80 判断需要改为 stdin 输入，step 81 用 `coqtop -quiet < /tmp/test.v`，返回主要是 prompts；后台进程后来在 step 282 被系统停止，未再阻塞主证明。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        105,
+        106,
+        113,
+        115,
+        116
+      ],
+      "qualification": "只计 120s 前台等待与 stdin workaround；background task 的后续生命周期不计。"
+    },
+    {
+      "title": "`lc_ty_open_elim` 缺少 `k <= K` premise，是 false helper lemma；`lia` 的 `Cannot find witness` 实为 goal 不可证",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 136
+        }
+      ],
+      "outcome": "step 97 编译在 bound variable branch 报 `Cannot find witness`；step 98-121 先用最小 arithmetic probe 怀疑 `lia`/`<`/scope/imports（`forall k K, k < S K` 等测试失败），step 122 才确认独立的 `k`、`K` 下该 goal 不成立，`lc_ty_open_elim` 需要 `k <= K`。step 124 加入 premise，step 126-134 同步 `lc_tm_open_ty_elim`、`wf_ty_lc`、`has_type_lc` 的调用；step 136 编译越过该 lemma，转入 `lc_ty_open_intro`。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        140,
+        152,
+        158,
+        164,
+        170,
+        176,
+        180,
+        192,
+        195,
+        198
+      ],
+      "qualification": "把 statement 缺 premise 与当时对 `lia` 的误诊一并计入；`lia` 本身没有问题。"
+    },
+    {
+      "title": "`lc_ty_open_intro` 的 `Nat.eqb` 为 false 的 branch 需要把 boolean disequality 转成 `n ≠ K` 并做 `Nat.lt_ge_cases` 分情况",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 158
+        }
+      ],
+      "outcome": "step 136 在 line 560 的 bound variable branch 再次报 `Cannot find witness`；step 138-142 确认 branch 是 `Nat.eqb K n = false`，goal 为 `n < K`，hypotheses 只有 `n < S K` 与仍为 boolean equation 的 `(K =? n) = false`。step 143-154 查询并否定 `Nat.lt_of_le_of_ne`，确认 `Nat.lt_ge_cases`、`Nat.lt_succ_r`、`Nat.le_antisymm` 的签名，step 156 最小 probe 接受显式分情况 proof；step 158 套用到 `lc_ty_open_intro`，step 160 编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        198,
+        201,
+        207,
+        213,
+        219,
+        225,
+        230,
+        234
+      ],
+      "qualification": "statement 本身正确，纯属 arithmetic proof/tactic；与上一项的 false statement 不同。"
+    },
+    {
+      "title": "`lc_tm_open_tm_elim`/`lc_tm_open_tm_intro` 的 `Nat.eqb` 分支与 application/choice case 需要分别处理并先经 IH",
+      "intervals": [
+        {
+          "after": 160,
+          "through": 178
+        }
+      ],
+      "outcome": "step 160 报 `Nat.eqb_eq` 被同时应用到 true/false 两个 branch；step 161-166 分 branch 处理，并只在 true branch 使用 `Nat.eqb_eq`，false branch 复用刚验证的 strict inequality proof。step 168 的 application case 报 `No applicable tactic`，step 174 的 probe 显示 hypothesis 是 opened subterms 的 lc 而 goal 是原 subterms 在更高 depth 的 lc；step 176 在 app/tapp/choice case 先应用 `IHt1`/`IHt2`。step 178 编译越过这两项 lemma。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        234,
+        240,
+        246,
+        255,
+        258,
+        261
+      ],
+      "qualification": "把同一 lemma 的 branch 处理与 IH 应用合为一项；二者都由 `lc_tm_open_tm_elim` 的 induction structure 引起。"
+    },
+    {
+      "title": "`lc_tm_open_ty_elim` 与 `open_*_rec_id_lc`/commutation 调用中 opening index 与 closure depth 无法由 conclusion 推断",
+      "intervals": [
+        {
+          "after": 178,
+          "through": 208
+        }
+      ],
+      "outcome": "step 178 的 `tm_tabs` case 留下 `?j <= S K`，`j`/`X` 仍是 evars；step 184 显式传入 `j := S j`、`X := X`。step 186 `open_ty_rec_id_lc` 无法推断 `K`，step 190 整体改写三项 `open_*_rec_id_lc` 显式指定 recursive depths；step 192 的 annotation 自动名不是 `T`，step 196 改用 `eapply open_ty_rec_id_lc`；step 196 的 `tm_subst_env_open_tm_rec_lc` 无法推断 `K`/`k`，step 200-204 改用 `eapply (open_tm_rec_id_lc _ 0 0)` 让 goal 确定 image。step 204-208 继续为 `ty_subst_env_open_ty_rec` 与 `tm_subst_env_open_tm_ty_rec` 指定 `open_ty_rec_id_lc _ 0`/`open_tm_ty_rec_id_lc _ 0 0`；step 208 编译推进到 `apply_env_open_tm_fvar` 的 rewrite 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        261,
+        267,
+        270,
+        273,
+        279,
+        282,
+        288,
+        294,
+        297,
+        300,
+        304,
+        306
+      ],
+      "qualification": "`T`/`x` 不存在只是自动生成 identifier 与脚本不一致，归入同一 implicit-argument 类；steps 204-208 虽在 commutation block 内，障碍同属 depth 推断。"
+    },
+    {
+      "title": "`wf_ty_lc` 的 `WF_All` case 用 `induction H` 生成 `H0`，脚本却引用不存在的 `IH`",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 218
+        }
+      ],
+      "outcome": "step 212 在 line 854 报 `The variable IH was not found`。step 214 定位到 `WF_All` case 的硬编码 `IH`，step 216 的 probe 显示 typing premise 名为 `H`、对应 IH 自动命名为 `H0`。step 218 用显式 induction pattern `Hbody/IHbody` 改写 `wf_ty_lc`，编译越过该 lemma，转入 `ty_subst_env_lc`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        312,
+        315,
+        318,
+        321
+      ],
+      "qualification": "只计 `wf_ty_lc` 的命名问题；`has_type_lc` 的同类命名问题另计。"
+    },
+    {
+      "title": "`ty_subst_env_lc`/`tm_ty_subst_env_lc` 的 FVar 与 tapp annotation case 需要 `Hsig`+`lia` 和 annotation 的 `ty_subst_env_lc`",
+      "intervals": [
+        {
+          "after": 218,
+          "through": 226
+        }
+      ],
+      "outcome": "step 218 报 `ty_subst_env_lc` 的 bullet 未完成；step 221 确认 free type variable case 的 `lc_ty_mono` application 留下 `0 <= K`，step 222 用 `apply Hsig` 与 `lia` 关闭。step 222 编译又在 `tm_ty_subst_env_lc` 的 type application case 报 `No such assumption`；step 224-225 确认 annotation 仍用原 lc hypothesis，改为对 annotation 应用 `ty_subst_env_lc`。step 226 编译越过这两项。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        321,
+        325,
+        327,
+        331,
+        333
+      ],
+      "qualification": "两项都是 substitution-lc proof 的 case 级缺口，未与 `wf_ty_lc`/`has_type_lc` 的 IH 命名问题混计。"
+    },
+    {
+      "title": "`has_type_lc` 的 IH 自动命名、`wf_ty_lc` 的 `Delta` 推断与 `lc_tm_open_ty_elim` 的 opening index",
+      "intervals": [
+        {
+          "after": 226,
+          "through": 240
+        }
+      ],
+      "outcome": "step 226 `apply wf_ty_lc` 无法从 conclusion 推断 `Delta`，step 229 改 `eapply`；step 230 abstraction case 引用不存在的 `IH`，step 232 probe 显示 IH 名为 `H1`/`H0`，step 234 改显式 induction patterns 并触发 `Ht1` 重名，step 235-236 把 lc hypothesis 改名 `Hlc1/Hlc2`。step 236 type abstraction case 留下 `?j <= 0`，step 237-238 显式传入 `j = 0` 与 `fresh L`；随后 type application case 的 `Ht` 又重名，step 239 改名。step 240 编译仅在原目标 theorem 报 incomplete proof，syntactic infrastructure 全部通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        333,
+        337,
+        339,
+        342,
+        345,
+        348,
+        349,
+        351,
+        354
+      ],
+      "qualification": "把 `has_type_lc` 的连续 pattern/argument 修正合为一项；`Ht1`/`Ht` 重名是同一显式 pattern 改造的连锁问题。"
+    },
+    {
+      "title": "`VR_benv_pequiv`/`VR_rho_agree` 的 `ty` induction pattern 把 type 与 IH 顺序写错（`ty_ind` 参数交错）",
+      "intervals": [
+        {
+          "after": 243,
+          "through": 251
+        }
+      ],
+      "outcome": "step 243 在 `VR_benv_pequiv` 的 universal case 报 `T1` 不存在；step 247 的 explicit pattern 把 `T2` 绑成 IH、`IH1` 绑成 type。step 249 `Check ty_ind` 确认 Arrow case 的参数顺序是 `T1 IH1 T2 IH2`；step 250 修正两个 lemma 的 pattern，step 251 编译仅在最后 theorem 报 incomplete proof，新增 semantic lemmas 被接受。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        358,
+        364,
+        367,
+        370
+      ],
+      "qualification": "`ty_ind` 的参数交错是 Coq induction principle 的形状问题；category 归 proof_structure 仅作汇总。"
+    },
+    {
+      "title": "`VR_open_ty_rec_subst`：`subst` 把 `j` 换成 `length benv`、`Hpt` 需对任意 `P` 量化、`benv_pequiv_app_single` 形状与 `VR_benv_agree` 参数顺序",
+      "intervals": [
+        {
+          "after": 255,
+          "through": 281
+        }
+      ],
+      "outcome": "step 255 的 `rewrite Hlen` 找不到 `length benv` occurrence；step 256-259 改为反向使用 `Hlen` 并给 `Heq` 加 symmetry。step 259 的 Arrow case 在 `inversion Hlc; subst` 后不再有 `j`，step 267 的 probe 确认 `subst` 已把 `j` 换成 `length benv`；step 268-269 按 `length benv` 实例化 IH。step 269-272 发现 `Hpt` 不能提前引用 universal clause 的 `P0`，改为对任意 `P` 量化；step 273-277 `benv_pequiv_app_single` 因两侧 append 形状不同失败，用 `change` 统一 prefix 后，`VR_benv_agree` 的首个 argument 又被当作 type `U`。step 278-281 把 argument order 改为 depth `0` 在 type `U` 之前，编译接受该 lemma。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        376,
+        379,
+        382,
+        394,
+        397,
+        400,
+        403,
+        406,
+        409,
+        412,
+        415
+      ],
+      "qualification": "不含 step 251-255 的 lemma 设计；只计首次编译失败后的修正。"
+    },
+    {
+      "title": "`fundamental` 的 T_Abs/T_TAbs 直接进入 arrow/universal obligation，缺 `TR` 的 existential value、`multi_refl` 与 `value` 层",
+      "intervals": [
+        {
+          "after": 287,
+          "through": 291
+        }
+      ],
+      "outcome": "step 287 的 fundamental 草稿在 T_Abs 的 `intros w Hw Harg` 报 `No product even after head-reduction`；step 289 读代码确认 `TR` 的 local-closure conjunct 之后直接进入 arrow obligation。step 290 判断遗漏 `exists` value、`multi_refl` 与 `value` 层，step 291 在 T_Abs/T_TAbs 补 `exists (tm_abs ...)`/`exists (tm_tabs ...)`、`multi_refl`、`v_abs`/`v_tabs`；编译转入 environment lookup 的 setoid rewrite 错误。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        422,
+        425,
+        428
+      ],
+      "qualification": "T_Abs 与 T_TAbs 的同一 `TR` 结构缺口合为一项。"
+    },
+    {
+      "title": "`fundamental` T_Abs 扩展 environment：setoid rewrite、`value (gamma y)` 与 `gamma' y` 不一致、bullet 层级",
+      "intervals": [
+        {
+          "after": 291,
+          "through": 303
+        }
+      ],
+      "outcome": "step 291 的 `rewrite E in Hlook` 报 setoid rewrite UNDEFINED EVARS；step 292-293 引入 `lookup_context_update_same/other` 并改写 lookup proof，随后其他 variable branch 报 `Hval : value (gamma y)` 不能用于 `value (gamma' y)`。step 297 的完整 error 确认 expected type 是 `value (gamma' y)`；step 298-299 显式证 `Hgy : gamma' y = gamma y` 再 rewrite，触发 bullet 层级冲突；step 301-303 把 `eapply TR_multi` 的 subgoals 改用 `*`/`--`，编译转入 T_TAbs 的 environment agreement。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        428,
+        431,
+        434,
+        437,
+        440,
+        443,
+        446
+      ],
+      "qualification": "lookup helper、value 改写与 bullet 层级都在同一 T_Abs environment proof 内连续出现，合为一项。"
+    },
+    {
+      "title": "`fundamental` T_TAbs 的 `VR_rho_agree` application 先 `intros` 了错误的 subgoal，需显式证 `Hagree`",
+      "intervals": [
+        {
+          "after": 303,
+          "through": 307
+        }
+      ],
+      "outcome": "step 303 在 type abstraction 的 environment agreement 报 `intros` `No product`；step 305 读代码发现 `eapply (proj2 (VR_rho_agree ... _ (gamma y)))` 使用 placeholder 后直接假定当前 goal 是 agreement premise。step 306 决定先独立证明 `Hagree`，再应用 `VR_rho_agree`；step 307 同时改写 `Henv'` 与 `Hpt` 的 equivalence 结构，编译转入 `Htr` 的 rewrite 失败。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        446,
+        449,
+        452
+      ],
+      "qualification": "只计 T_TAbs environment agreement 的 intros/placeholder 问题；`Hpt` 的改写随同一次 edit 完成，未另计时。"
+    },
+    {
+      "title": "`apply_env_open_tm_ty` 无法在整体 `Htr` 上 rewrite，需先证 `Hterm` 并拆开 `TR` 逐项改写",
+      "intervals": [
+        {
+          "after": 307,
+          "through": 333
+        }
+      ],
+      "outcome": "step 307 报 `Found no subterm matching apply_env ... (open_tm_ty t (fvar X)) in Htr`；step 308-329 依次尝试 `unfold sigma' in Htr`、`Show`、`Check` 签名并截断 probe 重现，确认 rewrite 的 pattern 与 `Htr` 中的 term 形状不匹配。step 330 改为先证 `Hterm : apply_env sigma' gamma (open_tm_ty t (Ty_FVar X)) = open_tm_ty (apply_env sigma gamma t) U0`；step 333 `destruct Htr` 后在 `Hlc_H`/`Hs_H` 中 rewrite `Hterm`，再重建 `TR`。编译转入 `Hpt` 的 `open_ty T X` 类型错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        452,
+        455,
+        464,
+        467,
+        476,
+        482,
+        485,
+        491
+      ],
+      "qualification": "只计 `Htr` rewrite 不匹配与 `Hterm` 重构；不含之前 T_TAbs environment agreement 的工作。"
+    },
+    {
+      "title": "`Hpt` 把 atom `X` 当作 `ty` 传给 `open_ty`，应为 `open_ty T (Ty_FVar X)`",
+      "intervals": [
+        {
+          "after": 333,
+          "through": 351
+        }
+      ],
+      "outcome": "step 333-339 的编译在 `assert (Hpt : ... VR (open_ty T X) ...)` 报 atom `X` 与期望 `ty` 不符；step 336-337 先误改为 `lc_ty_fvar 0 X`，错误未消失。step 340-345 查询 `VR_open_ty_rec_subst` 的真实签名（`T j benv rho U`）并确认 argument order 无误；step 347-348 定位到 `open_ty` 的第二个 argument 必须是 type，step 349 找到 `Hpt`/`Hstep1` 两处 `open_ty T X`，step 351 改为 `open_ty T (Ty_FVar X)`。`fundamental` 于 step 351 通过编译。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        491,
+        494,
+        497,
+        500,
+        509,
+        512,
+        515,
+        518
+      ],
+      "qualification": "`lc_ty_fvar 0 X` 的尝试是误诊，已计入；签名查询的 prefix 截断属于定位过程。"
+    },
+    {
+      "title": "最终 theorem 的 `wf_ty_lc` `Delta` 推断与 singleton predicate 的 `lookup_rel` 未展开",
+      "intervals": [
+        {
+          "after": 354,
+          "through": 362
+        }
+      ],
+      "outcome": "step 354 的 `apply wf_ty_lc` 无法推断 `Delta`，step 355 改 `eapply wf_ty_lc` 让 `HwfU` 确定；step 356 的 `subst w'` 报 `Cannot find any non-recursive equality over w'`。step 360 的 probe 显示 `Hvr3` 仍是 `lookup_rel [fun w => w = v] 0 w'`，step 361 加 `unfold lookup_rel in Hvr3; simpl in Hvr3; subst w'` 暴露 `w' = v`。step 362 编译无输出，step 364 明确 `coqc Task.v` exit 0，step 368 clean rebuild 返回 `CLEAN BUILD OK`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        522,
+        525,
+        528,
+        531,
+        534,
+        537,
+        543
+      ],
+      "qualification": "`coqc exit 0`（line 537）与 clean rebuild（line 543）在区间之后完成，只作 resolved 验证，不计入处理耗时。"
+    }
+  ],
+  "trace_sha256": "bd22d2e0e02362f4a6bad01f835d39dc8bea0bbe306d7edbccedbc1854109384",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 4,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "bd22d2e0e02362f4a6bad01f835d39dc8bea0bbe306d7edbccedbc1854109384",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r04.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r04_20261027_211829_578168"
+  }
+}

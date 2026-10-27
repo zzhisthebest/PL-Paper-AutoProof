@@ -1,0 +1,71 @@
+{
+  "004/r02": {
+    "ignore_files": {"/home/zzh/.opam/rocq-dev/lib/coq/theories/Lists/List.v": "第 55 行 grep 明确报告 No such file or directory；是错误的库路径，不是遗漏的草稿。"},
+    "unavailable": {"/home/zzh/.opam/rocq-dev/lib/coq/user-contrib/Stdlib/Lists/List.v": "外部 Stdlib 源码：trace 只记录了 grep 命中的几行，没有完整文件。不是本次运行编辑的草稿。"}
+  },
+  "004/r11": {"unavailable": {"/tmp/check.v": "后台检查命令中给出了完整 heredoc，但 trace 没有返回该文件内容或明确完成记录。完整写入文本可在 trace 第 420 行对应的原始命令中查看；不据此伪造已确认快照。"}},
+  "034/r06": {"ignore_files": {"/workspace/dev/Task.v": "trace 第 56 行的 find -name Task.v 是搜索条件；实际结果是 /workspace/Task.v，并不存在 dev/Task.v 的读取或写入。"}},
+  "004/r18": {
+    "ignore_files": {"/home/zzh/.opam/rocq-dev/lib/coq/theories/Arith/PeanoNat.v": "第 196 行 grep 明确报告 No such file or directory。"},
+    "unavailable": {
+      "/home/zzh/.opam/rocq-dev/lib/coq/user-contrib/Stdlib/Arith/PeanoNat.v": "外部 Stdlib 源码：只记录了 grep 命中的部分行，没有完整文件。",
+      "/home/zzh/.opam/rocq-dev/lib/coq/user-contrib/Stdlib/Arith/Peano.v": "外部 Stdlib 源码：命令只做 grep 搜索，没有完整读取或编辑。"
+    }
+  },
+  "034/r02": {"unavailable": {"/home/zzh/.opam/rocq-dev/.opam-switch/sources/rocq-stdlib.9.0.0/theories/Arith/PeanoNat.v": "外部 Stdlib 源码：trace 只记录了 eqb_eq 的 grep 命中行，没有完整读取。"}},
+  "055/r08": {"unavailable": {"/home/zzh/.opam/rocq-dev/lib/coq/user-contrib/Stdlib/Lists/List.v": "外部 Stdlib 源码：只搜索了 list_max 相关定义和引理，没有完整文件。"}},
+  "055/r10": {"ignore_files": {"/data3/lizn/CoqProj/test.v": "第 19 行目录清单中只有 test0.v；head test.v 没有输出且屏蔽 stderr。不是本次运行创建的文件，也没有可还原内容。"}},
+  "055/r17": {"unavailable": {
+    "/home/zzh/.opam/rocq-dev/lib/coq/theories/Program/Wf.v": "外部库源码：trace 只记录 measure 等关键词的 grep 命中行，没有完整读取。",
+    "/home/zzh/.opam/rocq-dev/lib/coq/theories/Recdef.v": "外部库源码：命令只搜索 Function 关键词，没有完整读取或编辑。"
+  }},
+  "073/r05": {"unavailable": {
+    "/home/zzh/.opam/rocq-dev/lib/coq/theories/Program/Wf.v": "外部库源码：只做了关键词搜索，没有完整读取或编辑。",
+    "/home/zzh/.opam/rocq-dev/.opam-switch/sources/rocq-core.9.1.0/test-suite/success/FunInd.v": "搜索外部 FunInd 示例时引用的路径，未记录文件内容，也没有创建或编辑。"
+  }},
+  "073/r07": {"unavailable": {
+    "/home/zzh/.opam/rocq-dev/.opam-switch/sources/rocq-equations.1.3.1+9.1/examples/Equations_Tutorial_VeriMag.v": "外部 Equations 示例：只用 sed 显示前 60 行，没有完整文件。",
+    "/home/zzh/.opam/rocq-dev/.opam-switch/sources/rocq-equations.1.3.1+9.1/examples/Basics.v": "外部 Equations 示例：只读取第 155–175 和 25–60 行，没有完整文件。"
+  }},
+  "001/r14": {"steps": {"178": {"contains": "mkdir -p /tmp/fc2", "replay": "mkdir -p /tmp/fc2 && cp /workspace/Task.v /tmp/fc2/ && cd /tmp/fc2 && echo 'Print Assumptions STLCNormalizationNoneHardTask.normalization.' >> Task.v", "reason": "人工核对全部命令：其余部分只生成比较用的 txt 或输出信息；本次输出 Closed under the global context 确认最终副本生成。这里仅重放实际的 .v 写入。"}}},
+  "001/r11": {"steps": {"139": {"contains": "time (timeout 600 coqc Task.v)", "replace": [["time (timeout 600 coqc Task.v)", "timeout 600 coqc Task.v"]], "reason": "人工核对：括号只包住编译命令，不修改 .v；输出确认编译完成。"}}},
+  "001/r17": {"steps": {"151": {"contains": "orig_prefix = orig[:193]", "replay": "true", "reason": "人工核对完整 Python：仅读取并比较原始定义和目标陈述，没有文件写入。"}}},
+  "001/r18": {"steps": {
+    "185": {"contains": "diff <(head -195", "cwd_after": "/workspace", "reason": "该命令最终 diff 退出 1；下一条未 cd 的命令成功编译原 Task.v 并读到 6015 字节的 Task.v.orig，确认失败命令未将会话 cwd 留在 /tmp。"},
+    "188": {"contains": "orig unchanged size:", "replay": "true", "reason": "人工核对：删除的仅是编译产物，其他命令编译或读取源码；echo 中的 wc 不修改源码。"}
+  }},
+  "004/r04": {"steps": {"4": {"contains": "cat /workspace/Task.v", "capture": {"file": "/workspace/Task.v", "start": "(** STLC call-by-value strong-normalization benchmark task. *)", "end": "End STLCCBVNormalizationTask."}, "reason": "人工核对：ls 输出之后是完整 cat 输出，可直接作为当时的 Task.v 快照。"}}},
+  "004/r05": {"steps": {
+    "57": {"contains": "Lemma test_mono", "preserve": ["/workspace/Task.v", "/workspace/Task.v.orig"], "reason": "人工核对损坏的引号和实际 Shell 报错：命令仅从 Task.v 读取，写入目标是临时目录中的 base.v；不能因此丢弃 Task.v。"},
+    "175": {"contains": "awk 'NR<=960'", "replace": [["awk 'NR<=960'", "head -n 960"]], "reason": "人工核对：awk 的默认 print 在此等价于取前 960 行。"},
+    "181": {"contains": "awk 'NR<=961'", "replace": [["awk 'NR<=961'", "head -n 961"]], "reason": "人工核对：awk 的默认 print 在此等价于取前 961 行。"}
+  }},
+  "004/r06": {"steps": {"143": {"contains": "coqc -q defs.v 2>&1 | head -5 && cat", "replace": [["coqc -q defs.v 2>&1 | head -5 && cat", "coqc -q defs.v 2>&1 | head -5; cat"]], "reason": "本次输出明确报告 /tmp/ps.v 第 66 行的证明错误，证明此前 heredoc 写入已执行。"}}},
+  "004/r08": {"steps": {"19": {"contains": "rocq compile TaskScratch.v 2>&1 | head -5 && cat", "replace": [["rocq compile TaskScratch.v 2>&1 | head -5 && cat", "rocq compile TaskScratch.v 2>&1 | head -5; cat"]], "reason": "本次输出包含 TestInd.v 请求打印的 has_type_ind 和 strongly_normalizing_ind，确认该文件已写入并编译。"}}},
+  "004/r10": {"steps": {"211": {"contains": "time (coqc Task.v 2>&1 | tail -5)", "replace": [["time (coqc Task.v 2>&1 | tail -5)", "coqc Task.v 2>&1 | tail -5"]], "reason": "括号只包住编译管道，删除的都是编译产物；不修改源码。"}}},
+  "004/r19": {"steps": {"35": {"contains": "echo \"=== lines:", "replace": [["echo \"=== lines: $(wc -l < /tmp/base.v)\"", "true"]], "reason": "人工核对：命令替换仅计算行数，不应使之前的源码快照失效。"}}},
+  "034/r05": {"ignore_files": {"/workspace/scratch/Task.v": "trace 第 83 行读取失败：FileNotFoundError / Can't find file，未创建此文件。"}, "steps": {
+    "460": {"contains": "time (coqc TestBase.v 2>&1 | head -5)", "replace": [["time (coqc TestBase.v 2>&1 | head -5)", "coqc TestBase.v 2>&1 | head -5"]], "reason": "保留前面实际执行的两个 Python 文件写入；后面括号只用于计时编译。"},
+    "468": {"contains": "for f in TL_*.v;", "replace": [["for f in TL_*.v; do echo \"== $f\"; ( time timeout 100 coqc $f >/dev/null 2>&1 ) 2>&1 | grep real; done", "true"]], "reason": "保留 Python 逐个生成 TL_*.v 的过程；后面的循环只有编译和计时，不修改 .v。"}
+  }},
+  "034/r18": {"steps": {"10": {"contains": "ls $(coqc -where)/user-contrib", "replay": "true", "reason": "完整命令仅查看安装位置、目录及 card，没有写入。"}}},
+  "055/r04": {"ignore_files": {"/tmp/Task.v": "trace 第 388 行在 cd /tmp 后 grep Task.v；输出明确 No such file or directory，未创建此文件。"}, "steps": {"482": {"contains": "sed -n \"$(grep -n 'Htr :'", "replay": "true", "reason": "完整命令仅从 /tmp/out.txt 中查找并显示证明状态，不修改代码。"}}},
+  "055/r06": {"steps": {
+    "37": {"contains": ") | rocq top", "replay": "true", "reason": "人工核对：echo/sed/heredoc 直接输送给 rocq top；没有重定向到文件，不修改任何 .v。"},
+    "53": {"contains": ") | rocq top", "keep_before": "(echo 'From Stdlib Require Import", "reason": "保留前面 dbg2.v 的实际写入；后面的 echo/sed/heredoc 只输送给 rocq top，不修改文件。"}
+  }},
+  "073/r10": {"steps": {"769": {"contains": "cat base_head.v chunks/*.v trailer.v > /workspace/Task.v", "replace": [["cat base_head.v chunks/*.v trailer.v > /workspace/Task.v", "cat base_head.v chunks/c01_subst.v chunks/c02_qual_rty.v chunks/c03_fv_lc.v chunks/c04_lc.v chunks/c05_wf.v chunks/c06_typing_fv.v chunks/c07_sem.v chunks/c08_env.v chunks/c09_entails.v chunks/c10a_multi.v chunks/c10b_helpers.v chunks/c10c_fund.v chunks/c11_safety.v trailer.v > /workspace/Task.v"]], "reason": "人工逐项核对本次运行此前创建的 13 个 chunk，按 Shell 字典序展开；输出确认生成 3988 行并编译通过。重建内容另外与最终归档逐字比对。"}}},
+  "073/r15": {"steps": {"94": {"contains": "for variant in", "replay": "cat > T10.v <<'EOF'\nFrom Stdlib Require Import Arith.PeanoNat Lia.\nFrom Stdlib Require Import FunInd.\nFrom Stdlib Require Recdef.\nFunction g (a b : nat) {measure (fun x : nat*nat => fst x + snd x) (a,b)} : nat :=\n  match a with\n  | 0 => b\n  | S k => g k b\n  end.\nProof. intros; simpl; lia. Defined.\nCheck g_equation.\nEOF", "reason": "人工核对循环的三次覆盖写入；本工具步骤结束时保留第三个 variant。原始命令及三次编译输出均保留。"}}},
+  "073/r19": {"ignore_files": {"/tmp/Task.v": "trace 第 920 行尝试在 /tmp 编译 Task.v；输出明确 Can't find file ./Task.v，未创建此文件。"}},
+  "100/r02": {"steps": {
+    "163": {"contains": "pkill -f coqtop", "replay": "true", "reason": "Exit code 144：pkill 匹配并终止自身 Shell，后续 Python 未执行。第 169 行打印的 640–675 行共 36 行全部匹配操作前版本，而只 8 行匹配假定写入后的版本。"},
+    "474": {"contains": "cat > /tmp/check2.v", "replay": "cat > /tmp/check2.v <<'EOF'\nRequire Import Task.\nPrint Assumptions noninterference.\nEOF", "reason": "人工核对：其余命令仅删除编译产物、比较与编译文件；输出 Closed under the global context 和 ASSUMPTIONS CHECK PASSED 明确确认检查文件已写入。"}
+  }},
+  "100/r04": {"steps": {"418": {"contains": "n>=2 && /Lemma fundamental/", "replay": "python3 - <<'PY'\ns=open('/tmp/chunk6.v').read()\ni=s.index('Lemma fundamental')\nopen('/tmp/helpers6.v','w').write(s[:i])\nPY", "reason": "人工核对当时 chunk6.v：第一个 Lemma fundamental 之前已有四条指定分隔线，原 awk 在该行停止；因此准确保留此前全部行。"}}},
+  "100/r11": {"steps": {
+    "221": {"contains": "head -n $(( $(grep -n", "replace": [["head -n $(( $(grep -n \"Lemma evaluates_app_abs_intro\" /workspace/Task.v | head -1 | cut -d: -f1) - 1 ))", "head -n 723"]], "reason": "人工核对该步骤前的完整 Task.v，首个 Lemma evaluates_app_abs_intro 在第 724 行，因此原命令准确取前 723 行。"},
+    "224": {"contains": "head -n $(( $(grep -n", "replace": [["head -n $(( $(grep -n \"Lemma evaluates_app_abs_intro\" /workspace/Task.v | head -1 | cut -d: -f1) - 1 ))", "head -n 723"]], "reason": "此间只修改 ai2.v，没有修改 Task.v；同一 lemma 仍位于第 724 行。"},
+    "227": {"contains": "head -n $(( $(grep -n", "replace": [["head -n $(( $(grep -n \"Lemma evaluates_app_abs_intro\" /workspace/Task.v | head -1 | cut -d: -f1) - 1 ))", "head -n 723"]], "reason": "此间只修改 ai3.v，没有修改 Task.v；同一 lemma 仍位于第 724 行。"}
+  }},
+  "100/r12": {"steps": {"469": {"contains": "Load \"Task.vo\".", "preserve": ["/workspace/Task.v", "/workspace/Task.v.orig"], "reason": "人工核对：此命令只创建检查用 check.v/check_tmp.v，不写入 Task.v；失败的条件分支不能使 Task.v 失效。"}}}
+}

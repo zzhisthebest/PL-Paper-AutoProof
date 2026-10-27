@@ -1,11 +1,38 @@
 """Lossless grouping of trace records. No semantic summaries or model calls."""
 import json
+from datetime import datetime, timedelta
+
+
+def step_duration(group, records):
+    """Use recorded thinking time or paired tool timestamps, never unrelated gaps."""
+    first = records[group['lines'][0] - 1]
+    if group['kind'] == 'thinking':
+        milliseconds = first.get('thinking_duration_ms')
+        if isinstance(milliseconds, (int, float)) and milliseconds >= 0:
+            return milliseconds / 1000
+    if group['kind'] == 'tool' and group['returned']:
+        results = [records[n - 1] for n in group['lines']
+                   if any(b.get('type') == 'tool_result'
+                          for b in records[n - 1].get('message', {}).get('content', [])
+                          if isinstance(b, dict))]
+        if results and first.get('timestamp') and results[-1].get('timestamp'):
+            start = datetime.fromisoformat(first['timestamp'].replace('Z', '+00:00'))
+            end = datetime.fromisoformat(results[-1]['timestamp'].replace('Z', '+00:00'))
+            seconds = (end - start).total_seconds()
+            if seconds >= 0:
+                return seconds
+    return None
 
 
 def build_timeline(raw, steps):
     groups, calls = [], {}
-    for number, line in enumerate(raw, 1):
-        event = json.loads(line)
+    records = [json.loads(line) for line in raw]
+    first_timed = next((r for r in records if r.get('timestamp')), None)
+    origin = None
+    if first_timed:
+        origin = datetime.fromisoformat(first_timed['timestamp'].replace('Z', '+00:00'))
+        origin -= timedelta(milliseconds=first_timed.get('thinking_duration_ms', 0) or 0)
+    for number, event in enumerate(records, 1):
         content = event.get('message', {}).get('content', [])
         blocks = content if isinstance(content, list) else []
         uses = [b for b in blocks if isinstance(b, dict) and b.get('type') == 'tool_use']
@@ -53,6 +80,12 @@ def build_timeline(raw, steps):
         group['start'], group['end'] = group['lines'][0], group['lines'][-1]
         group['interleaved'] = group['end'] - group['start'] + 1 - len(group['lines'])
         group['step'] = next((tool_steps[n] for n in reversed(group['lines']) if n in tool_steps), None)
+        group['durationSeconds'] = step_duration(group, records)
+        stamp = records[group['end'] - 1].get('timestamp')
+        group['elapsedSeconds'] = None
+        if origin is not None and stamp:
+            end = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+            group['elapsedSeconds'] = max(0, (end - origin).total_seconds())
         covered.extend(group['lines'])
     assert sorted(covered) == list(range(1, len(raw) + 1)), 'Trace records lost or duplicated'
     return groups

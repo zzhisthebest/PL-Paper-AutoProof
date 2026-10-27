@@ -1,0 +1,410 @@
+{
+  "summary": "本次运行 3601 秒后 timeout：约 30 分钟用于路线论证与 LR 设计，约 8 分钟在 scratch 试 `Program Fixpoint`/`Function`/`Fix` 并定稿 LR 结构，约 19 分钟在 `Task.v` 实现并调试 substitution/local-closure、operational 与 well-formedness 引理，最后约 3 分钟卡在 `Sem_eq` 的 well-founded `Fix` unfolding。结束时 `Task.v` 的 `never_stuck` 仍是 `Abort`，`part3.v` 只有含 `admit`/`Admitted` 的未编译草稿，未产生可编译的完整证明。",
+  "phases": [
+    {
+      "title": "任务阅读、路线论证与 LR 设计（syntactic preservation vs logical relation，未写正式代码）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 24
+        }
+      ]
+    },
+    {
+      "title": "scratch 工具链试验：Program Fixpoint / Function / Fix 与 LR 结构定稿",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 108
+        }
+      ]
+    },
+    {
+      "title": "Part 1：在 Task.v 实现并调试 substitution、opening、locally-closed 与 commutation 基础设施",
+      "intervals": [
+        {
+          "after": 108,
+          "through": 308
+        }
+      ]
+    },
+    {
+      "title": "Part 2：operational 引理、shape 与 well-formedness/local-closure 引理",
+      "intervals": [
+        {
+          "after": 308,
+          "through": 356
+        }
+      ]
+    },
+    {
+      "title": "Part 3：LR 语义 Sem/SemF/Sem_eq 与 well-founded Fix unfolding（未完成）",
+      "intervals": [
+        {
+          "after": 356,
+          "through": 383
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "scratch `Sem`：`Program Fixpoint` 的 measure obligations 无法解决、`Sem` 未生成",
+      "intervals": [
+        {
+          "after": 25,
+          "through": 57
+        }
+      ],
+      "outcome": "首版 `Program Fixpoint` 报缺 `Corelib.Program.Wf`（`program.wf.mr` 未注册）；补 import 后 obligation 中出现 `p` 不存在与 `lia: Cannot find witness`。展开 existential clause 时又先后遇到辅助定义 `exbody` 前向引用 `Sem`、占位 `open` 未定义，换成 `R2` 后仍报 `Cannot find witness`。此后多次补 `Next Obligation`，`Check Sem` 始终报 `Sem` 不存在；step 43–56 反复怀疑 obligation 未完成或生成顺序，未定位根因，step 57 决定改试 `Function`。",
+      "resolution": "abandoned",
+      "category": "tooling",
+      "evidence_lines": [
+        31,
+        37,
+        40,
+        46,
+        61,
+        76,
+        77
+      ],
+      "qualification": "scratch 实验中的 `Sem`，不是最终 `Task.v` 的定义；本项只覆盖 `Program Fixpoint` 路线本身。"
+    },
+    {
+      "title": "scratch `SemAux`：`Function` 的 measure 语法与 binder 下递归限制",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 78
+        }
+      ],
+      "outcome": "多参数 measure 先报 `Decreasing argument must be specified`，随后 `b not found`、语法错误与三种 tuple 写法均被拒；step 70 的单 tuple `g` 能编译并生成 `g_equation`，但完整 `SemAux` 在 `forall u` 内的 recursive call 被 `Function` 拒绝（`can not contain a recursive call to g`），最小实验复现。改回 `Program Fixpoint` 后 `Fix_sub` 可 `Print`，但没有 `g_equation`。",
+      "resolution": "abandoned",
+      "category": "tooling",
+      "evidence_lines": [
+        82,
+        85,
+        88,
+        91,
+        97,
+        100,
+        103,
+        109
+      ],
+      "qualification": "tuple `g` 的成功只验证 tuple 形式；关键失败是 `forall` binder 下 `Function` 不接受 recursive call，且 `Program Fixpoint` 不生成 equation lemma。"
+    },
+    {
+      "title": "scratch `Fix` 实验：`wf_inverse_image` 未导入、库路径难定位",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 96
+        }
+      ],
+      "outcome": "直接 `Fix` 实验报 `wf_inverse_image` 未定义；`Search well_founded_inverse` 因该 reference 不存在而报错，旧 `theories/Wellfounded` 路径也无结果。扩大到全库 grep 后定位到 `Stdlib/Wellfounded/Inverse_Image.v`，改用 `From Stdlib Require Import Wellfounded.Inverse_Image`，`Check wf_inverse_image` 与 `Check Fix_eq` 通过。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        121,
+        124,
+        133,
+        136
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "scratch `SemF`：`Fix` functional 的 decrease proof 指向具体 tuple 而非抽象 `x`，Poly 分支又用错 `rel_R1`",
+      "intervals": [
+        {
+          "after": 96,
+          "through": 106
+        }
+      ],
+      "outcome": "T20 的 `SemF` 直接在 branch 中给 `rec (1,R1,u) (rel_R1 R1 R2 t u)`，而 `rec` 需要指向抽象 `x` 的 proof；修正 `sem_rel` 方向并改用 dependent match、让 branch 的 recursive function type 随 scrutinee 细化后，T20/T21 推进，但 T22 的 Poly 分支仍把 `rel_R1 R0 R0 t t`（结论针对 `R_Func`）用于 `R_Poly R0`。",
+      "resolution": "unresolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        139,
+        142,
+        145,
+        148,
+        151
+      ],
+      "qualification": "step 107 的思考提出补 `rel_Poly`/`rel_Exists` 并给 witness 加 `multi u w`，但未再编译该 scratch 定义；正式 `SemF` 后来写进 `part3.v`，也从未编译或插入 `Task.v`。"
+    },
+    {
+      "title": "`mty_open_ty`：无条件的 substitution/opening commutation 不成立（缺 locally-closed image 前提）",
+      "intervals": [
+        {
+          "after": 115,
+          "through": 122
+        }
+      ],
+      "outcome": "插入 `part1.v` 后编译，在 `mty_open_ty` 的 FVar case 报 `open_ty_rec k (mty tau U) (tau a)` 无法与 `tau a` 统一：`tau a` 可能含 bvar，opening 不会进入其中。加入 `type_ok`/`term_ok` 前提，并先证明 `open_ty_lc_id`、`open_tm_lc_id` 等 opening identity lemmas；step 122 用 `type_ok`/`term_ok` 重写整组 commutation lemmas 并重新插入 `Task.v`。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        165,
+        168,
+        171,
+        173,
+        357
+      ],
+      "qualification": "statement 修正在 step 122 写入；随后编译先卡在 `lc_rty_mono`，commutation block 直到 step 244（line 357）才通过编译，故本项的 Coq 验证延后到该处。"
+    },
+    {
+      "title": "`lc_rty_mono`：`constructor; auto` 未解 `S k <= S k'`、IH 名称与 Poly inequality 导致反复 unfinished bullet",
+      "intervals": [
+        {
+          "after": 122,
+          "through": 176
+        }
+      ],
+      "outcome": "编译停在 `lc_rty_mono` 的 unfinished bullet；step 123–158 反复怀疑 bullets、focus、`shelved` 与 tactic precedence，直到 step 159 才确认出错的是 Func case 的第二 component（需要 `S k <= S k'`）。改显式 IH 后先报 `IHlc_rty_at` 不存在，`Show` 显示实际名称是 `IHlc_rty_at1`/`IHlc_rty_at2`，又经历漏写 `constructor`、`Cannot find witness`、把错误误归到 Poly 等；最后用显式 `exact` 项与 `le_n_S`，step 174 `Mono.v` 编译无输出，step 176 回写 `Task.v` 后错误推进到 `lc_tm_any_intro`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        174,
+        183,
+        204,
+        231,
+        234,
+        252,
+        255
+      ],
+      "qualification": "`Mono.v` 独立复现表明根因是 IH 名称/参数与未解 inequality，不是 Coq 环境；`Task.v` 回写后 `lc_rty_mono` 通过。"
+    },
+    {
+      "title": "`lc_*_at`/`open_*_lc_id` 与 `mty/mtm/mqual/mrty` commutation 引理：显式 proof term、induction pattern 命名与 alias/index 反复报错",
+      "intervals": [
+        {
+          "after": 176,
+          "through": 244
+        }
+      ],
+      "outcome": "先修 `lc_tm_any_intro`、`lc_ty_at_0`、`lc_tm_at_00` 的自动证明，再在 `open_ty_lc_id` 处遇到 inversion 名称 `H1` 不存在；改为对 local-closure derivation 做显式 `induction H as [...]` 后，出现 `IH1` 实为第二个 premise 的命名错位、`tm_tapp`/arith pattern 顺序错误、`open_qualifier_*` alias 不匹配。commutation block 又依次暴露 bracketed tactics 数量不符、`IHT1 k U` 已是 equation、FVar type index 0 vs `k`、旧名称 `IHT1`/atom `a`、`tm_tabs` 下应传 `S k`、Eq/Lt/Le 漏第二个 operand、`mrty_open_ty` 的 qualifier alias 等问题；逐项修正后 step 244 commutation block 通过，错误推进到 extensionality。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        255,
+        267,
+        270,
+        285,
+        294,
+        309,
+        318,
+        336,
+        357
+      ],
+      "qualification": "本项覆盖 identity lemmas 与 commutation block；重复 section 与后续 `lc_*_open_*` iff 另计。"
+    },
+    {
+      "title": "`Task.v` 的 substitution/local-closure section 被文本编辑重复插入，报 `lc_ty_mono already exists`",
+      "intervals": [
+        {
+          "after": 246,
+          "through": 252
+        }
+      ],
+      "outcome": "重写 extensionality block 后编译在 `Task.v` line 1493 报 `lc_ty_mono already exists`；grep 确认 `lc_ty_mono`、`lc_tm_mono`、`lc_pred_mono`、`lc_rty_mono`、`lc_ty_any` 各出现两次，section markers 显示 monotonicity、opening identity、commutation、free-variable lists 与 extensionality 整块重复。删除 lines 1492–1962 的重复区块后编译继续，错误变成 `lc_ty_open_ty` 的 `K` 不存在。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        360,
+        363,
+        369
+      ],
+      "qualification": "纯文本编辑/文件结构问题，不是证明语义；删除后错误立即变成 `lc_ty_open_ty` 的变量名问题。"
+    },
+    {
+      "title": "`lc_*_open_*`：opening/local-closure iff 的 type/term depth 与 `open_qualifier_*` alias 不匹配",
+      "intervals": [
+        {
+          "after": 255,
+          "through": 296
+        }
+      ],
+      "outcome": "重写整组 correspondences 后先在 `lc_ty_open_ty` 的 All case 报 `No such assumption`；改为先 inversion local-closure hypothesis 再 `constructor` 并应用 `IH (S K)`。`lc_tm_open_tm` 的 BVar true branch 又发现两个方向写反，backward 才用 `Hu K k`；`lc_tm_open_tm_ty` 的 BVar 只 `constructor` 未证 index bound。rty 部分：`lc_rty_open_tm` Refine 的 alias 与 tactic 顺序（必须在 `constructor` 之后 `unfold lc_qualifier_at`）反复失败，`lc_rty_open_ty` 的 Func/Exists 第二 component 需以 `S k` 实例化 `IH2`，最后显式应用 iff projections 完成；step 296 错误推进到 `mty_lc`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        375,
+        381,
+        390,
+        396,
+        405,
+        435
+      ],
+      "qualification": "只计 opening/local-closure iff 的证明；前面的 identity/commutation 与后面的 `mty_lc` 另计。"
+    },
+    {
+      "title": "`mty_lc`/`mtm_lc`/`mrty_lc` 与 `value_lc`/`value_mtm`：显式 proof term 与 `tm_abs` local-closure 构造",
+      "intervals": [
+        {
+          "after": 296,
+          "through": 306
+        }
+      ],
+      "outcome": "step 298 确认错误在 `mty_lc` 的 FVar case（`apply lc_ty_mono ...; auto; lia` 找不到 witness）；用显式 induction patterns 与 `exact` proof terms 重写 `mty_lc`/`mtm_lc`/`mqual_lc`/`mrty_lc` 后，错误转到 `value_lc` 的 `inversion; auto` 留下 open goals，改为 `destruct H` 三个 value constructors。`value_mtm` 又因直接对已展开的 abstraction goal 用 `mtm_lc` 无法 unification，annotation 处报 `No such assumption`；改为先对 annotation 用 `mty_lc` 后，step 306 `Task.v` 编译无错误返回（`never_stuck` 仍为 `Abort`）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        438,
+        441,
+        444,
+        447,
+        450
+      ],
+      "qualification": "本项从 `mty_lc` 报错开始；此前 open/lc iff block 已在上一项处理。"
+    },
+    {
+      "title": "`multi_trans`：`apply multi_step ...; assumption` 未组合 IH，且报错一度误判到 `step_lc`",
+      "intervals": [
+        {
+          "after": 308,
+          "through": 315
+        }
+      ],
+      "outcome": "写入 operational basics 后编译在 `multi_trans` 的 `apply multi_step with t2; assumption` 第二分支报 `No such assumption`；step 310 误以为错误在 `step_lc` 的 AppAbs 并尝试加 `Show`（更早的报错仍阻止），step 313 带行号输出确认错误仍在 `multi_trans`。改用显式 `induction H12 as [...]` 命名 constructor premises 与 IH，并用 `eapply multi_step` 加 IH 组合递归部分后，step 315 编译推进到 `value_safe_multi`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        454,
+        457,
+        460,
+        463
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`value_safe_multi`：把 equality 结论的 `multi_value_inv` 直接用于 `value t'` 目标",
+      "intervals": [
+        {
+          "after": 315,
+          "through": 321
+        }
+      ],
+      "outcome": "`left` 后直接 `eapply multi_value_inv`，但该 lemma 结论是 `t' = v`，与 `value t'` unification 失败；改用 `replace t' with v by (...)` 后 proof 未完成；最后改成 `rewrite (multi_value_inv v t' Hv Hm)` 再 `assumption`，step 321 编译推进到 `safe_multi_step`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        463,
+        469,
+        471,
+        472
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`safe_multi_step`：从单个 successor 推 `safe_multi` 不成立（缺 step determinism）",
+      "intervals": [
+        {
+          "after": 321,
+          "through": 327
+        }
+      ],
+      "outcome": "`induction Hm` 因脚本先 `revert Hm` 而报 `Hm` 不存在；去掉 revert 后仍有未解决 goals，step 326 重新审视 statement，指出从 `t --> t'` 与 `safe_multi t'` 推 `safe_multi t` 需要控制 `t` 的其他 successor（即 step determinism），当前 multi 构造无法提供；删除该 lemma，step 327 编译推进到 `step_lc` 的 AppAbs。",
+      "resolution": "abandoned",
+      "category": "statement",
+      "evidence_lines": [
+        472,
+        474,
+        478,
+        479,
+        481
+      ],
+      "qualification": "这是辅助 lemma 的普遍化错误，不是原 theorem statement；删除后该 lemma 未再使用。"
+    },
+    {
+      "title": "`step_lc`：AppAbs/DivInt 的 source local closure 不能由 `assumption` 或 integer lc 直接得到",
+      "intervals": [
+        {
+          "after": 327,
+          "through": 333
+        }
+      ],
+      "outcome": "删除 `safe_multi_step` 后错误转到 `step_lc` AppAbs，`assumption` 无法证明 source application 的 local closure；改为显式命名全部 step constructors，用 `lc_tm_app` 与 `value_lc` 构造 source、用 opening/lc iff 处理 beta/tapp reduct。重写后又把 DivInt 的 source division lc 误当 integer lc（unification 失败），改为分别构造 DivInt/ArithInt 的 source compound term 再证 target integer；step 333 编译推进到 `multi_lc`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        481,
+        484,
+        487,
+        490
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`multi_lc`：默认 induction 引用未生成的 `IHH`，需显式命名并接 `step_lc_target`",
+      "intervals": [
+        {
+          "after": 333,
+          "through": 337
+        }
+      ],
+      "outcome": "`multi_lc` 用默认 `induction H` 却引用 `IHH`，报该 hypothesis 不存在；改为显式 `induction H as [u | a b c Hstep Hmulti IH]`，在 step case 先用 `step_lc_target` 得中间项的 local closure 再用 IH；step 337 编译无错误返回，Part 2 operational basics 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        490,
+        493,
+        496
+      ],
+      "qualification": "此时 `never_stuck` 仍是 `Abort`；本项只验证 operational basics。"
+    },
+    {
+      "title": "`wf_ty_lc`/`wf_rty_lc`/`predicate_wf_lc`：cofinite freshness 与 opening index depth 不匹配",
+      "intervals": [
+        {
+          "after": 342,
+          "through": 356
+        }
+      ],
+      "outcome": "`wf_ty_lc` 的 All case 报 `fresh_not_in (L ++ fv_ty T ++ Delta)` 不能当作对 `L` 的 freshness；加入 `fresh_not_in_lists` 做 list projection。随后又暴露 `open_ty_rec 0` 与 lemma 的 `open_ty_rec K` 不匹配，改为先在 depth 0 用 opening/lc iff 得 body 在 depth 1 的 lc，再经 `lc_*_mono` 提升到目标 depth。`predicate_wf_lc` 的 Eq/Lt/Le 组合 tactics 失败，`Show` 确认 constructor 后是两个 term lc goals，`apply has_type_lc` 无法推断 `Delta`/`Gamma`/`T`，改为显式传入完整 `has_type_lc` proof term。`wf_rty_lc` 的 Poly monotonicity 又把 source term depth 写成 `k`（实际是 1），改用 `lc_rty_mono 1 0 ...` 与 `0 <= k`；step 356 block 编译无错误返回。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        503,
+        506,
+        509,
+        515,
+        518,
+        524
+      ],
+      "qualification": "另：step 338 长时间设计的 `cshape`（Ty_FVar/Ty_BVar 为 False、只在 concrete-head cases 展开）在本 block 中随 `cshape`/`cshape_mty` 编译通过；但把 opaque shape 随完整 I 沿 induction hypotheses 传递的方案属于后续 LR，未实现也未验证。"
+    },
+    {
+      "title": "`Sem_eq`/`SemF`：well-founded `Fix` 的 unfolding 需要 functional/propositional extensionality",
+      "intervals": [
+        {
+          "after": 359,
+          "through": 383
+        }
+      ],
+      "outcome": "`Fix_eq` 需要 functional extensionality premise：`setoid_rewrite H` 在 forall 下留下 `Proper`/relation evars，`rewrite H` 找不到 binder 内 `f ?y ?p`；mutual Fixpoint 同参数调用被 guard 拒绝，`Print Fix_sub_rect` 又显示 `equiv_lowers` 是其参数。最后转向 `propositional_extensionality`（源码显示其声明为 `Axiom`），但实验中的 `From Stdlib Require Import Corelib.Init.Wf` 因 logical path 错误中止，未完成 `Sem_eq`、LR 或目标 theorem。",
+      "resolution": "unresolved",
+      "category": "lr",
+      "evidence_lines": [
+        531,
+        534,
+        537,
+        542,
+        558,
+        564
+      ],
+      "qualification": "`Task.v` 的 `never_stuck` 自 step 109 起为 `Abort`；`part3.v` 含 4 处 `admit` 并以 `Admitted` 结束，从未编译或插入 `Task.v`；运行在 3588s 后很快到达 3601s timeout。"
+    }
+  ],
+  "trace_sha256": "4edb783f05e713f747553466a89dce99c84c2d197d0651f151a7191d67f0eccb",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 15,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "4edb783f05e713f747553466a89dce99c84c2d197d0651f151a7191d67f0eccb",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r15.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r15_20261027_211846_351577"
+  }
+}

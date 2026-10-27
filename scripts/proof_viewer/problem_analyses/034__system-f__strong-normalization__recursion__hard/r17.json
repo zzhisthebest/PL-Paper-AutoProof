@@ -1,0 +1,318 @@
+{
+  "summary": "本次运行 3601 秒，前约 2094 秒主要在 step 5、7、10 的长 thinking 中设计 CBV System F 的 LR/candidate 与 canon 化路线（step 5 触及输出上限后在 step 7 续写），这段没有可分离的报错处理。此后约 1500 秒实现语法/local-closure 基础设施、canon 化的 value/step 对应、`canon_step_lift`、candidate 与 interpretation 引理；`normalization` 主定理始终未开始，最后停在 `interp_open_at`：主文件报 incomplete proof，而 debug copy 的 `Show` 报 `No such goal`，剩余 goal 未查清。原有条目中 `has_type_lc_*`、`canon_step_lift` 等区间合并了彼此可定位的独立障碍，且 multi-step/SN 一段完全未描述，这里按具体障碍重划。",
+  "phases": [
+    {
+      "title": "读取 Task.v、检查 workspace 与 Rocq 编译器",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "设计 CBV System F 的 LR/candidate 与 canon 化路线（含查找现成库）",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "编写语法、替换、opening 与 local-closure 基础设施",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 148
+        }
+      ]
+    },
+    {
+      "title": "canon 化的 value/step 对应与 reduction 保持/模拟",
+      "intervals": [
+        {
+          "after": 148,
+          "through": 212
+        }
+      ]
+    },
+    {
+      "title": "`canon_step_lift`：从 canonical reduction 反推原 term",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 272
+        }
+      ]
+    },
+    {
+      "title": "multi-step/SN correspondence 与 candidate/`interp` 构造",
+      "intervals": [
+        {
+          "after": 272,
+          "through": 304
+        }
+      ]
+    },
+    {
+      "title": "candidate equivalence、environment agreement 与 `interp_open_at`（未完成）",
+      "intervals": [
+        {
+          "after": 304,
+          "through": 340
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`subst_env_open_tm_rec` 等 opening/substitution commutation lemma 在 fvar case 上不成立（缺 substitution image 的 local-closure 前提）",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 26
+        },
+        {
+          "after": 72,
+          "through": 74
+        }
+      ],
+      "outcome": "step 22 逐 constructor 重写 commutation proof 后，`tm_fvar` case 报 `open_tm_rec k (subst_env sigma u) (sigma a)` 与 `sigma a` 无法统一；step 25 判断 fvar 的等式只有假设 `sigma` 的像 locally closed 才成立，并推断 type-fvar 一侧同样需要 `tau` 的像 local closed。step 26 给 `subst_env_open_tm_rec`、`subst_env_open_tm_ty_rec` 加上 `(forall x, locally_closed_tm (sigma x))`，同时新增 `open_*_lc_id_gen` 作为配套。step 72 修完 binder 名后，`tsubst_ty_open_ty_rec` 的 fvar case 暴露同类失败（`open_ty_rec k (tsubst_ty tau U) (tau a)` vs `tau a`）；step 73 判断需要 `(forall X, lc_ty_at 0 (tau X))`；step 74 给 `tsubst_ty_open_ty_rec`、`tsubst_tm_open_tm_ty_rec` 补 `Htau` 后整批通过，编译只剩空的 `normalization` 的 incomplete proof。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        32,
+        36,
+        108,
+        110
+      ],
+      "qualification": "第一个区间止于 step 26（加入前提并新增 lc-id 引理），但这些 lemma 直到 step 74 才随 `Htau` 修正整体编译通过；中间的 lc-id induction script 与 pattern 问题另计，不在此重复计时。step 16-20 初次 `intros`/induction 顺序造成的 `k is already used`、`congruence failed` 未单列。"
+    },
+    {
+      "title": "`open_*_lc_id_gen` 的 generalized induction 与 `induction ... as` binder/IH 顺序错位（`natrec` 两两交错）",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 72
+        }
+      ],
+      "outcome": "step 26 加入的 lc-id 引理先报 `Cannot find witness`；step 27-29 判断 depth 参数 `K0`/`k` 在 induction 前被固定、`rewrite ...; auto` 无法实例化，改为先 `revert` 再 `intros`。改写后 bvar case 又报 `n` 不在环境（step 30），step 31-32 改用显式 `induction ... as` 时又因分支数不符报需要两 branches 的 disjunctive pattern；step 36-44 的最小复现排除了 pattern syntax 本身，step 45 才确认 `intros T` 实际引入的是首个 `K0 : nat`，前面一直在对 nat 做 induction。修正 arguments 顺序后，`IHT1`、`IHb`、`IH1` 等自动 IH 名接连不存在（step 46-56），step 58-67 用 `tm_ind` 和临时文件确认 `natrec` 的 pattern 必须写成 `nn IHnn bb IHbb ss IHss`，step 70-71 再把 `tm_bvar` 的 binder 名从 `n` 改成 `i`；step 72 的编译已越过这些报错，转为 type substitution 的 `tau` 问题。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        38,
+        44,
+        47,
+        68,
+        86,
+        98,
+        104,
+        105
+      ],
+      "qualification": "这些失败都在同一批 opening identity lemma 的 induction script 内，按一个 induction-pattern 困难计；起点 line 38 是 step 26 的触发编译，落在第一个区间。"
+    },
+    {
+      "title": "lc weakening/opening preservation 引理的 depth evar 与 `lia` 实例化顺序（`revert` 漏 H、`Cannot find witness`）",
+      "intervals": [
+        {
+          "after": 74,
+          "through": 90
+        }
+      ],
+      "outcome": "step 76 加入 `lc_ty_at_weaken`、`lc_tm_at_weaken_K/k`、`lc_*_open_rec(_inv)`、`wf_ty_lc` 后，首个错误是 `k1 is used in hypothesis H`（`revert` 漏掉依赖 depth 的 H）；补上后 step 78 在 `Ty_All` case 的 `eapply IH1; [lia|eassumption]` 报 `Cannot find witness`，因为 depth evar 尚未由 local-closure 前提确定。step 81-82 改为显式传 `S k1`、`S k2`，同类错误平移到 term type-depth weakening；step 88 修完两个 weakening case 后错误推进到 opening lemma 的 `tm_bvar` arithmetic subgoal，step 89 还需 `Nat.eqb_neq` 把不等信息交给 `lia`。step 90 这批引理通过，编译只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        113,
+        116,
+        122,
+        131,
+        134
+      ],
+      "qualification": "区间只含 local-closure 语法引理本身；随后 `has_type_lc_ty/tm` 的 cofinite premise 提取另计。"
+    },
+    {
+      "title": "`has_type_lc_ty` / `has_type_lc_tm`：从 cofinite typing premise 取出 abstraction body 的 local closure",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 112
+        }
+      ],
+      "outcome": "加入两条 typing→local closure lemma 后，step 92 因 `apply wf_ty_lc` 无法推断 `Delta` 改用 `eapply`，批量文本替换又误产生 `eeapply`（step 94）；修正后自动生成的 `IH` 名不存在（step 98）。step 99 改为 `match goal` 在 context 中找 cofinite premise 的 induction hypothesis；step 100 与 108 的 match 仍未命中，debug copy 的 `Show` 显示 IH 结论表面写作 `locally_closed_tm (open_tm ...)`，而目标是 `lc_tm_at 0 1 body`；step 111-112 把 pattern 改成直接匹配 `locally_closed_tm`/`open_tm`/`open_tm_ty` 后两条 lemma 通过，编译只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        137,
+        140,
+        146,
+        149,
+        161,
+        167
+      ],
+      "qualification": "原分析把此段与上一段合并，并称“step 113 通过”；实际编译通过是 step 112，step 113 已转为规划下一批 lookup/substitution 引理。step 91 还指出 context 可含未被 lookup 的非 wf 条目、fundamental theorem 需改用带 `wf_ty` 的 context premise，该设计后续未实现，未计入。"
+    },
+    {
+      "title": "`subst_env_ext`/`tsubst_tm_ext` 的 fv append membership 与 `tsubst_ty_open_fvar`/`subst_env_upd_env_open` 的定向 unfold/rewrite",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 148
+        }
+      ],
+      "outcome": "step 114 新增名 `lc_ty_fvar` 与已有 constructor 冲突，删除后 step 116 在 `subst_env_ext` 的 `natrec` case 遇到 `fv_tm` 右结合 append 的 membership 不匹配；同样问题连续出现在 `tsubst_tm_ext`（step 118）与 `tsubst_tm_upd_fresh`（step 120）。随后 step 122 `tsubst_ty_open_ty` 的 rewrite 找不到显式的 `open_ty_rec` subterm；step 124-128 把 freshness rewrite 定向到原 body 后，`Nat.eqb_refl` 又找不到 subterm；step 132-142 用 debug copy 确认需要把 `tsubst_ty` 与 `upd_tau` 分步 `cbn` 展开，才能得到 `if X =? X then ... else ...`。step 144-148 对 `subst_env_upd_env_open` 做同样的定向 freshness rewrite 与分步展开，step 148 后只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        170,
+        173,
+        179,
+        182,
+        203,
+        221
+      ],
+      "qualification": "原条目标题只覆盖首尾两端，中间 `tsubst_ty_open_fvar`/`tsubst_tm_open_fvar` 的 definitional unfolding 与 rewrite occurrence 选择占本区间大部分步数；这些是脚本层面的修补，不是新的数学事实。"
+    },
+    {
+      "title": "`numeric_value_no_step` / `canon_numeric_reflect` / `canon_value_reflect` 的 value-canon 证明",
+      "intervals": [
+        {
+          "after": 149,
+          "through": 188
+        }
+      ],
+      "outcome": "step 150 首次编译即在 `numeric_value_no_step` 留下未完成 goal；step 151-152 把 `u` 移到 `numeric_value n` 之后并未解决，step 155-160 改为对 `Hstep` 做 inversion，并用 `match goal` 把 `forall w, ~ n --> w` 的 IH 应用到 successor 的 reduct。step 164 错误推进到 `canon_numeric_reflect` 的 successor case，`destruct n` 无法对 predecessor 使用 IH，step 177 改为 term induction 后通过。step 182-188 `canon_value_reflect` 需逐 constructor 排除 impossible canonical shapes，并从 `numeric_value (canon n)` 经 `canon_numeric_reflect` 反推；step 188 后编译推进到 `step_lc`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        224,
+        227,
+        239,
+        248,
+        272,
+        281
+      ],
+      "qualification": "原 outcome 把 `numeric_value_no_step` 的解决写成“先归纳 numeric derivation 再对任意 reduct u”，实际 generalize `u` 未解决，真正生效的是 inversion `Hstep` 后显式应用 IH。step 149 是统筹整段 canon 设计的 thinking，不属于本障碍，未计入区间。同批 `value_no_step`、`canon_value`、`canon_numeric` 的小修补未单列。"
+    },
+    {
+      "title": "`step_lc` 与 `canon_step_sim` 的 reduction cases 无法由 `eauto` 自动闭合",
+      "intervals": [
+        {
+          "after": 188,
+          "through": 212
+        }
+      ],
+      "outcome": "`step_lc` 与 `canon_step_sim` 起初都只写了一句 `induction H; ...; eauto`；step 190 的 debug 显示 `step_lc` 有十个未完成 goal，覆盖 beta、type beta、congruence 与 natrec cases。step 191-208 改为逐 `ST_*` constructor 手写，把 `econstructor` 换成 `lc_tm_app/tapp/succ/rec`，并用 `use_ih` 匹配 `IHstep : locally_closed_tm a -> locally_closed_tm b` 与 inversion 得到的 `lc_tm_at 0 0 a`（step 203 还要同时匹配 goal 的 `lc_tm_at` 形式）；`RecSucc` 的 predecessor local closure 需由 numeric value 前提经 `numeric_value_lc` 得到。`step_lc` 在 step 208 通过，`canon_step_sim` 在 step 212 通过，错误随即转到 `canon_step_lift`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        284,
+        287,
+        311,
+        314,
+        317
+      ],
+      "qualification": "value/canon helpers 已在上一区间处理，这里只计两条 reduction 保持/模拟 lemma 的证明困难。"
+    },
+    {
+      "title": "`canon_step_lift`：把 canonical reduction 反推回原 term（canon 逆引理、equality 管理与 local closure side condition）",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 272
+        }
+      ],
+      "outcome": "step 212 起先要处理 abstraction case 的多余 inversion；step 215-216 改为对 canonical step derivation 归纳并 generalize 原 term，新增 `canon_abs_inv`、`canon_app_inv`、`canon_tabs_inv`、`canon_tapp_inv`、`canon_zero_inv`、`canon_succ_inv`、`canon_natrec_inv` 恢复原 syntax，随即因 generalized term 与 constructor 的 `t` 重名改用 `tt`。step 220-227 发现 `subst` 消耗掉连接原 term 与 canon term 的 equality（`Hc2`、`Hcb`），debug copy 确认 value premise 与 target reduct 已直接用 `canon u2`、`canon b0`，于是改用 `lc_app_inv`/`lc_tapp_inv`/`lc_rec_inv` 等提取 component 并重写。step 232-244 通过 `Show` 确认 IH 名为 `IHHstep` 并修正引用；step 244-258 把 side condition 从 canon-side 的 local closure 改回原 term components 的 local closure；step 258-263 在 `TApp` 等式中补 `HT : T = Ty_Nat`，step 264-270 又修正误加到 successor 的 `HT` rewrite 与 `RecZero` 的等式方向。step 272 `canon_step_lift` 通过，编译只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        323,
+        335,
+        341,
+        368,
+        383,
+        407
+      ],
+      "qualification": "原 outcome 未提 equality 被 `subst` 消耗以及 `lc_*_inv` 的引入；这些失败都在同一个 lemma 的同一段 proof 内，按一个 `canon_step_lift` 困难计，不拆成多个条目。"
+    },
+    {
+      "title": "`multi_canon_lift_gen` 的 rewrite 方向与 `canon_step_lift`/`step_lc` 的显式参数、`Arguments` 声明",
+      "intervals": [
+        {
+          "after": 273,
+          "through": 286
+        }
+      ],
+      "outcome": "step 274 加入 multi-step/SN correspondence 后，首个错误是 `multi_canon_lift_gen` 中 `rewrite <- Hcanon` 在 goal 里找不到 `x0`；step 276-279 通过 `Show` 确认 `Hcanon : canon t = x0`、需要把 goal 的 `canon t` 改成 `x0`。step 280 修正后调用 `canon_step_lift` 时把 step proof 放到了显式 term argument 的位置，step 282 又在 `step_lc Hstep1 Hlc` 处暴露同样问题；step 283-284 统一加 `Arguments ... {t} {u}` 声明反而与先前补全的参数冲突，step 286 按 implicit 形式更新调用后，multi-step 与 SN correspondence 通过，编译进入 `mk_cand`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        410,
+        413,
+        419,
+        422,
+        428
+      ],
+      "qualification": "原条目从 272 直接统计到 305，却只描述 `mk_cand`/`interp`，漏掉这段独立的 multi-step/SN 证明；step 273 的 thinking 同时规划 multi-step/SN 与 candidate，无法只归到本问题，未计入。"
+    },
+    {
+      "title": "`mk_cand` 的 `SN_intro` destruct pattern 与 `interp` 的 All candidate 定义",
+      "intervals": [
+        {
+          "after": 286,
+          "through": 304
+        }
+      ],
+      "outcome": "step 286 编译进入 `mk_cand` 时，`SN_intro` 同时带 term 与 reducts 前提，原 destruct pattern 把 term binder 当成 reducts hypothesis（`Unable to unify \"tm\" with \"strongly_normalizing u\"`）；改用 `[t0 HstepSN]` 后，expansion proof 的 multi-step case 又引用被 destruct 消耗的 `v`（step 288-292，实际 target 名为 `z`），canon invariance 的 rewrite 方向也不符（step 294-295）。step 296 后 `interp` 里的 `(by ...)` term syntax 与未定义的 `lc_ty_at_0_nat` 需换成 `canon_tapp_nat` 与 `lc_ty_nat 0`（step 297-300）；All case 的 `lc_tm_tapp` 还要补两个 depth argument（step 300-304）。step 304 `nat_cand`、`arrow_cand` 与 `interp` 的 Fixpoint 通过编译，只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        428,
+        431,
+        434,
+        437,
+        440,
+        443,
+        455
+      ],
+      "qualification": "原 outcome 称“step 305 时 … 均已通过”，实际通过编译是 step 304。`mk_cand` 此时仍以 `Qed` 结束而保持 opaque，该问题在下一区间才暴露，未在此重复计入。"
+    },
+    {
+      "title": "`cand_equiv`/环境 agreement 与 `interp_open_at` 的 All 分支无法闭合（transparent `mk_cand` 展开后）",
+      "intervals": [
+        {
+          "after": 304,
+          "through": 340
+        }
+      ],
+      "outcome": "未解决。step 305-307 决定用 pointwise predicate equivalence 回避 candidate record 相等；step 308-315 发现 `mk_cand` 以 `Qed` 结束时 `cpred` 无法展开，改为 `Defined`。此后 `arrow_cand_equiv` 的 reachable-value application（316-318）、`interp_env_equiv` recursive case 的 depth `k`（318-322）、All case 的 `all_cand_equiv` 与已展开的 `mk_cand` predicate 匹配（322-324）、`insert_cand_lt` 的 recursive environment（324-326）、`open_ty_rec` 的 `k =? i` 与 `i =? k` 方向（326-328）、Arrow case 的 IH argument 顺序（328-333）接连失败。step 334-336 修正 `interp_open_at` 的第二个 `insert_cand_lt` rewrite 后，主文件在 `Qed` 仍报 incomplete proof；step 338 的 debug copy `Show 1` 却报 `No such goal`，step 339-340 只核对了文件结尾，未能解释该不一致，trace 到此结束时 `interp_open_at` 的剩余 goal 状态仍未查清。",
+      "resolution": "unresolved",
+      "category": "lr",
+      "evidence_lines": [
+        461,
+        464,
+        473,
+        485,
+        494,
+        500,
+        503,
+        506,
+        509
+      ],
+      "qualification": "最后两次编译记录对剩余 goal 的判断相反，不能把整个 timeout 只归因于这一点，也没有把 debug 的 `No such goal` 当作证明已完成；fundamental theorem 与 `normalization` 确实尚未开始。"
+    }
+  ],
+  "trace_sha256": "4d17c53f14a6cb4eed03dc132c610bfa8e71aea9138de4ead325d4fd5b1a93e7",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 17,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "4d17c53f14a6cb4eed03dc132c610bfa8e71aea9138de4ead325d4fd5b1a93e7",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r17.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r17_20261027_211834_602130"
+  }
+}

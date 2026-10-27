@@ -1,0 +1,440 @@
+{
+  "summary": "约 0–1722s（steps 2–14）主要耗在 LR 方案与 type annotation/type substitution 的设计推演，设计与纠错混合，无法可靠单独分时，故整体留在 phases；之后从 step 15 起落地 norm/TE/atom/lc/step 基础设施与 `sem`/`sem_ty`，`sem_norm` 约在 3030s 通过，`sem_env_irrel_full` 约在 3253s、`sem_avoid_fvar` 约在 3432s 通过。最后的 `sem_fvar_subst` 仍未写出；`sem_value_iff` 在 473 步修好后，`sem_fuel_step`/`sem_fuel_ge` 仍未完成，运行在 3601s 超时，`polymorphic_identity_theorem_for_free` 仍是原占位。",
+  "phases": [
+    {
+      "title": "初始化、读取 `Task.v` 并确认编译环境",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "读取 `card.md` 与 LR 设计探索：unary/binary、singleton predicate、annotation/type substitution（设计与纠错混合）",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "落地 norm/TE/atom/lc/step 基础设施与 `sem`/`sem_ty` 定义",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 238
+        }
+      ]
+    },
+    {
+      "title": "normalization correspondence、`step_norm`/`step_norm_inv`/`multi_norm_inv`、`sem_norm` 与 L_ok/atom 不变量调试",
+      "intervals": [
+        {
+          "after": 238,
+          "through": 396
+        }
+      ]
+    },
+    {
+      "title": "`sem_env_irrel_full`、`sem_avoid_fvar` 与 substitution 前置引理",
+      "intervals": [
+        {
+          "after": 396,
+          "through": 458
+        }
+      ]
+    },
+    {
+      "title": "为 `sem_fvar_subst` 补 value/fuel 引理，直至超时",
+      "intervals": [
+        {
+          "after": 458,
+          "through": 477
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`norm_ty_open_ty_rec` 的 FVar case 需 `closed_tyenv` 与 local-closure/opening 引理链",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 134
+        }
+      ],
+      "outcome": "step 75 判断 `open_ty_rec k (norm_ty TE U) (TE X)` 与 `TE X` 只在 `TE X` 无 free BVar 时相等，遂给 type opening commutation 及 wrapper 增加 `closed_tyenv`；随后补 fresh atom、`lc_ty_at_mono`、`lc_ty_open_rec_irrel`、`lc_ty_open_inv`、`wf_ty_lc`、`lc_ty_closed_open`。这些引理的证明又需 depth generalization、显式 inversion pattern、`lia` witness 与 `Delta` 推断修正；step 134 编译越过该组引理，错误推进到 `norm_ty_ty_subst`。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        108,
+        120,
+        135,
+        162,
+        186,
+        201
+      ],
+      "qualification": "这些引理通过只说明该段基础设施可继续编译；substitution 与最终 fundamental theorem 仍未验证。"
+    },
+    {
+      "title": "`norm_ty_ty_subst`/`norm_tm_tm_ty_subst` statement 不成立：`norm_ty` 把 `FVar X` 映成 `TE X` 后 `ty_subst` 失效",
+      "intervals": [
+        {
+          "after": 134,
+          "through": 136
+        }
+      ],
+      "outcome": "step 135 在 FVar case 确认 `T = FVar X` 时 LHS 为 `norm_ty TE U`、RHS 为 `TE X`（`tm_ty_subst` 版本同理），故该 commutation 不成立；step 136 删除两个 lemma 并编译，错误推进到 `norm_tm_open_tm` 的 BVar case。",
+      "resolution": "abandoned",
+      "category": "statement",
+      "evidence_lines": [
+        201,
+        202,
+        204
+      ],
+      "qualification": "删除的是不成立的 norm/ty_subst commutation；All case 的 opening 由已证的 `norm_tm_open_tm_ty` 处理，而最终定理所需的 `tm_ty_subst`/reduction 交换律在 trace 中未再建立。"
+    },
+    {
+      "title": "`norm_tm_open_tm` 的 BVar case：conditional opening 未先化简",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 146
+        }
+      ],
+      "outcome": "step 136 删除 false lemma 后先在 BVar case 报 `open_tm <{ bvar i }> (norm_tm TE u)` 与 `norm_tm TE (open_tm <{ bvar i }> u)` 不能统一；step 142 展开后仍报 `if i = 0 then norm_tm TE u else <{ bvar i }>` 与 `norm_tm TE (if ... then u else <{ bvar i }>)` 不能统一；step 144 对 BVar index 显式 `destruct i`；step 146 编译越过该 case，错误推进到 abstraction body 的非零 opening depth。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        204,
+        213,
+        219
+      ],
+      "qualification": "只解决 BVar 的条件分支；abstraction 下的 opening 尚未处理。"
+    },
+    {
+      "title": "`norm_tm_open_tm`/`norm_tm_open_tm_ty_rec`：abstraction 下需要任意 opening depth，且 `tm_abs`/`tm_tabs` 的 type-opening depth 混淆",
+      "intervals": [
+        {
+          "after": 146,
+          "through": 170
+        }
+      ],
+      "outcome": "step 149 先证一般 `k` 的 `norm_tm_open_tm_rec` 再导出 depth 0 wrapper；`norm_tm_open_tm_ty_rec` 的 `Hc` 被重复传入、`S k` 用错，step 156 的 `Show` 显示 `tm_abs` 的 type opening body 仍用 `k`；step 160 修正 binder depth；step 162 的 `No such goal` 与 step 164 的未完成 bullet 后，step 168 改用 explicit constructor cases 与 `f_equal`。step 170 全部 helper 编译通过，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        219,
+        228,
+        231,
+        234,
+        243,
+        246,
+        255
+      ],
+      "qualification": "只验证 norm 与 opening 的语法交换；semantic substitution 尚未触及。"
+    },
+    {
+      "title": "term-level local closure 的 depth 泛化与嵌套 type induction（`lc_tm_at_mono`/`lc_tm_open_ty_rec`/`tm_ty_subst_lc`）",
+      "intervals": [
+        {
+          "after": 179,
+          "through": 207
+        }
+      ],
+      "outcome": "step 179/185 `lc_tm_at_mono` 的 BVar/abstraction case 缺 index bound；step 187 用显式 inversion 与 depth indices 重写后越过。step 189 发现 `lc_tm_open_ty_rec` 的 term depth 固定为 0，step 191 推广到任意 `k`。step 194–197 另立一般 depth 的 `ty_subst_lc` 以支撑 `tm_ty_subst_lc`，并修正 `tm_tabs` case 对 replacement type 的 `S K` 提升。step 207 编译越过这些 lc/subst 引理，错误推进到 `step_lc`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        268,
+        277,
+        286,
+        295,
+        301,
+        310
+      ],
+      "qualification": "这些是 statement 泛化与 IH 参数匹配，不是 LR 数学选择。"
+    },
+    {
+      "title": "`step_lc`：IH 实际名为 `IHstep`，脚本引用 `IHH`",
+      "intervals": [
+        {
+          "after": 207,
+          "through": 213
+        }
+      ],
+      "outcome": "step 210 用带 `Show`/`Abort` 的最小示例确认 IH 按被 induction 的 derivation 命名；step 213 将 `apply IHH` 改为 `apply IHstep` 后编译越过 `step_lc`，错误推进到 `multi_app_l` 的 unfinished bullet。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        310,
+        316,
+        319
+      ],
+      "qualification": "只是 IH 命名，不涉及 reduction 语义。"
+    },
+    {
+      "title": "multistep congruence 的 `eapply multi_step` 留下未定 intermediate evar（`multi_app_l`/`multi_app_r`/`multi_tapp`/`multi_trans`/`multi_app_cong`）",
+      "intervals": [
+        {
+          "after": 213,
+          "through": 233
+        }
+      ],
+      "outcome": "step 225 的 `Show` 显示 `multi_step` 的中间项仍是 evar（goal 为 `<{ x u }> --> ?y`），`assumption` 无法匹配；step 227 起为各 multistep 引理显式指定 `y := tm_app y u`、`tm_app v y`、`tm_tapp y T`，step 233 对 `multi_app_cong` 用 `multi_trans with (t2 := tm_app f' a)`。所有 helper 编译通过，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        319,
+        328,
+        334,
+        337,
+        346,
+        349
+      ],
+      "qualification": "中间项需由 application/tapp 结构显式给出，`eapply` 无法自行推断。"
+    },
+    {
+      "title": "atom 收集引理的 append membership、depth 0 wrapper 与 `tm_tapp` case 误用 type-opening lemma",
+      "intervals": [
+        {
+          "after": 242,
+          "through": 262
+        }
+      ],
+      "outcome": "step 245 逐个 constructor 显式处理 `in_app_or` 的 append membership；step 249 给 wrapper `ty_atoms_open_ty` 指定 `(k := 0)`；step 250 的 `No such goal` 说明 tactic 在 goal 关闭后继续执行，step 253 先重写 term opening 引理但未触及 `ty_atoms_ty_subst`，step 256 单独重写该 lemma；step 258 确认 `tm_atoms_open_tm_rec` 的 `tm_tapp` case 错用了 `ty_atoms_open_ty_rec`（`open_tm_rec` 保留 annotation）；step 262 将 `tm_tabs` 的 IH 调用改为 `IHb (S k)`。编译越过这组 atom 引理，错误推进到 `step_atoms`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        362,
+        368,
+        374,
+        383,
+        389,
+        392
+      ],
+      "qualification": "只证明 atom 收集的 inclusion；不涉及 LR。"
+    },
+    {
+      "title": "`step_atoms`/`multi_atoms` 的 inclusion 方向与 `Hin` 重名；`L_ok_app_l` 未使用参数 `B`",
+      "intervals": [
+        {
+          "after": 262,
+          "through": 272
+        }
+      ],
+      "outcome": "step 263–264 重写 `step_atoms` 时 destruct pattern 与已有 `Hin` 重名；step 267 纠正 `multi_atoms` 的组合顺序：先由 IH 从 final term 得 intermediate term 的 atoms，再用 `step_atoms` 回到 source term；step 269–271 删除 `L_ok_app_l` 未使用的 `B` 并清理 `L_ok_open_ty`。step 272 编译越过 atom/`L_ok` 引理，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        392,
+        395,
+        398,
+        401,
+        407
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "normalization/lc/value correspondence 的 iff bullet、value constructor inversion 与 destruct 变量重名",
+      "intervals": [
+        {
+          "after": 277,
+          "through": 293
+        }
+      ],
+      "outcome": "step 280 为每个 constructor 的两个 iff 方向写显式 branch；step 281 重写 `lc_ty_norm`/`lc_tm_norm` 后错误推进到 `value_norm`；step 283–286 补 `value_norm_inv` 的两个 value constructor，step 285 报当前环境没有 `T`，step 286 改为 `destruct v` + `value_lc`/`lc_tm_norm`；step 291 定位 `a is already used` 在 `norm_tm_app_eq` 的 `destruct t; intros f a H`，step 293 重命名各 `norm_tm_*_eq` 的 intro 变量。编译越过 value/norm 引理，错误推进到 `step_norm` 的 beta case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        414,
+        417,
+        420,
+        423,
+        426,
+        429,
+        435,
+        438
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`step_norm` 的 beta/type-beta case：reduct 需写成 `norm_tm` 与 opening 的交换形式",
+      "intervals": [
+        {
+          "after": 293,
+          "through": 295
+        }
+      ],
+      "outcome": "step 293 报 normalized reduct `norm_tm TE (open_tm t v)` 与 `open_tm (norm_tm TE t) (norm_tm TE v)` 不匹配；step 294 用 `norm_tm_open_tm`/`norm_tm_open_tm_ty` 重写 reduct 并补 local closure premise；step 295 编译越过 `step_norm`，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        438,
+        441
+      ],
+      "qualification": "只覆盖 forward step；`step_norm_inv` 的反射仍未证。"
+    },
+    {
+      "title": "`step_norm_inv`/`multi_norm_inv`：equality 方向、IH 名 `IHHstep` 与 reflexive case",
+      "intervals": [
+        {
+          "after": 295,
+          "through": 317
+        }
+      ],
+      "outcome": "step 297 的 `Show` 显示 equality 是 `source = norm_tm TE t0`；step 301 显示 `ST_App1` 的 IH 名为 `IHHstep` 且需要反向 equality；step 303–317 用 `eq_sym`、显式 `multi_refl`，并把 `multi_norm_inv` step case 的 rewrite 从 `<- E` 改为 `E`。step 317 编译越过两个引理，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        444,
+        450,
+        453,
+        462,
+        465,
+        468,
+        474
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sem_norm` 前置 `norm_*_extend_other`/`L_ok_arrow_body`：negated membership 与未使用参数 `A`",
+      "intervals": [
+        {
+          "after": 321,
+          "through": 329
+        }
+      ],
+      "outcome": "step 322 从 `~ In X (l1 ++ l2)` 分别证两个 component 的 negated membership，而非直接 `in_app_or`；step 326–327 补 abstraction annotation 的 freshness；step 328 删除 `L_ok_arrow_body` 未使用的 `A`。step 329 编译越过全部辅助引理，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        480,
+        486,
+        489,
+        492
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sem_norm` 的 FVar/Arrow 分支与 `norm_open_tm_ty_all`：idempotence 的 `closed_tyenv` side condition 与 `L_ok` 传递",
+      "intervals": [
+        {
+          "after": 329,
+          "through": 368
+        }
+      ],
+      "outcome": "step 334 的 `norm_open_tm_ty_all` 需先把 extended environment 改回原环境再用 idempotence；step 340 的 `Show` 显示 FVar backward 留下 `closed_tyenv TE` side condition；step 348 显示 `HL` 描述 source term `t`/`Arrow A B`，step 349–361 改由 `multi_atoms` 和 `L_ok_value_arrow`/`L_ok_value_tabs` 把 `L_ok` 传到 reduct；step 362–367 处理 `ty_size (Arrow A B)` 化简与 `Evv` 的反向 rewrite。step 368 编译推进到 All forward branch。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        499,
+        508,
+        520,
+        541,
+        548,
+        550
+      ],
+      "qualification": "FVar/Arrow 通过；All case 尚未处理。"
+    },
+    {
+      "title": "`sem_norm` 的 All case：两个 opened body 的 `L_ok`/normalization 对齐与 `HsemN`",
+      "intervals": [
+        {
+          "after": 368,
+          "through": 396
+        }
+      ],
+      "outcome": "step 372–378 修正 All forward 的 `L_ok_value_tabs`/multistep target rewrite 与 `ty_size (All B)` 化简；step 386 重写整个 All branch，用共同 normalized body 连接 LR；step 390 `subst b'` 统一 body 表达式；step 395 把 `HsemN` 直接声明为 normalized body opening 的 normalization。step 396 `sem_norm` 编译通过，只剩目标 theorem。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        556,
+        565,
+        577,
+        583,
+        592
+      ],
+      "qualification": "`sem_norm` 通过不代表 substitution lemma 可复刻。"
+    },
+    {
+      "title": "`sem_env_irrel_full`：FVar existential、Arrow 方向与 All case 的 pointwise premises",
+      "intervals": [
+        {
+          "after": 401,
+          "through": 425
+        }
+      ],
+      "outcome": "step 402 修掉 `norm_tm_no_atoms_id` 的重复 `H1`；step 404–409 为 FVar case 补 `norm_ty_env_eq`/`norm_tm_env_eq` 并显式 destruct existential；step 412–418 分开两个 iff 方向并修正 Arrow backward 的 rewrite 方向；step 424–425 先 assert `extend_ty`/`extend_pred` 的 pointwise equality，再传给 IH，最后取 `proj1`/`proj2`。step 425 `sem_env_irrel_full` 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        599,
+        602,
+        605,
+        611,
+        620,
+        626,
+        635
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sem_avoid_fvar`：body atom-freeness、`Nat.eqb` 点态等式与 `Hnorm`/`sem_norm` 顺序",
+      "intervals": [
+        {
+          "after": 430,
+          "through": 458
+        }
+      ],
+      "outcome": "step 431–435 从 source atom-freeness 经 multistep 得 value/body 无 atoms，并复用外层 `Hv0`；step 438–442 补 IH 的 size/freshness/atom-freeness/`L_ok` premises 并显式给出 `X`；step 445 对 `tm_tabs b` 的 membership 做 `simpl`；step 449 用 `eqn:` + `Nat.eqb_neq` 证明点态环境等式；step 451–455 把 `Hnorm1`/`Hnorm2` 的 rewrite 移到 `sem_norm` 之后；step 457–458 加 `tm_atoms_open_tm_ty_nil0` 修正 `HLW`。step 458 `sem_avoid_fvar` 编译通过。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        642,
+        645,
+        651,
+        657,
+        663,
+        672,
+        684
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sem_fvar_subst` 的 value/fuel 引理：`sem_value_iff` 修好后 `sem_fuel_step`/`sem_fuel_ge` 仍未完成",
+      "intervals": [
+        {
+          "after": 465,
+          "through": 477
+        }
+      ],
+      "outcome": "step 469–473 `sem_value_iff` 的 Arrow/All forward case 在 `subst` 后只剩 reflexive equality，`assumption` 改为 `reflexivity` 后编译越过；step 473 `sem_fuel_step` 的 statement 漏写 `L`/`TE`/`RE`/`t`，把 `T` 放到了 `list atom` 位置；step 475 改写时一度写入 `Admitted` 且未编译，step 476 发现并在 step 477 改为 iff 形式重新验证，仍报 `Incorrect number of goals (expected 4 tactics)`。`sem_fvar_subst` 从未写出，fundamental lemma 与 `polymorphic_identity_theorem_for_free` 未进入证明，运行在 3601s 超时。",
+      "resolution": "unresolved",
+      "category": "lr",
+      "evidence_lines": [
+        693,
+        696,
+        702,
+        705,
+        708,
+        711
+      ],
+      "qualification": "超时后 `Task.v` 仍无法编译，目标 theorem 仍是原占位 `Proof. (* Complete the proof of the free theorem. *) Qed.`；step 475 的 `Admitted` 在 step 476–477 已移除，不能把该草稿误读为已完成的参数性证明。"
+    }
+  ],
+  "trace_sha256": "d407dc6b135c4b9daaabd4bb50d02c94a36a3a89ac85c6d858d0cbfd9a09e6ed",
+  "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+  "repeat": 10,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "d407dc6b135c4b9daaabd4bb50d02c94a36a3a89ac85c6d858d0cbfd9a09e6ed",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/r10.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/055__system-f__polymorphic-identity__nondeterminism__hard/review_r10_20261027_211859_775601"
+  }
+}

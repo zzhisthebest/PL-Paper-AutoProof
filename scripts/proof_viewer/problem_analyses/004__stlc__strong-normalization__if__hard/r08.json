@@ -1,0 +1,279 @@
+{
+  "summary": "前段大量时间用于 LR、ctx_ok 与 substitution image 的 local-closure 条件的设计推演，并据此为 subst_open_rec 加入 rho image locally closed 的前提；这些属于设计探索，保留在 phases 作为其他时间。中后段集中调试 opening/substitution、local closure、step_det、step_trichotomy 与 LR/SN semantic lemmas；normalization 在步骤 156 随完整文件首次编译通过，随后 clean rebuild 与 assumptions 检查确认 normalization 和 fundamental 均 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读取语言定义、typing rules 与 normalization 目标",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "反复设计适合 CBV application、abstraction 和 if 的 LR",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "检查 induction principles，细化 substitution 条件并编写首批 helper lemmas",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 20
+        }
+      ]
+    },
+    {
+      "title": "调试 opening、substitution、local closure preservation 与 step_det",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 110
+        }
+      ]
+    },
+    {
+      "title": "设计并编写 constructive step_trichotomy 及 stuck helpers",
+      "intervals": [
+        {
+          "after": 110,
+          "through": 113
+        }
+      ]
+    },
+    {
+      "title": "调试 step_trichotomy 的 application、if 和 stuck cases",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 133
+        }
+      ]
+    },
+    {
+      "title": "编写正式 LR、semantic lemmas、fundamental 与 normalization",
+      "intervals": [
+        {
+          "after": 133,
+          "through": 136
+        }
+      ]
+    },
+    {
+      "title": "调试 SN induction、R_if 与 fundamental，完成目标证明",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 156
+        }
+      ]
+    },
+    {
+      "title": "检查 assumptions、整理 import、clean rebuild 与最终核对",
+      "intervals": [
+        {
+          "after": 156,
+          "through": 169
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_open_rec、lc_open_rec_inv：opening 的 bound 推理和 recursive premises 未显式接齐",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 48
+        }
+      ],
+      "outcome": "lc_open_rec 的 bvar false branch 先将 Nat.eqb 的结果转为不等式，再完成 arithmetic；abstraction case 明确指定 weakening 的 source level。lc_open_rec_inv 则补齐 conclusion 无法推断的 u，并对 application、if 的每个分支显式提供 induction hypothesis 所需 premises。步骤 48 的编译已越过这两个声明。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        29,
+        36,
+        46,
+        52,
+        56,
+        60,
+        65,
+        67,
+        71
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_ext、subst_open_rec、subst_open_fvar：structural cases 的 membership 与 equality subgoals 处理失配",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 80
+        }
+      ],
+      "outcome": "subst_ext 的 if case 错把 In x (fv t1) 当作 append membership 拆解，改为沿正确的 left/right 路径构造 membership。subst_open_rec 明确提供 image 的 local closure，并将 tm_if 的 equality 分成三个 IH subgoals；subst_open_fvar 改用已实例化的 subst_open equality，消除 goal 已关闭后继续执行 tactic 的问题。步骤 80 编译已进入后续 step_lc_fwd。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        89,
+        92,
+        93,
+        98,
+        100,
+        104,
+        107,
+        109,
+        113,
+        115,
+        119
+      ],
+      "qualification": "该 commutation statement 的 local closure 前提在此前设计阶段已确定；本段困难是其 proof script，未再次修改 statement。"
+    },
+    {
+      "title": "step_lc_fwd、step_lc_back：abstraction body 与 if branches 的 local closure hypotheses 对应错误",
+      "intervals": [
+        {
+          "after": 80,
+          "through": 90
+        }
+      ],
+      "outcome": "ST_AppAbs 中先通过 lc_at_abs_inv 从 abstraction 的 local closure 提取 body 的 lc_at 1；ST_IfTrue、ST_IfFalse 分别使用 then、else 的 closure。检查实际 step_ind 后，重写两个 proofs，显式命名 recursive step、IH 和各 closure premises，避免自动名称混淆。步骤 90 编译已推进到 step_det。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        119,
+        122,
+        123,
+        125,
+        126,
+        131,
+        133,
+        134
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_det：重叠 application rules 的 contradictions、value_no_step 参数选择与分支组织反复纠缠",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 110
+        }
+      ],
+      "outcome": "最初 inversion、subst、auto 未排除 ST_AppAbs、ST_App1、ST_App2 的冲突 cases。加入 value_no_step 后，未限定参数的 eapply 又选择了不合适的 value，留下 step evar；期间多次查看 goals，并反复判断 bullet focus 与剩余 cases。最终依据实际 16 个 subgoals，显式调用 step_abs_inv、value_no_step 等 contradictions，在相同 rules 的 cases 使用 IH 和 f_equal，步骤 110 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        140,
+        141,
+        143,
+        149,
+        152,
+        155,
+        158,
+        159,
+        161,
+        163,
+        164
+      ],
+      "qualification": "区间包含大量 case 分析与 proof-state 定位思考，不只是失败的编译调用；未将此前首批 helper lemmas 的编写时间计入。"
+    },
+    {
+      "title": "step_trichotomy 及 stuck helpers：混淆 value argument 与 stuck argument，并错排 if condition cases",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 133
+        }
+      ],
+      "outcome": "先按实际 inversion 结果删除 step_if_abs_stuck 中多余的 discriminate，并统一 no-step premise 的逻辑形式。随后发现 true/false 应用于 value argument 虽然 stuck，却不能使用要求 argument 非 value 的 helper，因而补充 step_app_true_val_stuck、step_app_false_val_stuck，并显式限定 value_no_step 的 argument。最后将 if condition 分支按 abstraction、true、false 的实际顺序排列，步骤 133 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        168,
+        171,
+        174,
+        177,
+        180,
+        183,
+        184,
+        186,
+        190,
+        192,
+        195,
+        197,
+        198
+      ],
+      "qualification": "这是目标证明所需的 constructive decomposition 调试，并非 normalization 完成后的 sanity example。"
+    },
+    {
+      "title": "R_app_abs、R_app_abs_aux 与 R_if：SN induction 的对象和 IH 使用错误，随后遗漏 branch premises",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 150
+        }
+      ],
+      "outcome": "R_app_abs 最初将 R T1 t2 命名为 Hsn 后直接 induction，遭到拒绝；改为引入显式接受 SN 的 R_app_abs_aux，再由 wrapper 用 R_sn 提供 SN。核对 strongly_normalizing_ind 后，区分原 recursive SN premise 与真正 IH，并同步修正 R_if。随后分别补齐 R_if 内部 IHb 与末尾 Haux application 遗漏的 branch LR premises（HR2'/HR3'、HR2/HR3），步骤 150 编译已越过这些声明。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        202,
+        205,
+        206,
+        208,
+        209,
+        211,
+        213,
+        214,
+        218,
+        220,
+        221,
+        222,
+        223
+      ],
+      "qualification": "新增 auxiliary lemma 的 SN premise 由 R_sn 推出，原 R_app_abs interface 得以保留；没有修改 normalization statement。"
+    },
+    {
+      "title": "fundamental 的 T_Abs case：context extension 中误用已转换的 eqb hypothesis，且漏交 R_app_abs 的 argument premise",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 156
+        }
+      ],
+      "outcome": "原脚本先把 E 从 eqb=false 转成 x<>y，随后仍尝试 rewrite E，触发 setoid rewrite 和 undefined evars。加入 update_same、update_other 后，以 lookup lemmas 处理 context update，再连接 extend_rho。最后补上 R_app_abs application 留下的 HR2；步骤 156 完整文件首次编译通过，后续 assumptions 检查确认 normalization 与 fundamental 均 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        201,
+        223,
+        225,
+        226,
+        229,
+        230,
+        231,
+        232,
+        235
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "35a02c630e00f157bb47c97f22995ef41f40b2cb2cb6740dc7e43dc602150675",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 8,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "35a02c630e00f157bb47c97f22995ef41f40b2cb2cb6740dc7e43dc602150675",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r08.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r08_20261027_211738_586680"
+  }
+}

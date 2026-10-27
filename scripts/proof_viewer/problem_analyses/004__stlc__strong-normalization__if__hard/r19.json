@@ -1,0 +1,546 @@
+{
+  "summary": "本次运行 1174 秒，时间主要压在 step 9 一次约 642 秒的设计推演上（约 55%）：反复比较 naive LR、value-reduct LR 与 application-spine 等 CBV 强归一化方案，并推演 substitution/opening 与 local closure 需求；这段设计与试错混合、无法再分时，整体留在 phases。其余约 121 秒用于写出 /tmp/dev.v 并拼接 Task.v，约 363 秒用于编译排错（先是 freshness／step inversion／local closure 等辅助引理，再是 LR_app_abs／LR_if／LR_app 与 fundamental 的 T_Abs），最后约 43 秒做 clean rebuild、Print Assumptions 与 coqc 验证。所列具体困难全部经后续编译或 Print Assumptions 验证解决，运行以 normalization 的 \"Closed under the global context\" 结束。",
+  "phases": [
+    {
+      "title": "阅读 Task.v／card.md 并确认 Rocq 与 Lia 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "设计探索：CBV 强归一化 LR 方案的长篇推演（单个 thinking step 约 642 s，含多方案反复修改）",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "编写完整开发：首份 Task.v 草稿末尾遗留未完成 Abort，随后重写 /tmp/dev1.v、/tmp/dev.v 并拼接 Task.v",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 30
+        }
+      ]
+    },
+    {
+      "title": "编译调试：freshness／step inversion／local closure／subst_open_gen 等辅助引理",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 98
+        }
+      ]
+    },
+    {
+      "title": "编译调试：LR_app_abs／LR_if／LR_app 与 fundamental 的 T_Abs",
+      "intervals": [
+        {
+          "after": 98,
+          "through": 166
+        }
+      ]
+    },
+    {
+      "title": "最终验证：clean rebuild、Print Assumptions、coqc、theorem statement 对比与 workspace 清理",
+      "intervals": [
+        {
+          "after": 166,
+          "through": 188
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`fresh_not_In`：`In x (a :: L')` 的头部等式是 `a = x`，`destruct Hx as [-> | Hx]` 把 `a` subst 掉，head case 的 `S a` 报 variable a not found",
+      "intervals": [
+        {
+          "after": 32,
+          "through": 46
+        }
+      ],
+      "outcome": "line 252 报 The variable a was not found。先在 /tmp 建 t1.v–t3.v 复现（t3.v 去掉 as-pattern 仍报同一错误），再用 t4.v/t5.v 的 `Show` 确认 induction 命名正常、cons case 的 context 本来含有 `a`，据此把根因定位到 Coq `In` 展开为 `a = x`、`->` 把 `a` 换成 `x`。改为 `destruct Hx as [Heq | Hx]` 后显式 `subst a`，head case 改用 `S x`；下一次编译（step 48）已不再报该错误，而是转入 `Nat.max` 的 unification 失败。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        47,
+        56,
+        65,
+        67,
+        71
+      ],
+      "qualification": "step 46 只有 Edit、无编译，实际确认在 step 48（line 71，已落在下一项区间）。"
+    },
+    {
+      "title": "`fresh_not_In`：`simpl` 把 `fresh (x :: L')` 展开成 `Nat.max` 的 match 形式，`Nat.le_max_l/r` 无法与之统一",
+      "intervals": [
+        {
+          "after": 46,
+          "through": 52
+        }
+      ],
+      "outcome": "line 254 报 Unable to unify `?M <= Nat.max ?M ?M'` 与展开后的 match goal。判定是 `simpl` 提前展开了 `Nat.max`，遂去掉该处 `simpl`，并在两个 upper-bound 子目标分别 `change (S x <= Nat.max (S x) (fresh L'))`／`change (fresh L' <= Nat.max (S a) (fresh L'))` 恢复 `Nat.max` 形状后再 `apply Nat.le_max_l/r`。step 52 的编译越过新鲜性部分，错误前移到 `step_app_inv` 的 bullet。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        71,
+        73,
+        77
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`step_app_inv`（及同写法的 `step_if_inv`）：inversion 后直接 `left. eauto` 无法建立三个 disjunct 的 existential witnesses，报 Wrong bullet",
+      "intervals": [
+        {
+          "after": 52,
+          "through": 62
+        }
+      ],
+      "outcome": "line 367 报 `Current bullet - is not finished`。先用 `sed -n '1,224p'` 截 prefix 做 Show 探针，因新增 Lia import 造成行号偏移、截断落在 definition 中间而报 The reference Lemma was not found；改用 1,225p 后 Show 出 inversion 后的三个 goal（ST_AppAbs／ST_App1／ST_App2）及残留等式。在 /tmp/prog.v 用 `eexists. eexists. repeat split; eauto`（if 版为 `repeat split; eauto`）验证通过后写回 Task.v。step 62 的编译越过这两个引理，错误前移到 `lc_at_mono`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        77,
+        83,
+        86,
+        89,
+        92
+      ],
+      "qualification": "`step_if_inv` 未被单独编译到（先卡在 `step_app_inv`），但它使用同一脚本模式并在同一次修改中一并改掉。"
+    },
+    {
+      "title": "`lc_at_mono`：`apply lc_app; eauto`（app/if case）无法为 induction hypothesis 找到 witness，报 Cannot find witness",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 66
+        }
+      ],
+      "outcome": "line 416 报 Cannot find witness。查看后确认 app/if 依赖 `eauto` 自动套 IH、abs case 用 `apply IHt …; lia` 把 lc 目标交给 lia。改为逐 case 显式 `apply IHt1 with (k := k); assumption || lia` 等，算术前提交给 lia。step 66 重编后错误移到 line 455。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        92,
+        95,
+        98
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_at_open` 的 bvar false 分支：只有 `n < S k` 和 `(k =? n) = false`，未把 eqb false 转成 disequality，`lia` 推不出目标 `n < k`",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 76
+        }
+      ],
+      "outcome": "line 455 再次报 Cannot find witness；先误判为 app/if 的 eauto 问题并改了那两处（step 70），重编后同一行仍失败。用 awk 打印绝对行号确认 line 455 是 bvar false 分支的 `apply lc_bvar; apply lc_bvar_inv in Ht; lia`，进而推出需把 `(k =? n) = false` 变成 `k ≠ n`，加入 `apply Nat.eqb_neq in E`（同一替换也补到 `lc_at_open_fvar_inv` 的 bvar false 分支）。step 76 编译越过该引理，错误移到 line 483 的 bullet。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        98,
+        104,
+        110,
+        111,
+        113
+      ],
+      "qualification": "错误在 step 66 报出时曾被误认为仍在 application case，根因到 step 74–75 才确定。"
+    },
+    {
+      "title": "`lc_at_open_fvar_inv` 的 abs 分支：IH 经 `lc_abs_inv` 已给出 `lc_at (S (S j)) t`，却又对目标调用 `lc_at_mono`，bullet 收不掉",
+      "intervals": [
+        {
+          "after": 76,
+          "through": 80
+        }
+      ],
+      "outcome": "line 483 报 Wrong bullet（上一 bullet 未完成）。重算 local closure 层级后确认 `apply lc_abs` 在 `k := S j` 下需要的正是 IH 给出的 `lc_at (S (S j)) t`，而 `apply lc_at_mono with (k := S j)` 反而要求更弱的 `lc_at (S j) t`；改为 `exact H`，并把 app/if 的 eauto 一并改成显式 IH 调用。step 80 编译越过该引理，错误移到 `lc_at_subst` 的 line 501。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        113,
+        116,
+        117,
+        119
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`lc_at_subst` 的 abs 分支：`apply IHt …; auto. intros x. apply lc_at_mono …; auto. lia` 中前面的自动化已关闭全部子目标，末尾 `lia` 报 No such goal",
+      "intervals": [
+        {
+          "after": 80,
+          "through": 84
+        }
+      ],
+      "outcome": "line 501 chars 85-89 正对末位 `lia`，报 No such goal。把 abs case 拆成明确 bullet：`apply IHt with (k := S k)` 后 `+ exact Ht`、`+ intros x; apply lc_at_mono with (k := k); [apply Hs | lia]`；app/if 也改成显式 bullet。step 84 编译越过该引理，错误移到 `has_type_lc` 的 line 539。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        119,
+        122,
+        123,
+        125
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`has_type_lc`：T_Abs 的前提是匿名前提，默认 induction hypothesis 名不是 `IHHty`，引用失败",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 88
+        }
+      ],
+      "outcome": "line 539 报 The variable IHHty was not found。改为显式 `induction Hty as [...]`，为六个 constructor 的 premise/IH 命名；T_Abs 用 `IH (fresh (L ++ fv t1)) (fresh_not_In_app_l L (fv t1))` 得 `lc_at 0 (open t1 (fvar x))`，再由 closing lemma 得到 `lc_at 1 t1`。step 88 编译越过该引理，错误移到 `subst_open_gen` 的 line 562。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        128,
+        129,
+        131
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_open_gen` 的 bvar/fvar 分支：`rewrite Nat.eqb_refl` 找不到子项，`upd s x u a` 与 `s a` 也无法直接统一，需改用 `upd_eq`/`upd_neq`",
+      "intervals": [
+        {
+          "after": 88,
+          "through": 94
+        }
+      ],
+      "outcome": "line 562 报 no subterm matching `?M =? ?M`；用 /tmp/prog2.v 的 `Show` 探针确认 bvar true case 的目标是 `upd s x u x = u`、false case 是自反等式，遂改为 `apply upd_eq`。随后 line 566 在 fvar false case 报 `upd s x u a` 与 `s a` 无法统一，补 `apply Nat.eqb_neq in E` 得 `a ≠ x` 与 `rewrite (upd_neq s x a u Hneq)`，再用 `lc_at_open_id` 说明 opening 不动 substitution image。step 94 编译越过这两处，错误移到 if 分支的 line 582。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        131,
+        134,
+        137,
+        140
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_open_gen` 的 if 分支：`fv t1 ++ fv t2 ++ fv t3` 按右结合解析，按左结合写的 `in_or_app; left; in_or_app; left` 链在 `In x (fv t1)` 上多套了一次 `in_or_app`",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 98
+        }
+      ],
+      "outcome": "错误显示目标已变成 `In x (fv t1)`，却仍在要求 `In ?a (?l ++ ?m)`。据此确认 `++` 右结合，三个 freshness assert 分别改为 `left`／`right;left`／`right;right`。step 98 编译越过 `subst_open_gen`，错误移到 `LR_app_abs` 的 line 664。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        143,
+        144,
+        146
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_abs`：对 `step_app_inv` 的三路析取用平铺 pattern `[A | B | C]`，而 `\\/` 右结合，报 disjunctive pattern 应有两个 branch",
+      "intervals": [
+        {
+          "after": 98,
+          "through": 102
+        }
+      ],
+      "outcome": "line 664 报 Expects a disjunctive pattern with 2 branches。把 `[A | B | C]` 改为右嵌套 `[A | [B | C]]`，用正则一次替换六处 `step_app_inv` 的 destruct pattern（并确认 `LR_if` 的 pattern 已正确嵌套）。step 102 编译越过 pattern 问题，错误移到 line 668 的 Hsn/reduct 不一致。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        146,
+        149,
+        152
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_abs`：ST_AppAbs case 漏用 inversion 返回的 `Hr : r = open t' u`，`Hsn : SN (open t' u)` 与目标 `SN r` 不符",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 104
+        }
+      ],
+      "outcome": "line 668 报 Hsn 的类型是 `strongly_normalizing (open t' u)` 而目标是 `strongly_normalizing r`。在两个 SN 分支补 `subst r`（value-reduct 分支此前已有 `subst z`），两处替换成功。step 104 编译推进到 line 670 的 Nothing to inject。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        152,
+        153,
+        155
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_abs` 的 ST_App2 case：对 `Heq : tm_abs T1 t' = v1`（构造子等于变量）误用 `injection`，报 Nothing to inject",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 108
+        }
+      ],
+      "outcome": "line 670 报 Nothing to inject。确认该等式不是构造子—构造子等式，`injection` 无从分解，改为直接 `subst v1`（共 3 处）。step 108 编译推进到 line 671 的 T2 not found。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        155,
+        158,
+        159,
+        161
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_abs`：`destruct T2 as [| C D]` 后仍把 `T2` 传给 `IHu`，报 variable T2 not found",
+      "intervals": [
+        {
+          "after": 108,
+          "through": 112
+        }
+      ],
+      "outcome": "line 671 报 T2 not found。用 grep+awk 定位三处 `IHu t2' Hstep2 T2` 调用（line 671 属 Bool 分支，686 与 701 属 arrow 分支），分别改传 `Ty_Bool` 与 `(Ty_Arrow C D)`。step 112 编译越过这里，错误移到 line 691 的 placeholder tm。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        161,
+        164,
+        167
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app_abs`：`apply (value_app_inv _ _)` 留下无法推断的 tm placeholder",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 114
+        }
+      ],
+      "outcome": "line 691 报 Cannot infer this placeholder of type tm。改为显式给出被应用项：`exact (value_app_inv (tm_abs T1 t') u Hval)`、`exact (value_if_inv t1 t2 t3 Hval)`。这次整文件替换同时把 `LR_app` 的同类调用也写成了 abstraction 形式（step 126 才改正），step 114 编译推进到 `LR_if` 的 line 726。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        167,
+        169,
+        170
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_if`：`destruct T as [| C D]` 后 IH 调用仍传 `T`，报 variable T not found",
+      "intervals": [
+        {
+          "after": 114,
+          "through": 118
+        }
+      ],
+      "outcome": "line 726 报 T not found。查看 `LR_if` 后定位三处 `IH t1' Hstep1 T t2 t3` 调用，按分支改传 `Ty_Bool` 与 `(Ty_Arrow C D)`。step 118 编译仍未通过该行，报 IH 还要求 `LR Bool t1'`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        170,
+        173,
+        176
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_if`：`HLR1 : LR Ty_Bool t1` 被 `induction HSN1` generalize 成 IH 的额外前提，调用少传了 `LR Bool t1'`",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 120
+        }
+      ],
+      "outcome": "报错打印出的 IH 类型为 `forall t', t1 --> t' -> LR Bool t' -> forall (T) (t2 t3), …`。据此在三个分支的 IH 调用中补上 `(LR_forward _ _ _ HLR1 Hstep1)`，并保留具体 result type。step 120 编译越过 `LR_if`，错误移到 `LR_app` 的 line 772（`multi_refl _`）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        176,
+        177,
+        179
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app`：`multi_refl _` 只填了 relation 参数，返回的仍是 `forall x`，无法与 `multi step (abs T0 t0) (abs T0 t0)` 匹配",
+      "intervals": [
+        {
+          "after": 120,
+          "through": 126
+        }
+      ],
+      "outcome": "完整报错显示 `multi_refl ?R` 的类型是 `forall x : ?X, multi ?R x x`。改为 `multi_refl step (tm_abs T0 t0)`（3 处），同一批替换顺带把 `LR_app` 里 `value_app_inv` 的项改成 `t u`；但该替换也命中 `LR_app_abs` 的 line 691，编译因此退回 line 691 报 variable t not found（见下一项）。step 128 恢复后编译越过 `multi_refl` 与 `value_app_inv`，错误移到 line 775 的 LR_SN 调用。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        185,
+        186,
+        188,
+        191
+      ],
+      "qualification": "确认完成发生在 step 128（line 191），已落在下一项区间。"
+    },
+    {
+      "title": "批量文本替换把 `LR_app_abs` line 691 的 `value_app_inv (tm_abs T1 t')` 误改成 `value_app_inv t u`，报 variable t not found",
+      "intervals": [
+        {
+          "after": 126,
+          "through": 128
+        }
+      ],
+      "outcome": "line 691 报 The variable t was not found。按行号只把 line 691 恢复为 `value_app_inv (tm_abs T1 t') u Hval`，line 806 保持 `value_app_inv t u`。step 128 编译通过这两处，错误移到 line 775。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        188,
+        189,
+        191
+      ],
+      "qualification": "自伤回归，区间仅两步。"
+    },
+    {
+      "title": "`LR_app`：`simpl in HLRt` 把 arrow-LR 的结论展开成 conjunction 后 `LR_SN _ _ HLRapp` 无法统一，需要保持 result type 抽象的 helper",
+      "intervals": [
+        {
+          "after": 128,
+          "through": 130
+        }
+      ],
+      "outcome": "line 775 报在 HLRapp 上套 `LR_SN` 失败（其类型已被 `simpl in HLRt` 展开为 `lc_at … /\\ SN …`）。判定需让 `LR B` 保持折叠，新增 `LR_app_value : value t -> LR (Ty_Arrow A B) t -> LR A u -> LR B (tm_app t u)`，并把 `LR_app` 两个 ST_AppAbs SN 分支与 arrow 的 value-reduct 分支改用 `pose proof (LR_app_value A B …)`。step 130 编译越过 line 775，报 line 780 的 variable B not found。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        191,
+        192,
+        194
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`LR_app`：`destruct B as [| C D]` 后新增的 `LR_app_value` 与 `IHt`/`IHu` 调用仍传已被消去的 `B`，报 variable B not found",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 140
+        }
+      ],
+      "outcome": "line 780 报 B not found，先按分支把 `LR_app_value A B` 改为 `A Ty_Bool`／`A (Ty_Arrow C D)`（step 134）；编译又报 line 786 的 B（`IHt`/`IHu` 调用）。step 137–139 列出六处 IHt/IHu 调用，step 140 一并改传 `Ty_Bool`／`(Ty_Arrow C D)`。step 140 编译越过这些调用，错误移到 line 790 的 ST_App2 等式对齐。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        194,
+        199,
+        200,
+        204,
+        208,
+        209
+      ],
+      "qualification": "同一根因（B 被 destruct）在 LR_app_value 与 IH 调用两批出现，连续失败合为一项。"
+    },
+    {
+      "title": "`LR_app` 的 ST_App2 分支只 `subst r`，未用 `Heq : t = v1` 对齐 application 的 head，`Hsn : SN (t t2')` 与目标 `SN (v1 t2')` 不符",
+      "intervals": [
+        {
+          "after": 140,
+          "through": 144
+        }
+      ],
+      "outcome": "line 790 显示 Hsn 针对 `t t2'`、context 中仍有 `Heq : t = v1`。只在两个 SN 分支与一个 value-reduct 分支补 `subst v1`（ST_App1 分支的 reduct 已与 IHt 结论对齐，未动）。step 144 编译越过 `LR_app`，错误移到 `fundamental` 的 line 875。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        209,
+        210,
+        213,
+        215
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` 的 T_Abs 扩展 `sem_ctx`：`upd`/`update` 的展开与重写不匹配（`unfold upd` 留下 beta-redex、`simpl` 不消去 `upd`、true/false branch 需先由 eqb 结论对齐变量）",
+      "intervals": [
+        {
+          "after": 144,
+          "through": 160
+        }
+      ],
+      "outcome": "先在 line 875 把 `unfold upd; Nat.eqb_refl` 改成 `rewrite upd_eq`（并把 T_Var 的 `apply Hctx` 改成 `apply (proj1 Hctx)`），line 875 仍报 upd_eq 找不到子项；经约 20 s 推演后把 `unfold upd` 换成 `simpl`，first component 通过。第二个 component line 882 报 `lc_at 0 w` 与 `lc_at 0 (upd sigma xff w y)` 不符，补 `rewrite upd_eq` 又因 E 尚未把 y 对齐 xff 失败，再加 `apply Nat.eqb_eq in E; subst y`；false branch 再补 `apply Nat.eqb_neq in E; rewrite upd_neq`。step 160 编译通过扩展 `sem_ctx`，错误移到 line 884 的 IHHty。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        215,
+        221,
+        224,
+        227,
+        230,
+        233,
+        236,
+        239
+      ],
+      "qualification": "upd 的两个 component 上连续四次重写失败同根因（如何让 upd 以可重写形式出现），合为一项。"
+    },
+    {
+      "title": "`fundamental` 的 T_Abs：`induction Hty` 生成的 IH 名是 `H0` 而非 `IHHty`，`pose proof (IHHty …)` 引用失败",
+      "intervals": [
+        {
+          "after": 160,
+          "through": 162
+        }
+      ],
+      "outcome": "line 884 报 The variable IHHty was not found。据此前打印的 context 确认 premise 名为 `H`、IH 名为 `H0`，把调用改为 `pose proof (H0 xff HxL (upd sigma xff w) Hsctx)`。step 162 编译越过该行，错误移到 line 885 的 `subst_open` 调用。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        239,
+        240,
+        242
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`fundamental` 的 T_Abs：`subst_open` 要求 base substitution `sigma` 的 images 都 locally closed，却传了扩展环境 `upd sigma xff w` 的 `proj2 Hsctx`",
+      "intervals": [
+        {
+          "after": 162,
+          "through": 166
+        }
+      ],
+      "outcome": "line 885 报 `proj2 Hsctx : forall x, lc_at 0 (upd sigma xff w x)` 与期望的 `forall y, lc_at 0 (sigma y)` 不符。把该前提换成 `proj2 Hctx`（`w` 的 local closure 仍由 `LR_lc _ _ HLRw` 提供）。step 166 的 `rocq compile` 无输出；step 168 删除 .vo 后重编仍无错误并重新生成 Task.vo，step 175 的 Print Assumptions 返回 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        242,
+        245,
+        246,
+        248,
+        251
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "a2fa075fb16f69b6b1f8ac4cd485b7c7fad4681970fc6234982b28a783f2d0fc",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 19,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a2fa075fb16f69b6b1f8ac4cd485b7c7fad4681970fc6234982b28a783f2d0fc",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r19.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r19_20261027_211734_908045"
+  }
+}

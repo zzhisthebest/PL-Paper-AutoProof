@@ -1,0 +1,336 @@
+{
+  "summary": "本次运行最终成功：`Task.v` 在 Rocq 9.1.0 下通过 clean compile 与 fresh-directory compile，`normalization` 的 `Print Assumptions` 为 Closed under the global context，且未使用 Admitted/Axiom 等占位。前期大量时间用于 LR/valuation 方案设计与 Rocq 可行性试验，随后实现 fvs/subst_all/freshness 与 lc_at 基础引理、LR 及 application/if closure，最后用 valuation 实例化 fundamental theorem 完成 normalization。主要障碍包括无条件 open–substitution commutation 不成立（LR 需携带 `locally_closed`）、tm/lc_at induction pattern 与算术方向问题，以及 beta case 需正确串联 `LR_step` 与 `LR_multi`。",
+  "phases": [
+    {
+      "title": "设计探索：比较 LR 路线、推导 substitution/valuation 架构并做 Rocq 可行性试验",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 26
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 fvs/subst_all/freshness 与 lc_at 基础引理",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 129
+        }
+      ]
+    },
+    {
+      "title": "实现 LR、SN/value 事实、application/if closure，并补 typing lc/fvs 辅助引理",
+      "intervals": [
+        {
+          "after": 129,
+          "through": 218
+        }
+      ]
+    },
+    {
+      "title": "证明 valuation 与 fundamental theorem，完成 normalization",
+      "intervals": [
+        {
+          "after": 218,
+          "through": 228
+        }
+      ]
+    },
+    {
+      "title": "组装 Task.v 并做 clean/fresh compile 与 assumptions 验证",
+      "intervals": [
+        {
+          "after": 228,
+          "through": 242
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "LR / value_cond：mutual Fixpoint 被 Rocq 拒绝（principal argument 未减小）",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 26
+        }
+      ],
+      "outcome": "Rocq 拒绝 mutual Fixpoint：LR 递归调用 value_cond_placeholder 时 principal argument 仍是 T 而非 T 的 subterm。改为单个 Fixpoint LR（在 type 上 inline match value condition），value_cond 在 LR 之后单独定义；step 26 的 scratch 编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        33,
+        35,
+        39
+      ],
+      "qualification": "step 5 中 inductive LR/strict positivity 等路线比较属设计推演，未计入本区间。"
+    },
+    {
+      "title": "subst_all 相关引理：open–substitution commutation 缺 locally_closed 前提，subst_all_ext/subst_open_fresh 改写不匹配",
+      "intervals": [
+        {
+          "after": 32,
+          "through": 34
+        },
+        {
+          "after": 114,
+          "through": 126
+        }
+      ],
+      "outcome": "确认无条件 commutation 不成立：sigma x 可能含 dangling bvar，先 substitution 再 opening 会被额外捕捉；改为 subst_all_open_rec_fvs（要求 fvs 上 sigma 的像 locally_closed）并让 LR 携带 locally_closed。后续区间修好 app/if case 的 IH side condition 与 right-associative append membership（显式 E1/E2/E3、in_app_l/in_app_r），为 subst_all_ext 显式 assert 子项 equality 以消除 tau 推断，并用 change 展开 subst_all (fvar x) 配合 Hout 完成 subst_open_fresh；step 126 拼接编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        48,
+        49,
+        50,
+        171,
+        177,
+        180,
+        183,
+        189
+      ],
+      "qualification": "两个区间分别对应命题被证伪/重新表述与后续实现；中间完成的 lc_at/open_rec_lc/tm pattern 修复不计入本问题。"
+    },
+    {
+      "title": "open_rec_lc：用 lc_at (S k) 作前提的陈述不成立，且旧版重复定义残留",
+      "intervals": [
+        {
+          "after": 38,
+          "through": 48
+        }
+      ],
+      "outcome": "lc_at (S k) t 仍允许 bvar k，open_rec k 可能改变 term，故前提改为 lc_at k t；同时发现并删除早先插入的旧 open_rec_lc 副本，把 fvar case 的 Hfx 改为 lc_at k。step 48 编译越过 open_rec_lc，停在下一处 Nat.zero_le 名称错误。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        57,
+        60,
+        69,
+        72
+      ],
+      "qualification": "同一报错因旧版定义重复残留而反复出现，区间包含文件清理；算术 lemma 更名不属于本问题。"
+    },
+    {
+      "title": "lc_at_mono 的 abs case：把 iff 引理 Nat.succ_le_mono 当正向函数用，successor index 不匹配",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 68
+        }
+      ],
+      "outcome": "最小 tm 示例确认 goal 与 IH 正常，但 apply Nat.succ_le_mono 产生 S (S k0) <= S (S k') 的 subgoal；改为 apply Nat.succ_le_mono in Hle 从 hypothesis 方向推导后，step 68 编译越过 lc_at_mono（随后停在 open_rec_lc 的 False/equality 问题）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        93,
+        96,
+        99,
+        102
+      ],
+      "qualification": "本区间只覆盖 abs case 的算术方向问题；lc_at_mono 因 section 顺序未定义（step 60-62）的定位问题未计入。"
+    },
+    {
+      "title": "open_rec_lc 等处的 tm induction pattern：IH 与第二个 term 参数错位",
+      "intervals": [
+        {
+          "after": 70,
+          "through": 84
+        }
+      ],
+      "outcome": "打印 tm_ind 确认每个 recursive argument 后紧跟其 IH；把六处 tm induction pattern 统一改为 t1 IH1 t2 IH2 与 t1 IH1 t2 IH2 t3 IH3。step 84 编译通过 pattern 修正并转入 lc_at bvar case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        105,
+        108,
+        120,
+        123,
+        126
+      ],
+      "qualification": "lc_at_ind 的 pattern 当时已正确；本区间从 open_rec_lc app case 的 rewrite 失败开始，因为根因是 tm pattern 的错位。"
+    },
+    {
+      "title": "lc_at_open_rec_S / lc_at_open_inv 的 bvar case：Nat.lt_succ_r（iff）的 apply-in 方向错误",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 100
+        }
+      ],
+      "outcome": "先用 lc_at_bvar_inv 从 lc_at (S k) (bvar n) 提取 n < S k；实验确认 apply Nat.lt_succ_r in H 会得到 S n < S (S k)，改用 proj1 (Nat.lt_succ_r n k) 得 n <= k，并用 le_n_S 替换 lc_at_mono 处的 Nat.succ_le_mono。step 100 编译越过算术问题（转入 bullet 错误）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        126,
+        138,
+        141,
+        147,
+        150
+      ],
+      "qualification": "区间覆盖同一轮 iff 算术方向排查，包含 lc_at_mono 的 le_n_S 加固；未与 lc_at_mono abs case 的问题重叠计时。"
+    },
+    {
+      "title": "lc_at_open_inv 的 true/false cases：inversion Hopen 未关闭目标，bullet 挂起",
+      "intervals": [
+        {
+          "after": 100,
+          "through": 114
+        }
+      ],
+      "outcome": "Show 显示 abs case 已完成，剩余 true/false/if 三个未聚焦 goal；报错来自 true case 的 inversion Hopen 只分析 hypothesis、不构造 lc_at (S k) true。改用 lc_true/lc_false 后 bullet 不再挂起，step 114 编译通过 local closure section（转入 subst_all_open_rec_fvs app case）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        150,
+        159,
+        162,
+        169,
+        171
+      ],
+      "qualification": "本区间只覆盖 bullet/focus 与 true/false case；前面的 bvar 算术问题另列为独立问题。"
+    },
+    {
+      "title": "multi_abs_eq / multi_true_eq / multi_false_eq：直接 induction 使 multi 的首个 index 被过度 generalize",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 136
+        }
+      ],
+      "outcome": "Show 显示对 multi 直接 induction 后 motive 变成一般的 x ->* y 且 goal 为 z = x；引入 multi_cases 把 multistep 分解为 equality 或首步+剩余，三个 equality lemma 改由 abs/true/false 不可 step 推出，并把 multi_cases 的 equality 方向翻转为 s = t。step 136 编译通过（转入 step_lc 的 Hlc 重名）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        195,
+        198,
+        201,
+        204
+      ],
+      "qualification": "区间含 equality 方向翻转这一处小修正。"
+    },
+    {
+      "title": "LR_app_abs/LR_app：LR 辅助引理（LR_sn/LR_lc/LR_step/LR_value_arrow）的显式类型与 source 参数无法推断",
+      "intervals": [
+        {
+          "after": 146,
+          "through": 168
+        },
+        {
+          "after": 178,
+          "through": 180
+        }
+      ],
+      "outcome": "step_app_abs_inv 的 beta case 中 equality 已是 reflexive，assumption 失败，改为 reflexivity；随后 LR_sn/LR_lc/LR_step 需要显式 type 与 source term（argument 用 A、function 用 Ty_Arrow A B、guard 用 Ty_Bool），批量补 t2/t1 后 step 168 编译通过；修 destruct pattern 后又为 LR_value_arrow 补 A，step 180 编译通过该处（转入 v_abs premise 错误）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        219,
+        225,
+        234,
+        240,
+        243,
+        249,
+        267,
+        270
+      ],
+      "qualification": "两段区间是同一类隐式参数推断问题，中间被 destruct pattern 问题打断；step_app_abs_inv 的 reflexivity 修正也并入本问题。"
+    },
+    {
+      "title": "step_app_inv 的 destruct：A \\/ B \\/ C 的 right-associative 结构与三支 pattern 不匹配",
+      "intervals": [
+        {
+          "after": 168,
+          "through": 178
+        }
+      ],
+      "outcome": "认出 \\/ 为 right-associative，两处 step_app_inv destruct 改为 [patA | [patB | patC]]；期间还修正了脚本匹配漏掉的 + bullet。step 178 编译通过 pattern 修正（转入 LR_value_arrow 的 A 参数错误）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        252,
+        255,
+        258,
+        264,
+        267
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "LR_app 的 beta/value-condition 分支：v_abs 缺 lc/LR argument premise，LR_step 与 LR_multi 串联错误",
+      "intervals": [
+        {
+          "after": 180,
+          "through": 196
+        }
+      ],
+      "outcome": "v_abs 所需 abstraction 的 locally_closed（由 LR_lc 从 H1 提取）与 argument 的 LR premise（H2）缺失，补上后修正 semicolon 把 exact H1 套到 step premise 的问题；value condition 中先由 HLB 经 LR_step 得到 open body v 满足 LR，再沿 Hm' 用 LR_multi。step 196 整个 closure 文件编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        273,
+        276,
+        279,
+        282,
+        294
+      ],
+      "qualification": "只覆盖 beta/value-condition 分支；LR_value_arrow 的 A 参数归入前一个参数推断问题。"
+    },
+    {
+      "title": "subst_all_lc_at_fvs / in_fvs_open_rec / has_type_fvs：fvs append membership 与 local closure helper 反复失败",
+      "intervals": [
+        {
+          "after": 198,
+          "through": 218
+        }
+      ],
+      "outcome": "subst_all_lc_at_fvs 中先 generalize k 再引入 Hlc；in_fvs_open_rec 中修正 in_app_iff 的参数顺序并改用 in_app_or；按 right-associative ++ 重排 if case，逐步处理 t1/t2/t3 membership；has_type_fvs 的 if case 解决 Hy/Hy3 重名并调整 append 层级。step 218 整块 typing helper 编译无报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        297,
+        300,
+        306,
+        312,
+        315,
+        321,
+        324,
+        327
+      ],
+      "qualification": "区间从 subst_all_lc_at_fvs 的 revert 错误一直到 has_type_fvs 通过，均围绕 fvs append membership 与 local closure helper。"
+    },
+    {
+      "title": "fundamental（T_Abs 等）：has_type_lc/lc_at_abs_inv 参数无法推断，simpl 把 LR 展开成 conjunction",
+      "intervals": [
+        {
+          "after": 220,
+          "through": 228
+        }
+      ],
+      "outcome": "为 has_type_lc 显式给出 Gamma 与 Ty_Arrow T1 T2，为 lc_at_abs_inv 给出 T1；simpl 会展开 LR 的 conjunction，改用 change 只调整 subst_all 后的 term 形状并在 abstraction/true/false cases 保留 LR goal。step 226 含 fundamental 与 normalization 的完整 scratch 编译通过，step 228 复编译并确认无 Admitted/Axiom。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        330,
+        333,
+        336,
+        339,
+        342
+      ],
+      "qualification": "只覆盖 T_Abs/T_True/T_False 的后半段；valuation 定义与其余 typing cases 在进入本区间前已通过。"
+    }
+  ],
+  "trace_sha256": "ab548529634c9cce83065f5ab7034eaf8edfc5f323a24e3c0726ca253e27143d",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 9,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "ab548529634c9cce83065f5ab7034eaf8edfc5f323a24e3c0726ca253e27143d",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r09.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r09_20261027_211739_158822"
+  }
+}

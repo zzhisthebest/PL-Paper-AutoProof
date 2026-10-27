@@ -1,0 +1,343 @@
+{
+  "summary": "本次时间主要用于 R、CBV expansion 与 fundamental 的整体设计推演，随后集中调试 freshness、local closure、substitution 与 step-analysis/R 等 helper lemmas 的 proof scripts。normalization 最终完成：clean compile 返回 exit 0，Print Assumptions 返回 Closed under the global context，diff 也确认 supplied definitions 与 theorem statement 未改动。",
+  "phases": [
+    {
+      "title": "阅读 Task.v，确认任务定义与 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 R、CBV expansion 与 substitution/fundamental 路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "确认 strongly_normalizing 的 induction principle，首次编写基础 lemmas",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 15
+        }
+      ]
+    },
+    {
+      "title": "调试 freshness、local closure 与 subst_open_rec 等基础 lemmas",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 83
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 step-analysis 与 R closure/expansion lemmas",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 108
+        }
+      ]
+    },
+    {
+      "title": "实现 R_abs_app_any、R_abs_intro、R_if、fundamental 与 normalization",
+      "intervals": [
+        {
+          "after": 108,
+          "through": 113
+        }
+      ]
+    },
+    {
+      "title": "调试 fundamental 的 T_Abs case，完成首次整文件编译",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 127
+        }
+      ]
+    },
+    {
+      "title": "执行 clean compile、assumptions 与原定义核验，整理最终报告",
+      "intervals": [
+        {
+          "after": 127,
+          "through": 145
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "max_fvar_ub：subterm 的 induction bounds 未接到 Nat.max goal",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 23
+        }
+      ],
+      "outcome": "原 proof 先 try contradiction; try lia 再补 bullets，第 275 行的 lia 失败并未落在预期的 tm_fvar case；独立测试改用显式 bullets 后在 application case 暴露真正问题：不能直接 apply Nat.le_max_l/Nat.le_max_r 把 IH 的 bound 接到 Nat.max。改为显式列出各 case，在 application 与 conditional branches specialize 对应 IH 后再交给 lia；重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        21,
+        27,
+        28,
+        29,
+        33
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "max_atom_list_ub：tail membership branch 的 IH 未实例化，lia 缺少所需 bound",
+      "intervals": [
+        {
+          "after": 23,
+          "through": 33
+        }
+      ],
+      "outcome": "独立测试排除了 lia 不支持 Nat.max 的猜测（简单 Nat.max inequalities 均可证），问题在于 tail branch 未取得 IH x H。改为 head case 用 Nat.le_max_l，tail case 取 pose proof (IH x H) 后经 Nat.le_trans 与 Nat.le_max_r 完成；重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        33,
+        36,
+        42,
+        43,
+        44,
+        48
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_mono：目标 depth 未 generalize，IH 保留 inequality premise，无法直接 assumption",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 48
+        }
+      ],
+      "outcome": "独立测试显示 induction hypotheses 形如 k <= k' -> lc_at k' t1，apply lc_app; assumption 因而找不到可直接使用的 assumption。修正为先 revert k' Hle，再用显式 induction patterns 命名各 IH；application/conditional cases 提供 Hle，abstraction case 在 S k' depth 调用 IH。重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        48,
+        51,
+        63,
+        64,
+        66,
+        70
+      ],
+      "qualification": "区间包含为查看该 lemma 的 proof state 而发生的测试文件 arity、shell quoting 与截取范围失误，未另行重复归因。"
+    },
+    {
+      "title": "新增 support block 与 step-analysis/R block 两次插在 dependencies 之前（strongly_normalizing、abs_no_step 未定义）",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 55
+        },
+        {
+          "after": 88,
+          "through": 92
+        }
+      ],
+      "outcome": "第一次 support block 中的 value_SN 所引用的 strongly_normalizing 尚未定义，于是把整个 block 从 target-theorem comment 前移到 strongly_normalizing 之后。第二次新的 step-analysis/R block 又命中同一个 comment，落在 abs_no_step 之前，再把它移到基础 support block 之后、Theorem normalization 之前。两次重编译都越过原先的未定义引用。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        70,
+        71,
+        76,
+        80,
+        129,
+        130,
+        134,
+        135
+      ],
+      "qualification": "两段之间正在处理其他 lemmas，故不计入本问题；调整的是新增代码位置，没有修改 supplied definitions。"
+    },
+    {
+      "title": "open_rec_lc：abstraction case 无法从 equality goal 推断 IH 的 local closure depth",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 61
+        }
+      ],
+      "outcome": "abstraction case 经 f_equal 后目标为 open_rec (S j) v t = t，apply IHt 只能确定 j 与 v，无法推断只出现在 premise 的 local closure depth。改为 apply (IHt (S j) (S k) v)，并用 lc_abs_inv 提供 lc_at (S k) t、lia 关闭 S k <= S j。重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        80,
+        83,
+        84,
+        85,
+        89
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "typing_lc：T_Abs case 未取到并实例化 fresh-variable IH",
+      "intervals": [
+        {
+          "after": 61,
+          "through": 69
+        }
+      ],
+      "outcome": "Show 显示 T_Abs case 的实际 IH 名为 H0（对每个 fresh variable 给出 open t1 (fvar x) 的 local closure），而不是 IHHty。改用显式 has_type induction patterns 把该 IH 命名为 IHAbs，取 IHAbs x HxL 后再用 lc_open_rec_inv 关闭 lc_at 0 t1。重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        89,
+        95,
+        97,
+        101
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_open_rec 的 fvar case：等号分支未用 Hocc 矛盾，不等分支的 open_rec_lc 未给 depth",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 77
+        }
+      ],
+      "outcome": "Nat.eqb x a 为 true 时目标退化为 v = open_rec k v (rho a)，应由 Hocc : ~ occurs a (fvar a) 导出矛盾，而不是套用 open_rec_lc；不等分支需 symmetry 后使用 substitution environment 的 lc_at 0 事实。第一次修改后 open_rec_lc 的 k 仍无法推断，改为显式 open_rec_lc (rho a) k 0 v 并提供 Hrho 与算术 premise。随后编译推进到 app case 的 bullet 错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        101,
+        102,
+        103,
+        107,
+        108,
+        109,
+        110,
+        113
+      ],
+      "qualification": "等号分支与不等分支的两次编译失败同属一个 fvar case 的修复过程，合并记录。"
+    },
+    {
+      "title": "subst_open_rec 的 app/if cases：整体 freshness 未分解到 subterm，rewrite 的 IH premises 未关闭",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 83
+        }
+      ],
+      "outcome": "tm_app 与 tm_if 分支原依赖 rewrite IHt1, IHt2(, IHt3); auto，但 rewrite 产生的 ~ occurs x ti 与 Hrho premises 未被 auto 解决。改为先从 Hocc 逐项 assert 各 subterm 的 non-occurrence，再以完整 arguments rewrite 对应 IH；abstraction case 也改为显式 S k 的 IH 调用。重编译后全部基础 lemmas 通过，只剩 normalization 的 placeholder。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        113,
+        115,
+        117,
+        118,
+        122
+      ],
+      "qualification": "编译末尾的 incomplete-proof 提示来自尚未填写的 normalization placeholder，不是该 lemma 未通过。"
+    },
+    {
+      "title": "step_app_abs_value：ST_App2 case 的 value_no_step 自动参数匹配失败",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 102
+        }
+      ],
+      "outcome": "定位到 ST_App2 分支的 eapply value_no_step; eassumption。Show 确认 proof state 中同时有 argument 的 Hv : value v、Hs2 : v --> t2' 与 function 的 value hypothesis；判断是 eassumption 在 value ?v 上先固定了 function 的 value hypothesis。改为显式 value_no_step with (v := v) (v' := t2') 并分别传入 Hv、Hs2；重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        135,
+        138,
+        144,
+        146,
+        150
+      ],
+      "qualification": "首次 Show 停在 ST_AppAbs branch，之后才显示目标 ST_App2 branch；trace 未直接记录失败时的具体 evar 绑定。"
+    },
+    {
+      "title": "R_back_step：未完整应用 step_app_l，subst s 时尚无所需 successor equality",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 108
+        }
+      ],
+      "outcome": "原代码直接 destruct (step_app_l t u s)，而该引理仍有 ~ value t 与 reduction premises，destruct 的 pattern 没有给出 s 的 equality，导致 subst s 报 cannot find any non-recursive equality。改为先由 Hstep 与 value_no_step 证明 Hnv : ~ value t，再完整调用 step_app_l t u s Hnv Hs，取得 Heq 后 subst s 并用 Huniq 证明 successor 唯一。重编译越过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        150,
+        151,
+        153,
+        155,
+        159
+      ],
+      "qualification": "末尾 normalization 的 incomplete-proof 提示来自尚未填写的 placeholder，不是该 lemma 未解决。"
+    },
+    {
+      "title": "fundamental 的 Hcte 分支：destruct Nat.eqb 后多余的 rewrite Nat.eqb_refl",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 117
+        }
+      ],
+      "outcome": "destruct (Nat.eqb xx y) 已把 goal 中的 conditional 化为 true 分支，goal 不再含 ?M =? ?M 子项，故 rewrite Nat.eqb_refl 报 no subterm matching。删除该 rewrite，保留 inversion Hy、subst 后直接 exact Hrv；下一版编译越过此处，推进到 T_Abs body 的 subst_open_rec rewrite。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        166,
+        167,
+        168,
+        169,
+        172
+      ],
+      "qualification": "该修复只删除 destruct 后多余的 rewrite，Hcte 的结论与证明不变。"
+    },
+    {
+      "title": "fundamental 的 T_Abs body：Hb 的 open 形式与 subst_open_rec 的 open_rec 形式不匹配",
+      "intervals": [
+        {
+          "after": 117,
+          "through": 127
+        }
+      ],
+      "outcome": "Show 确认 Hb : R T2 (subst (extend rho xx v) (open t1 (fvar xx)))，rewrite 未把其中的 open 展开成 open_rec 0 而匹配失败。新增以 open 直接陈述、由 subst_open_rec 证明的 subst_open corollary，并在 fundamental 中改用它重写 Hb。整文件编译成功；随后 clean compile 返回 exit 0、Print Assumptions 为 Closed under the global context，确认 normalization 完成。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        172,
+        181,
+        183,
+        187,
+        191,
+        194
+      ],
+      "qualification": "subst_open 只是已有 commutation lemma 的 open 记法适配，不是新的数学事实，也未改动 fundamental 或 normalization 的 statement。"
+    }
+  ],
+  "trace_sha256": "a97e53175df5527aad566ae5037ffaaf36f7b5b024a02311a7d6e185d6642d9a",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 5,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a97e53175df5527aad566ae5037ffaaf36f7b5b024a02311a7d6e185d6642d9a",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r05.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r05_20261027_211731_777859"
+  }
+}

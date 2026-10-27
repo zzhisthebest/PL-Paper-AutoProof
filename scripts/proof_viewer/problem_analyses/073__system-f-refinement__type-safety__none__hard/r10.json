@@ -1,0 +1,369 @@
+{
+  "summary": "本次 3299 秒中约 760 秒用于整体路线设计（从 syntactic progress/preservation 转向 substitution environment + fuel-indexed logical relation + mutual fundamental theorem），约 2100 秒用于自建约 3000 行基础设施、LR、entailment soundness 与 17-case fund_and_subtype 的连续编写-编译-修复，另有约 390 秒用于 step determinism/safety、never_stuck 收尾与最终组装验证。具体困难集中在若干自建 helper 的陈述缺前提或目标不可归约（substitution–opening、opening 下的 fv 等式、close_*_absent_ty、V 在 close_rty 上的展开、RT_Arith 的 opening、S_Bind 的 close 选择）、Vf_irrel 的 induction 结构、has_rtype_ind 的应用，以及 step_det 中可分的骨架、case/自动化与 division case 三类问题；它们均在运行内解决，最终 /workspace/Task.v 编译通过且 Print Assumptions never_stuck 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "设计探索：比较 syntactic progress/preservation 与 logical relation 路线，确定 substitution environment、fuel-indexed LR 与 mutual fundamental theorem 方案",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "环境检查（Rocq 9.1.0、Task.v/card.md）与 /tmp scratch、chunk 编译脚手架",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "c01–c02：simultaneous term/type substitution、closing、opening commutation 与 qualifier/rty 级基础设施",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 50
+        }
+      ]
+    },
+    {
+      "title": "c03–c04：free-variable 收集、substitution identity、local closure 保持与 opening inversion",
+      "intervals": [
+        {
+          "after": 50,
+          "through": 160
+        }
+      ]
+    },
+    {
+      "title": "c05–c06：wf_ty/wf_rty、base_val、has_type/has_rtype 的 local closure 与 free-variable lemmas",
+      "intervals": [
+        {
+          "after": 160,
+          "through": 230
+        }
+      ]
+    },
+    {
+      "title": "c07：rank 与 fuel-indexed V/T 语义、fuel irrelevance 与 V 的 unfold lemmas",
+      "intervals": [
+        {
+          "after": 230,
+          "through": 265
+        }
+      ]
+    },
+    {
+      "title": "c08：env_good/tenv_good/satisfies_context、environment agreement 与 close-of-closed 恒等式",
+      "intervals": [
+        {
+          "after": 265,
+          "through": 297
+        }
+      ]
+    },
+    {
+      "title": "c09：predicate_holds/close_qual unfolding lemmas 与 entails_sound",
+      "intervals": [
+        {
+          "after": 297,
+          "through": 323
+        }
+      ]
+    },
+    {
+      "title": "c10a–c10c：multi congruence、context extension、Combined Scheme 与 17-case fund_and_subtype",
+      "intervals": [
+        {
+          "after": 323,
+          "through": 440
+        }
+      ]
+    },
+    {
+      "title": "c11：step determinism、multi prefix/safety 与 never_stuck 证明",
+      "intervals": [
+        {
+          "after": 440,
+          "through": 523
+        }
+      ]
+    },
+    {
+      "title": "组装 /workspace/Task.v 并验证（definitions diff、无 Admitted、Print Assumptions、clean-room compile）",
+      "intervals": [
+        {
+          "after": 523,
+          "through": 538
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "tsubst_tm_open / tysubst_ty_open 等 substitution–opening commutation 初版缺少 local-closedness 前提，statement 不成立",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 41
+        }
+      ],
+      "outcome": "把 commutation 引理改为要求 (forall x, locally_closed_tm (sigma x)) / (forall X, lc_ty_at 0 (tau X))，并先证明 open_tm_lc_id、open_ty_lc_id、open_tm_ty_lc_id；c01 在 step 41 编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        20,
+        28,
+        30,
+        57
+      ],
+      "qualification": "区间内也夹有 induction/as-pattern 命名、inversion pattern 与 bullet 对齐等 tactic 返工；单就 statement 为假并重述这一点的处理时间应更短，但失败与重建无法精确再分。"
+    },
+    {
+      "title": "fv_tm_open / ftv_tm_open 的等式在 opening 下为假（只替换一个 bvar index），需改为 membership persistence/inclusion",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 83
+        }
+      ],
+      "outcome": "否定 fv_tm (open t u) = fv_tm t ++ fv_tm u 一类无条件等式，改为 fv_tm_open_persist、ftv_tm_open_persist、fv_ty_open_ty_persist、ftv_tm_open_ty_persist 等包含式陈述；c03 在 step 83 编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        82,
+        84,
+        118
+      ],
+      "qualification": "区间包含 c03 其余 proof（In-singleton、fresh2 等）的修复；false statement 的识别在 step 59 的 thinking 中，替换随后立即进行。"
+    },
+    {
+      "title": "has_rtype_lc / has_rtype_fv 无法用 apply (has_rtype_ind ...) 或 refine 正确实例化 indices",
+      "intervals": [
+        {
+          "after": 216,
+          "through": 230
+        }
+      ],
+      "outcome": "先用 10 个 hole 的 refine 与 apply 均失败（H 被当作 RT_Sub case function 或 ty_context），改为 induction H as [...] using has_rtype_ind；c06 在 step 230 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        320,
+        327,
+        330,
+        334
+      ],
+      "qualification": "首个具体报错是 refine hole 数与 constructor 数不一致（9 vs 10），之后才是 indices 不能推断；这里把同源表现合并。"
+    },
+    {
+      "title": "Vf_irrel 不能对 rty 做 structural induction：function clause 需要 open_rty_tm R2 w 处的等价性",
+      "intervals": [
+        {
+          "after": 239,
+          "through": 242
+        }
+      ],
+      "outcome": "改为对 fuel 做 induction 并 generalize rty；step 242 编译报错已推进到 Vf_at，说明 Vf_irrel 本身通过，LR core 在 step 265 整体编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        347,
+        348,
+        351
+      ],
+      "qualification": "仅覆盖结构性改写本身；随后 Vf_at/V_Func/V_value 的编译错误是同一轮 LR unfold 的余波，未计入该区间。"
+    },
+    {
+      "title": "close_tm_absent_ty / close_qual_absent_ty / close_rty_absent_ty 缺少 sigma 的 type-closedness 前提，close_tm_open_fvar 的 side conditions 需重构",
+      "intervals": [
+        {
+          "after": 279,
+          "through": 297
+        }
+      ],
+      "outcome": "给 type-environment agreement lemmas 增加 (forall x, ftv_tm (sigma x) = []) 前提，新增 ftv_qual_tsubst、ftv_rty_tsubst，并修正 open-fvar 恒等式的 local closure premise；c08 在 step 297 编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        405,
+        407,
+        420,
+        432
+      ],
+      "qualification": "区间还包含 predicate_closed_fv/ftv 与 close_tm_ftv_nil 等同批 c08 helper 的修复，无法把这段按障碍精确拆开。"
+    },
+    {
+      "title": "entails_sound 依赖的 predicate_holds/close_qual 不随 simpl 归约，Not/False case 的 goal 结构也反复出错",
+      "intervals": [
+        {
+          "after": 300,
+          "through": 323
+        }
+      ],
+      "outcome": "新增 holds_true/false/and/or/not/eq/lt/le 与 close_qual_true/…/not 等显式 unfolding/equation lemmas，重写 entails_sound 的 13 个 constructor cases（含 Entails_Context 中使用 satisfies_context 的 V refinement clause）；c09 在 step 323 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        436,
+        448,
+        454,
+        464,
+        470
+      ],
+      "qualification": "区间包含 NotIntro/NotElim/Entails_False 的 intros 次数与 destruct 修正；它们与 unfolding 问题交织，无法单独计时。"
+    },
+    {
+      "title": "fund_and_subtype 中 V (close_rty …) 无法直接 rewrite V_Func/V_Refine；change 误把整个 iff goal 改成单侧，close_tm rewrite 位置也不对",
+      "intervals": [
+        {
+          "after": 363,
+          "through": 401
+        }
+      ],
+      "outcome": "改用 close_rty_refine/func/exists/poly 与 close_tm_abs/app/tabs/tapp/int/div/arith 等式先展开 close，再 rewrite V_*；RT_Int 的 close_tm_int rewrite 在 step 401 删除后编译推进到 RT_Arith，确认该组修复生效。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        528,
+        538,
+        544,
+        557,
+        566,
+        584
+      ],
+      "qualification": "区间含 V_*_close 专用引理的尝试与废弃；step 383 才定位到 change 只改写 iff goal 的 LHS，之后仍有 close_tm 重写位置与 RT_Int 冗余 rewrite 的修复。"
+    },
+    {
+      "title": "fund_and_subtype 的 RT_Arith case：open_qualifier_tm (close_qual …) 因 open 进入 close_tm t1/t2 而不可计算，且 multi 与 predicate_multistep 不匹配",
+      "intervals": [
+        {
+          "after": 401,
+          "through": 420
+        }
+      ],
+      "outcome": "用 close_tm t1/t2 的 local closure 实例化 open_tm_lc_id 得到 qualifier equation，并新增 multi_to_pms 把 multi 转成 predicate_multistep；step 420 编译推进到 S_Refine，RT_Arith case 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        587,
+        594,
+        609,
+        612
+      ],
+      "qualification": "包含两次 Hoq 重写尝试（cbn、unfold）与 witness 类型修正；category 也可视为 missing_lemma。"
+    },
+    {
+      "title": "fund_and_subtype 的 S_Bind case 对目标 S 误用 close_rty_open_fvar，conclusion 应通过 close_rty_absent 消去 extended environment",
+      "intervals": [
+        {
+          "after": 436,
+          "through": 438
+        }
+      ],
+      "outcome": "把 conclusion 的 rewrite 改为 close_rty_absent S … HxS，前提仍用 close_rty_open_fvar R2；step 438 编译显示 mutual proof 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        636,
+        637,
+        639
+      ],
+      "qualification": "区间很短，但是概念性错误（opening 只适用于绑定的 source rty，不适用于未 opening 的 target）。"
+    },
+    {
+      "title": "step_det 初版对 step derivation 做 induction，Qed 时仍留 value/step 子目标；改 term structural induction 后 intros a Ha b Hb 又按 forall a b 的 binder 顺序错绑",
+      "intervals": [
+        {
+          "after": 443,
+          "through": 460
+        }
+      ],
+      "outcome": "放弃 derivation induction，改对 term 做 structural induction；把 intros a Ha b Hb 改为 intros a b Ha Hb 后，step 460 编译通过前三个 impossible cases 并推进到 application bullet。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        646,
+        653,
+        656,
+        668,
+        669,
+        671
+      ],
+      "qualification": "两类问题同属 step_det 初版证明骨架：前面是 induction 对象选择，后面是 intros 与 theorem binders 的顺序；因连续发生且共同决定 case 划分，合并为一个区间。"
+    },
+    {
+      "title": "step_det 的 case/automation 错位：application case 只写 inversion、tabs 的自动化落到下一 bullet；value_no_step closer 还需 v_abs/v_tabs 显式参数",
+      "intervals": [
+        {
+          "after": 460,
+          "through": 492
+        }
+      ],
+      "outcome": "按九个 term cases 重排 bullets，定义 close_step_contra/close_step_goal，并以 v_abs T0 b Hlc、v_tabs b Hlc 显式传参；step 492 编译时 application case 已关闭，错误移到后续 bullet。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        677,
+        684,
+        689,
+        704,
+        716,
+        719
+      ],
+      "qualification": "case 错位、自动 tactic 残留 value/step 子目标与 v_abs/v_tabs 显式参数是同一轮 application 自动化修复的连续表现，未再拆分。"
+    },
+    {
+      "title": "step_det 的 division case：错误位置被误判为 application，division 的 congruence reduct 需要 tm_int 的 step contradiction 分支",
+      "intervals": [
+        {
+          "after": 492,
+          "through": 508
+        }
+      ],
+      "outcome": "step 502 的行号检查确认实际是 division case；在 closer 中加入 tm_int 的 v_int contradiction 分支后，step_det 在 step 508 整体编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        734,
+        740,
+        743
+      ],
+      "qualification": "前 10 步在错误 case 上排查，step 502 才定位到 division；区间保留这段误判。"
+    },
+    {
+      "title": "never_stuck 收尾：has_rtype_fv 得到的 fv_tm/ftv_tm 列表需分解为 []，default environment 实例化与 V_value 参数也需调整；multi_value_safe 一度因编辑未落到 chunk 而缺失",
+      "intervals": [
+        {
+          "after": 511,
+          "through": 523
+        }
+      ],
+      "outcome": "用 cons-list 分解与 Hfv/Hftv 的矛盾证明 fv_tm t = [] / ftv_tm t = []，给 sigma0/tau0 的匿名 binder 标注 atom，把 V_value 参数改为 close_rty sigma0 tau0 R，并把 multi_prefix/multi_value_safe 真正追加到 c11；完整 dev（含 never_stuck）在 step 523 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        747,
+        756,
+        759,
+        760,
+        765
+      ],
+      "qualification": "区间混有 closedness 证明、默认环境细节与一次编辑定位错误（End 在 trailer 而非 chunk）；它们都属于最终 theorem 的收尾，无法分别计时。"
+    }
+  ],
+  "trace_sha256": "ce6964aec65d6c903a183d82cd3f4e2dd3708dafeb15d9b097877b88c64317ee",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 10,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "ce6964aec65d6c903a183d82cd3f4e2dd3708dafeb15d9b097877b88c64317ee",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r10.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r10_20261027_211832_617915"
+  }
+}

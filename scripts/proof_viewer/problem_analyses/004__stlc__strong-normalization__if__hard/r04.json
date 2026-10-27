@@ -1,0 +1,264 @@
+{
+  "summary": "本次运行的主要时间用于 CBV logical relation、expansion 和 opening/substitution 方案的设计推敲；写入草稿后的调试集中在 local closure 的 inversion、induction binders 以及 hypothesis/step-evidence 引用。normalization 最终完成，原始记录确认 clean build 成功且 Print Assumptions 返回 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读取任务，确认 supplied CBV semantics 与 normalization 目标",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 3
+        }
+      ]
+    },
+    {
+      "title": "探索 LR、expansion 与 substitution 路线，并检查 induction principles",
+      "intervals": [
+        {
+          "after": 3,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "整理并写入完整 proof 草稿，进行首次编译",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 22
+        }
+      ]
+    },
+    {
+      "title": "调试 freshness、opening 与 local closure 辅助证明",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 66
+        }
+      ]
+    },
+    {
+      "title": "调试 LR closure、R_beta、R_if 与 fundamental，完成目标证明",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 118
+        }
+      ]
+    },
+    {
+      "title": "确认编译、检查 assumptions 和原始声明，clean rebuild 与最终报告",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 135
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_open_rec_inv 的 bvar false branch：lia 缺少 index bound，最初误定位到 lc_at_mono",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 42
+        }
+      ],
+      "outcome": "最初把两处 lc_at_mono 改为显式参数，编译仍在第 328 行同一位置报 Cannot find witness。核对绝对行号并用独立 snippet 排除 Nat.eqb_neq/lia 后，发现 false branch 的 H1 : lc_at k (tm_bvar i) 尚未 inversion，lia 得不到 i < k；加入 inversion H1; subst 后编译越过 lc_open_rec_inv。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        38,
+        42,
+        43,
+        47,
+        53,
+        56,
+        57,
+        61,
+        65
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_step_fwd 的 ST_AppAbs：一次 inversion 未取出 body 的 depth-1 local closure",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 58
+        }
+      ],
+      "outcome": "对整个 application 的 local closure 做一次 inversion 只得到 abstraction 与 argument 的 local closure，无法直接完成 lc_open_rec 的 body premise。新增 lc_at_app_inv、lc_at_abs_inv、lc_at_if_inv，并按 constructor 重写 lc_step_fwd；下一次编译已越过原 ST_AppAbs 的 assumption 失败。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        80,
+        83,
+        84,
+        85,
+        89
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_abs_inv 未显式给出 annotation type T，apply 无法推断",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 64
+        }
+      ],
+      "outcome": "新增的 lc_at_abs_inv 结论不含 annotation type T，goal 无法推断该参数，编译报 Unable to find an instance for the variable T。改为 apply (lc_at_abs_inv 0 T t) 显式给出 depth、type 与 body 后，编译越过 lc_step_fwd。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        89,
+        90,
+        92,
+        94,
+        98
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_of_reducts 的 ty_ind Ty_Arrow binder 交错，pattern 命名错位",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 78
+        }
+      ],
+      "outcome": "报错显示 Ty_Arrow case 中 B 被绑定成 induction hypothesis；probe 确认 ty_ind 的 binder 顺序为 first type、其 IH、second type、其 IH。将 R_step_fwd 与 R_of_reducts 两处 pattern 改为 [| A IHA B IHB]，编译不再报 type mismatch。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        107,
+        110,
+        113,
+        116
+      ],
+      "qualification": "归纳路线本身可用，问题只在 ty_ind 的 binder pattern。"
+    },
+    {
+      "title": "R_of_reducts 的 ST_App1/ST_App2 引用不存在的 H0，实际 evidence 为 H1",
+      "intervals": [
+        {
+          "after": 78,
+          "through": 86
+        }
+      ],
+      "outcome": "type mismatch 消失后，ST_App1 引用不存在的 H0。用 scratch Show 打印 proof state，确认 ST_App1 的 step evidence 是 H1 : s --> t1'，ST_App2 的 value evidence 也是 H1；修正两处引用后编译越过 R_of_reducts。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        116,
+        118,
+        122,
+        125,
+        127,
+        131
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_beta 的 outer parameter 与局部 binder 重名（u、H），并在 fundamental 同步 u0",
+      "intervals": [
+        {
+          "after": 88,
+          "through": 94
+        },
+        {
+          "after": 116,
+          "through": 118
+        }
+      ],
+      "outcome": "R_beta 的 outer parameter 与 intros/SN induction pattern 都使用 u，先把 outer 改为 u0、induction subject 改为 u1；随后局部 intros ... H 又与 outer H 冲突，改为 Hgen。参数改名后，fundamental 中调用 R_beta 仍用旧 named argument u，稍后返回并改为 (u0 := u)，完整文件首次编译无输出。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        131,
+        133,
+        137,
+        140,
+        173,
+        175,
+        176,
+        179
+      ],
+      "qualification": "第二个区间只计入返回修正 R_beta 调用处参数名的时间；中间 R_if 与 env_ok_update 的工作不重复计时。"
+    },
+    {
+      "title": "R_beta 的 ST_App1/ST_App2 使用错误的 step evidence（H2、H4）",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 102
+        }
+      ],
+      "outcome": "ST_App1 引用的 H1 不存在；scratch Show 显示实际 step evidence 为 H2 : (tm_abs T1 t) --> t1'，据此用 H2 排除 abstraction reduction。随后 ST_App2 把 SN_intro 的 premise Hstep（forall t', u1 --> t' -> strongly_normalizing t'）当作 one-step premise，实际为 H4 : u1 --> t2'；改用 H4 调用 IH 后编译越过 R_beta。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        140,
+        143,
+        145,
+        149,
+        151,
+        155
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_if 局部 binder 与 outer u1 重名（induction subject 与 intros 两轮）",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 110
+        }
+      ],
+      "outcome": "R_if 的 outer parameter 与 assertion 内的 intros u1 重名。先把 induction subject 改为 u1a，错误仍在 intros u1 处；再把局部 binder 改为 ucond，命名冲突消失，scratch Show 能打印 ST_If 的 proof state。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        155,
+        158,
+        160,
+        161,
+        164
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_if 的 ST_If 分支把 H1 当作 step evidence，实际为 H5",
+      "intervals": [
+        {
+          "after": 110,
+          "through": 112
+        }
+      ],
+      "outcome": "ST_If 分支把 H1（R Bool u1）当作 IH 的 step evidence；scratch Show 显示实际的 step evidence 是 H5 : u1a --> t1'。改用 H5 后编译推进到 env_ok_update。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        164,
+        165,
+        166,
+        167
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "23a07c5f694ebf6e96ec1e5c9867881a9fa83690f556f65cb7ba3a6651797954",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 4,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "23a07c5f694ebf6e96ec1e5c9867881a9fa83690f556f65cb7ba3a6651797954",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r04.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r04_20261027_211735_234781"
+  }
+}

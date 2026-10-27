@@ -1,0 +1,362 @@
+{
+  "summary": "本次主要时间用于 LR 方案推演，以及 stepping/no-step 基础设施和后段 LR、fundamental theorem 的实现调试；step_fun_sound 因 `simpl` 提前展开 recursive call 导致 destruct/injection 失效而被放弃，改用直接证明。normalization 最终完成，独立 assumptions 检查与 fresh-directory 编译均通过；末段仅等待旧后台验证命令停止，没有新增证明活动。",
+  "phases": [
+    {
+      "title": "读取任务并反复设计 LR、application 与 stuck-term 处理方案",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 freshness、local closure 和 value 基础 lemmas",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 49
+        }
+      ]
+    },
+    {
+      "title": "实现 step_fun，调试 specification 后转向直接 determinism/decidability",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 84
+        }
+      ]
+    },
+    {
+      "title": "构造并调试 no-step lemmas、step_det 和 step_dec",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 195
+        }
+      ]
+    },
+    {
+      "title": "实现并调试 local closure、opening 与 substitution infrastructure",
+      "intervals": [
+        {
+          "after": 195,
+          "through": 254
+        }
+      ]
+    },
+    {
+      "title": "实现 LR closure、LR_if 与 fundamental theorem，并完成 normalization",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 278
+        }
+      ]
+    },
+    {
+      "title": "验证完整 proof，处理组合验证命令未返回并改用独立 assumptions 检查",
+      "intervals": [
+        {
+          "after": 278,
+          "through": 299
+        }
+      ]
+    },
+    {
+      "title": "检查原始定义、clean compile、fresh-directory verification 并报告结果",
+      "intervals": [
+        {
+          "after": 299,
+          "through": 311
+        }
+      ]
+    },
+    {
+      "title": "完成报告后等待旧后台任务停止并解释通知，无新增 proof 修改",
+      "intervals": [
+        {
+          "after": 311,
+          "through": 318
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lcb_spec、valueb_spec：inversion/destruct 生成的名称及 locally_closed 形式与脚本预期不符",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 49
+        }
+      ],
+      "outcome": "lcb_spec 的 bvar/abstraction case 改用 subst、lia 和 assumption；valueb_spec 显式命名 constructor 参数并尝试 inversion pattern 后，通过诊断确认 hypothesis 保留为 locally_closed，于是把 match goal pattern 从 lc_at 0 (tm_abs T0 b0) 改为 locally_closed (tm_abs T0 b0)，基础 helper section 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        21,
+        27,
+        33,
+        54,
+        66,
+        68,
+        72
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_fun_sound：induction pattern 未给 recursive 参数和 IH 留位；simpl 提前展开 structured subterm 上的 step_fun，使 destruct 和 injection 失效",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 78
+        }
+      ],
+      "outcome": "先用最小测试确认 induction ... as 需要同时为 recursive 参数和 induction hypothesis 命名并修正 pattern；但 injection H 仍失败，Show 显示 simpl in H 已把 step_fun (tm_app d1 d2) 展开成 nested match，后续 destruct 无法替换。比较 equation lemmas、cbn/change、直接 step_dec 等路线后放弃 step_fun，转向直接 step_det/step_dec，并在后段删除整个 step_fun section。",
+      "resolution": "abandoned",
+      "category": "rewrite",
+      "evidence_lines": [
+        82,
+        94,
+        97,
+        100,
+        104,
+        113,
+        114,
+        245
+      ],
+      "qualification": "区间覆盖 step_fun_sound 的连续诊断和路线比较；删除 section 的实际编辑在更后面的实现阶段完成，未重复计时，也未把当时未验证的替代方案当作已解决。"
+    },
+    {
+      "title": "app_no_step、app_step_no_lc、app_abs_no_step 等与 if_true_no_step：contradiction 自动化反复漏掉 quantified、not 和 locally_closed/合取前提",
+      "intervals": [
+        {
+          "after": 89,
+          "through": 163
+        }
+      ],
+      "outcome": "依次尝试 match goal、eauto、intuition、custom Ltac 和 firstorder；确认 `~ t --> s` 与 explicit `-> False` 的匹配差异、quantified no-step hypothesis 需要显式实例化，并补上 locally_closed 与 lc_at 0 的对应 branch、conditional 两个 local closure premise 的合取。最终 ns_all 通过整组 scratch no-step lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        130,
+        149,
+        158,
+        191,
+        220,
+        233,
+        235,
+        238,
+        239
+      ],
+      "qualification": "长时段内多个 no-step 声明共用同一套 contradiction 自动化，按同一障碍合并；未把中途关于 first、semicolon 或自动化行为的推测当作已证实原因。"
+    },
+    {
+      "title": "step_det：f_equal 未固定变化的参数位置，且预设的 inversion branches 多于实际剩余 goals",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 182
+        }
+      ],
+      "outcome": "为 application 和 conditional equality 显式指定 f_equal 的 function；Show 确认 true/false 冲突已被 inversion 排除，删除多余 discriminate bullets 后，编译推进到 step_dec。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        255,
+        258,
+        264,
+        266,
+        267
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_dec：abstraction/body 的 local closure 参数不匹配，并遗漏 value function 的 tm_if 分支",
+      "intervals": [
+        {
+          "after": 182,
+          "through": 195
+        }
+      ],
+      "outcome": "用 lc_abs 构造 abstraction 的 local closure，用 lc_at_abs_inv 处理其否定方向；反复检查 focus 错误后发现 destruct a1 的七个 constructors 只处理了六个，补上 tm_if 的不可能 value 分支，step_dec 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        267,
+        270,
+        273,
+        280,
+        284,
+        285,
+        286
+      ],
+      "qualification": "focus 错误最终由遗漏分支解释，不能据中途推测归因为 bullet 符号层级本身。"
+    },
+    {
+      "title": "open_rec_lc_at、open_rec_lc 与 lc_at_open_rec：level 参数无法推断，local closure side goal 与 binder 下的 weakening 处理错误",
+      "intervals": [
+        {
+          "after": 206,
+          "through": 224
+        }
+      ],
+      "outcome": "为 induction hypotheses 显式传入 k、j 和 u，先构造子项 equalities 再 rewrite；open_rec_lc 分别处理 arithmetic premise 和已有 local closure hypothesis；abstraction case 改用 lc_at_weaken 从 k 提升到 S k，编译随后推进到 subst_open_fvar。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        302,
+        308,
+        310,
+        314,
+        323,
+        325,
+        326,
+        328,
+        329
+      ],
+      "qualification": "包含相邻 opening lemmas 的连续联合调试及误改后续位置的定位回环，不再另列 localization 问题重复计时。"
+    },
+    {
+      "title": "subst_open_fvar：environment update、freshness side goals 与 tm_if 的 fv append 结构无法对齐",
+      "intervals": [
+        {
+          "after": 224,
+          "through": 254
+        }
+      ],
+      "outcome": "bvar case 使用 update_tm_eq；application case 显式提供 freshness helper 的参数并分别构造子项 equalities；conditional case 最终确认 ++ 为 right associative，按 fv c1 ++ (fv c2 ++ fv c3) 重写 membership proofs，整个 substitution section 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        329,
+        338,
+        340,
+        347,
+        356,
+        362,
+        371,
+        372,
+        373,
+        374
+      ],
+      "qualification": "最终证据支持 append associativity 是 conditional case 的关键原因；中途关于 simpl 或 conversion 的解释多次被后续错误修正。"
+    },
+    {
+      "title": "LR_step、LR_back：SN_intro 解构错位，closure proof 的 source term 和 LR type 参数无法由 goal 推断",
+      "intervals": [
+        {
+          "after": 257,
+          "through": 269
+        }
+      ],
+      "outcome": "将 SN destruct pattern 改为同时命名 term 和 recursive premise；为 arrow cases 的 induction hypotheses 显式指定 source/target applications；将 LR_lc 调用改为从 LR hypothesis 推断参数的完整 proof term。编译随后推进到 LR_if 的 abstraction condition case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        378,
+        380,
+        381,
+        387,
+        389,
+        390,
+        395,
+        396
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "LR_if 的 abstraction condition case：把整个 abstraction 的 locally_closed 直接当作 body 的 lc_at 1",
+      "intervals": [
+        {
+          "after": 269,
+          "through": 271
+        }
+      ],
+      "outcome": "错误显示 Hlcb : locally_closed (tm_abs T0 b0) 不能作为 lc_abs 所需的 lc_at 1 b0；改用 lc_at_abs_inv 0 T0 b0 提取 body 的 local closure 后，LR_if 通过，编译推进到 fundamental theorem 的 rewrite。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        396,
+        398,
+        399
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental theorem 的 abstraction case：rewrite subst_open_fvar 找不到 Hbody_v 中 open 形式的 subterm",
+      "intervals": [
+        {
+          "after": 271,
+          "through": 273
+        }
+      ],
+      "outcome": "确认 Hbody_v 的 LR 结论使用 Definition open，而 subst_open_fvar 的 pattern 是 open_rec；在 Hbody_v 上 unfold open 再 fold open 后 rewrite 成功，LR section 与 fundamental theorem 编译通过，只剩 normalization placeholder。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        399,
+        400,
+        401,
+        402
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "normalization：apply fundamental 无法从 LR goal 推断 context Γ，需显式给出 empty、t、T 和 typing derivation",
+      "intervals": [
+        {
+          "after": 276,
+          "through": 278
+        }
+      ],
+      "outcome": "改为 apply (fundamental empty t T Hty) 固定 Γ 和 typing derivation 后重新编译，Task.v 无 compiler error 通过，normalization 的 placeholder 被实际 proof 替换。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        406,
+        407,
+        408,
+        409
+      ],
+      "qualification": "该步只确认本次编译通过；clean compile 和 fresh-directory 验证在后续阶段完成。"
+    },
+    {
+      "title": "assumptions 检查：coqc 与 coqtop -l 的组合命令超时转入后台，改用独立 coqc 完成验证",
+      "intervals": [
+        {
+          "after": 288,
+          "through": 299
+        }
+      ],
+      "outcome": "读取后台输出确认 coqc Task.v 已打印 COMPILE OK；随后用独立 check2.v 经 coqc -Q /workspace \"\" 执行 Print Assumptions normalization，得到 Closed under the global context，fresh-directory 检查再次通过。原组合命令本身随后由后台时限停止，但不影响已验证的 assumptions 结论。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        420,
+        426,
+        431,
+        433,
+        434,
+        448,
+        453,
+        456
+      ],
+      "qualification": "区间从超时返回后开始，未计入 120 秒组合命令本身；旧命令的停止与末段解释不计作处理时间，trace 未给出进程级诊断。"
+    }
+  ],
+  "trace_sha256": "331d4de7c910f386d63d1be588e30e8b32a569f7e64f7c65f6d55da2240d0e15",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 11,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "331d4de7c910f386d63d1be588e30e8b32a569f7e64f7c65f6d55da2240d0e15",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r11.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r11_20261027_211738_615812"
+  }
+}

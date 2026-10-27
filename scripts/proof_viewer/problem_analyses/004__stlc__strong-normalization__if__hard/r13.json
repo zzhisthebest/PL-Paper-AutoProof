@@ -1,0 +1,343 @@
+{
+  "summary": "本次最长的一段是开场的 LR 设计（R、env_sem 与 fundamental 的共同路线），按规则保留在 phases；其余时间主要用于编译调试。调试集中在 local closure 辅助引理的自动 tactic 链、step_app_inv 的 eauto 行为、subst_all_open_rec 的错误 statement 及其后的 unfolding/rewrite 与 freshness 分解，以及 fundamental T_Abs 的 env 扩展与 open 展开对接；normalization 最终编译通过，clean compile 与 Print Assumptions 检查均成功。",
+  "phases": [
+    {
+      "title": "读取任务并确认 language、目标与 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "反复设计 CBV logical relation、closure 性质与 substitution semantics",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "通过 scratch 测试确认 strongly_normalizing 的 induction principle",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "编写完整证明初稿并首次编译",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 21
+        }
+      ]
+    },
+    {
+      "title": "调试 subst_all_id、local closure 辅助引理与 step_lc",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 55
+        }
+      ]
+    },
+    {
+      "title": "调试 step inversion lemmas 与 LR closure proofs",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 79
+        }
+      ]
+    },
+    {
+      "title": "调试 substitution 的 local closure 与 opening commutation",
+      "intervals": [
+        {
+          "after": 79,
+          "through": 115
+        }
+      ]
+    },
+    {
+      "title": "完成 fundamental 的 T_Abs case 对接并通过整体编译",
+      "intervals": [
+        {
+          "after": 115,
+          "through": 129
+        }
+      ]
+    },
+    {
+      "title": "核验 assumptions、原始 definitions、目标 statement 与 clean compile",
+      "intervals": [
+        {
+          "after": 129,
+          "through": 145
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_weaken、open_rec_lc、lc_open_inv、subst_all_lc：不完整的 auto/constructor 链误配或漏解 local closure 分支",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 43
+        },
+        {
+          "after": 79,
+          "through": 83
+        }
+      ],
+      "outcome": "第一段放弃 lc_at_weaken 的 `try constructor; try lia; auto`，逐 constructor case 显式应用 IH；open_rec_lc 把被 auto 提前关闭的 depth goal 与 body closure 拆成两个 subgoal；lc_open_inv 的 application/conditional 显式指定 opening 变量并调用各 IH。后来返回 subst_all_lc 时，用 `exact (Hrho x)` 和显式 IH 调用代替 auto，这些 local closure helpers 全部通过编译。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        40,
+        45,
+        49,
+        54,
+        58,
+        60,
+        121,
+        122,
+        123
+      ],
+      "qualification": "合并的是四个 local closure 辅助引理中同一类不完整自动 tactic 链；两次处理之间的 step_lc、step inversion 与 LR closure 工作未计入。没有修改这些 lemma 的 statement。"
+    },
+    {
+      "title": "step_lc：ST_AppAbs case 依赖 inversion 自动命名，重写后又出现 lc_abs_inv 参数推断与 Hlc2 命名冲突",
+      "intervals": [
+        {
+          "after": 43,
+          "through": 55
+        }
+      ],
+      "outcome": "ST_AppAbs case 先因引用不存在的 `H1` 失败；改为新增 lc_app_inv、lc_abs_inv、lc_if_inv，用显式 projections 取 component closure。beta case 先 destruct lc_app_inv，再 apply open_rec_lc，并用 `exact (lc_abs_inv 0 T t0 Hlca)` 提供 body closure；最后把与 constructor premise 冲突的 destruct 名称改成 Ha/Hb。编译推进到 step_app_inv。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        63,
+        67,
+        68,
+        72,
+        73,
+        74,
+        79,
+        81
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_app_inv：`inversion H; subst; eauto` 留下 ST_AppAbs 与 ST_App2 分支，反复试验 auto 行为与搜索深度",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 69
+        }
+      ],
+      "outcome": "用 Show 确认 eauto 后仍剩 beta/ST_App2 两个 goals；测试了 auto 的收束行为、`eauto 12` 和无 eauto 的 inversion。加深搜索仍失败后，改为显式选择 disjunction、给出 `eexists` witnesses 并构造 conjunctions，同次修订也显式完成 step_abs_app_inv 与 step_if_inv；编译推进到 R_expand。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        90,
+        91,
+        93,
+        96,
+        99,
+        100,
+        101,
+        102
+      ],
+      "qualification": "主要卡点由 step_app_inv 的实际 remaining goals 支持；思考中关于 semicolon 行为或 eauto 搜索深度的猜测未当作已确认原因。step 59-61 的 scratch 截取失误含在本次连续调试内。"
+    },
+    {
+      "title": "R_expand：未从 reduct 的 arrow LR 提取 application 条件",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 73
+        }
+      ],
+      "outcome": "发现 `Hred t' Hstep` 只给出 `R (Ty_Arrow T1 T2) t'`，不能直接证明 `R T2 (tm_app t' u)`；新增局部 `Hcase1`，destruct arrow LR 取得 application 条件并作用于 `Hu`，再分别用于 application reduct 的 SN 与 LR obligations。编译通过该 lemma。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        105,
+        106,
+        107,
+        108
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_if：SN induction hypothesis 还需 reduct 的 local closure，不能直接取 projection",
+      "intervals": [
+        {
+          "after": 73,
+          "through": 79
+        }
+      ],
+      "outcome": "先解决外层 Hlcb 与 SN induction 内 Hlcb 的重名；随后把三处 `IH b' Hstep` 补成 `IH b' Hstep (step_lc b b' Hstep Hlcb')`，再取 proj1/proj2 完成 conditional reduct 与 SN 两部分。编译推进到 substitution lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        111,
+        114,
+        115,
+        116,
+        117
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_all_open_rec：RHS 把 open_rec 的 replacement 与被打开 term 写反",
+      "intervals": [
+        {
+          "after": 83,
+          "through": 95
+        }
+      ],
+      "outcome": "step 83 起的 bvar case 失败先被归因于 simpl/rewrite；Show 得到 `update_env rho x u x = open_rec k (bvar n) u`，step 93 用 update_env_eq 后该 RHS 与 `u` 无法 unification，由此在 step 94 重新核对 `open_rec k u t` 的参数顺序，确认 RHS 应为 `open_rec k u (subst_all rho t)`。step 95 修正 statement 与 proof 后，编译转入 RHS conditional 未化简的问题。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        123,
+        126,
+        129,
+        137,
+        138,
+        139,
+        140,
+        141,
+        171
+      ],
+      "qualification": "step 83-93 的 simpl/rewrite 尝试同时包含 unfolding 控制；statement 错误在 step 93 的 unification failure 中才暴露，故这些误诊时间计入本问题。该 statement 随后在 step 115 前通过整个 lemma 的编译验证。"
+    },
+    {
+      "title": "subst_all_open_rec bound-variable case：RHS 的 boolean conditional 未化简，`rewrite open_rec_bvar` 只命中 LHS",
+      "intervals": [
+        {
+          "after": 95,
+          "through": 111
+        }
+      ],
+      "outcome": "statement 修正后，bvar case 的 RHS 仍是未消去的 `if k =? n then u else bvar n`；scratch Show 显示未指定参数的 `rewrite open_rec_bvar` 只改写 LHS，`rewrite ... at 2` 报 invalid occurrence，而 `rewrite (open_rec_bvar k u n)` 可展开 RHS。最终改用 `cbn [open_rec subst_all]` 在两侧统一展开，再对 `Nat.eqb k n` 做 case split；step 111 编译推进到 conditional case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        141,
+        143,
+        144,
+        146,
+        147,
+        149,
+        150,
+        152,
+        153,
+        155,
+        156,
+        158,
+        159,
+        161,
+        162,
+        163,
+        164,
+        165
+      ],
+      "qualification": "未确认未指定参数 rewrite 只命中 LHS 的内部机制，只把 Show 观察作为依据；最终用 cbn 绕过 occurrence 选择问题。"
+    },
+    {
+      "title": "subst_all_open_rec conditional case：fv 分解的 freshness 投影顺序错误",
+      "intervals": [
+        {
+          "after": 111,
+          "through": 115
+        }
+      ],
+      "outcome": "conditional 的 freshness 需分解 `fv t1 ++ (fv t2 ++ fv t3)`；原脚本对第二个 component 先取 not_in_app_l 再取 not_in_app_r，实际应先 right 得 `fv t2 ++ fv t3` 再 left 得 `fv t2`，第三个 component 需两次 right。修正后 step 115 编译通过整个 subst_all_open_rec，错误推进到 fundamental 的 T_Abs。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        165,
+        166,
+        168,
+        169,
+        170,
+        171
+      ],
+      "qualification": "该错误在 statement 与 bvar case 修正后才暴露，单独计区间。"
+    },
+    {
+      "title": "fundamental T_Abs：env_sem 扩展中 update_env 的 image 与 context update 未对齐",
+      "intervals": [
+        {
+          "after": 115,
+          "through": 121
+        }
+      ],
+      "outcome": "env_sem 扩展的第一个 goal 是 `R T1 (update_env rho x v y)`，`exact Hv` 因 update 未化简而失败。加入 update_env_eq/neq 与 update_eq/neq，按 `x = y` 与 `x <> y` 分情况化简 environment image，并在相等分支用 `injection Hy` 对齐 `Some T1 = Some S`。step 121 编译推进到 HIH 的 commutation rewrite。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        171,
+        172,
+        174,
+        175,
+        177,
+        178,
+        179,
+        180
+      ],
+      "qualification": "该段只处理 env_sem 中 update/context 对齐；HIH 展开与 R_abs_app SN premise 的后续错误另列。"
+    },
+    {
+      "title": "fundamental T_Abs：HIH 中 `open` 未展开阻塞 commutation rewrite，并缺 R_abs_app 的 SN premise",
+      "intervals": [
+        {
+          "after": 121,
+          "through": 129
+        }
+      ],
+      "outcome": "`simpl in HIH` 不展开 `open`，HIH 仍为 `subst_all (update_env rho x v) (open t1 (fvar x))`，导致 subst_all_open_rec 的 LHS 不匹配；打印 HIH type 后改用 `unfold open in HIH`，rewrite 通过。随后 `R_abs_app` 要求 `strongly_normalizing u` 而 `Hu : R T1 u`，补 `apply R_sn with (T := T1)`。step 129 首次无编译错误，step 132 的 EXIT: 0 与 step 139 的 fresh compile 确认成功。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        180,
+        181,
+        183,
+        184,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        196,
+        200,
+        206
+      ],
+      "qualification": "合并同一 beta/application 分支上连续的 commutation 与最后一行 SN premise 修正；目标通过后的核验时间未计入该问题。"
+    }
+  ],
+  "trace_sha256": "a9b7166670f9aab8bb4df242e1da14b0705e8ed8c1ceb6d598fa227a0faa0e73",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 13,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a9b7166670f9aab8bb4df242e1da14b0705e8ed8c1ceb6d598fa227a0faa0e73",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r13.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r13_20261027_211737_362039"
+  }
+}

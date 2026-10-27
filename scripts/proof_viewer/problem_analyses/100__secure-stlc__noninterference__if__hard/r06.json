@@ -1,0 +1,439 @@
+{
+  "summary": "本次 run 共 2957s、status=proved：step 4→5 的一次 API stream idle timeout（elapsed 310.0s）属会话层中断，只保留在 summary/phase 1，不单列为 problem；step 5→25 是耗时最长的 LR 与证明架构设计（含未返回结果的本地检索与反复推演，混合探索计入 phases）。此后按基础设施（至 1764.2s）、Vp/E 核心引理（至 2138.4s）、fundamental theorem（至 2769.8s）和最终 noninterference（至 2923.9s）推进；列出的具体障碍均按同一障碍用一个或多个区间记录并在结束前解决，最终 Task.v 编译通过、未改 supplied statement/definitions、Print Assumptions 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "读题与首轮 API 中断（Task.v 初读；step 5 的 idle timeout 等待至 310.0s，计入其他时间）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "LR 与整条证明架构的设计探索（含未返回结果的本地检索；设计与检索混合，计入 phases）",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 25
+        }
+      ]
+    },
+    {
+      "title": "基础设施编写与首次编译调试（big-step eval、subst_env、local closure、has_type_lc、step_eval/multi_eval）",
+      "intervals": [
+        {
+          "after": 25,
+          "through": 211
+        }
+      ]
+    },
+    {
+      "title": "逻辑关系 Vp/E 与核心引理（Vp_protect2、Vp_security_le、subtype_security_le、Vp_sub、Vp_ground_erase）",
+      "intervals": [
+        {
+          "after": 211,
+          "through": 290
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem（T_Abs 环境/substitution、elimination forms、visibility split、T_Case/T_If 分支树）",
+      "intervals": [
+        {
+          "after": 290,
+          "through": 405
+        }
+      ]
+    },
+    {
+      "title": "最终 noninterference theorem（freshness、environment relation、ground erase）",
+      "intervals": [
+        {
+          "after": 405,
+          "through": 458
+        }
+      ]
+    },
+    {
+      "title": "最终验证与收尾（clean rebuild、statement/prefix 对照、Print Assumptions）",
+      "intervals": [
+        {
+          "after": 458,
+          "through": 471
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "induction header 末尾的 auto 使 bullet 与 constructor 对应错位（subst_env_agree/subst_env_id、subst_env_open_rec、subst_env_plug、has_type_lc）",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 63
+        },
+        {
+          "after": 123,
+          "through": 125
+        },
+        {
+          "after": 133,
+          "through": 135
+        },
+        {
+          "after": 161,
+          "through": 167
+        }
+      ],
+      "outcome": "把 induction 后的 auto 去掉并显式覆盖各 constructor：subst_env_agree/subst_env_id 用 reflexivity 与 fvar 分支，subst_env_open_rec、subst_env_plug 写全 13/17 个 case，has_type_lc 去掉 auto 后用 match goal 取 cofinite IH。前三处修改使编译继续推进；has_type_lc 改写后仅剩重复 theorem header 的 syntax error，移除后 step 173 整文件编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        82,
+        83,
+        87,
+        178,
+        179,
+        180,
+        193,
+        194,
+        195,
+        235,
+        238,
+        242,
+        244,
+        253
+      ],
+      "qualification": "同一障碍（在 induction header 末尾放 auto，使 bullet 是否对应 constructor 取决于 auto 恰好关闭多少 goal）在四个 lemma 依次复现，每段都由具体报错定位（apply H 不匹配、abstraction equality 不匹配、L not found）。中间穿过的 IH 命名、Nat.le_n_S、membership 已分到其他条目或 phases；has_type_lc 的最终编译验证在 step 173，略晚于区间终点。"
+    },
+    {
+      "title": "匿名 constructor 的 IH 自动命名与手写名不符（IHt0 应为 IHt1..IHt3；IHB 应为 IHT2）",
+      "intervals": [
+        {
+          "after": 65,
+          "through": 111
+        },
+        {
+          "after": 242,
+          "through": 250
+        }
+      ],
+      "outcome": "用 scratch 的 Show 确认 tm_case 实际生成 t1..t3 与 IHt1..IHt3（tm_abs 为 IHt、tm_fst 为 IHt），把 subst_env_agree、subst_env_id、open_rec helpers 中的 IHt0/IHt1/IHt2 统一改为 IHt1/IHt2/IHt3；Vp_protect2 的 arrow case 打印出 T1/T2 与 IHT1/IHT2 后，用 match goal 改引 IHT2。step 113 编译越过这些行（转报 Nat.le_n_S），Vp_protect2 于 step 250 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        91,
+        121,
+        133,
+        148,
+        160,
+        356,
+        362,
+        368
+      ],
+      "qualification": "[65,111] 内的大量 scratch（pat13、showtm4 等）用于分辨各 constructor 的 IH 名，与改名属同一障碍；两处发生在不同 lemma，中间隔了 Nat.le_n_S、membership 等工作，故用两个区间。"
+    },
+    {
+      "title": "subst_env_plug 的 fvsC 成员证明：append/or 右结合导致 in_app_iff 后 left/right 路径错误",
+      "intervals": [
+        {
+          "after": 137,
+          "through": 161
+        }
+      ],
+      "outcome": "确认 ++ 解析为 l1 ++ (l2 ++ l3)、or 右结合后，新增 in_app_l/in_app_r，并按右结合结构显式构造 In 证明（三元素处用 in_app_l、in_app_r;in_app_l、in_app_r;in_app_r）。subst_env_plug 编译通过，错误推进到 has_type_lc 的 L not found。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        199,
+        205,
+        214,
+        229,
+        232,
+        235
+      ],
+      "qualification": "区间内是 in_app_iff 方向、literal list 简化、or/++ associativity 的一系列 scratch，均服务于定位该障碍；先前按左结合写的 left/right 路径本身就是误判。"
+    },
+    {
+      "title": "step_eval 中 econstructor 在 ST_CaseRight/ST_If 等 case 误选 ev_case_l/ev_if_l，ST_FstPair 需 eval_value_inv；multi_eval 的 IH 使用失败",
+      "intervals": [
+        {
+          "after": 181,
+          "through": 211
+        }
+      ],
+      "outcome": "改为按 step constructor 显式构造：ST_AppAbs 用已给的 value 直接 apply ev_abs（不再额外套 v_abs），pair/protect 用 ev_protect，case/if 明确 ev_case_l/ev_case_r、ev_if_l/ev_if_r，ST_FstPair 用 eval_value_inv 把结果折回 value；multi_eval 改为先 apply IHmulti 再交给 step_eval。两 lemma 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        265,
+        271,
+        286,
+        289,
+        301,
+        304,
+        310
+      ],
+      "qualification": "区间内还含 eval_value_inv 首参与 eval_value 显式补参的小修，与 step_eval/multi_eval 属同一调试 block；line 265 为 step 181 的 proof incomplete 触发记录，位于区间起点。"
+    },
+    {
+      "title": "Vp_protect2 第二侧 protection bound 误用 flows_to_join_r1（应 flows_to_join_r2）",
+      "intervals": [
+        {
+          "after": 222,
+          "through": 236
+        }
+      ],
+      "outcome": "把第二侧 bound 改为 flows_to_join_r2，并补上 regex 漏改的 unit case；unit/sum/prod/arrow 的 bounds 全部通过，错误推进到 eval_app_protect_abs 未定义。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        326,
+        332,
+        341,
+        344,
+        347
+      ],
+      "qualification": "step 224 曾临时用 Show/Admitted 诊断 unit case 并留下 bullet syntax error，属同一 bound 问题的定位过程；与随后的 lemma 顺序、arrow IH 命名 root cause 不同，分别记录。"
+    },
+    {
+      "title": "Vp_protect2 引用后定义的 eval_app_protect_abs（lemma 前后顺序）",
+      "intervals": [
+        {
+          "after": 236,
+          "through": 242
+        }
+      ],
+      "outcome": "把 value_abs_sec_irrel 与 eval_app_protect_abs 整段前移到 Vp_protect2 之前；第一次 Python move 因找不到 'Lemma Vp_protect2 :' substring 失败，第二次成功，依赖错误消失，编译推进到 arrow case 的 IHB 命名问题。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        347,
+        350,
+        356
+      ],
+      "qualification": "前移脚本自身的失败（line 350）属操作细节，不另计；与 bounds 误用、arrow IH 命名的 root cause 不同。"
+    },
+    {
+      "title": "Vp_sub 的 match goal 无法匹配 S_Arrow 的 induction hypothesis",
+      "intervals": [
+        {
+          "after": 256,
+          "through": 270
+        }
+      ],
+      "outcome": "改用 eauto using subtype_security_le, security_le_protect_join, security_le_ind, security_le_refl 应用 IH；编译越过 S_Arrow，265-269 复核输出无隐藏 Error，270 coqc exit=0，删除旧产物后重编译也未报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        377,
+        386,
+        389,
+        395,
+        398
+      ],
+      "qualification": "起初怀疑失败在 S_Trans（step 258 在那里插入 Show），step 262 才定位到 S_Arrow 中寻找 domain IH 的 match；手写 pattern 与 S_Arrow 实际 IH 的结论形状不一致，最终由 eauto 绕过。"
+    },
+    {
+      "title": "fundamental 的 observer label l 与 constructor 自带 l 冲突（l is already used）",
+      "intervals": [
+        {
+          "after": 297,
+          "through": 301
+        }
+      ],
+      "outcome": "把 fundamental 内的 observer label 统一改名为 ell（含证明体引用）；编译越过 intros，错误推进到 step_eval destruct pattern。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        438,
+        441,
+        444
+      ],
+      "qualification": "Rocq binder 命名冲突；改名后立刻暴露 T_Abs 的 destruct pattern 括号与参数问题（下一条）。"
+    },
+    {
+      "title": "fundamental T_Abs 的 eval_app_inv/eval_protect_inv destruct 括号与 HE/eval_value/value_lc 参数错误",
+      "intervals": [
+        {
+          "after": 301,
+          "through": 325
+        }
+      ],
+      "outcome": "把 conjunction pattern 末尾改为 [Hfl Hpr] 并删掉多余的 closing bracket，HE 改用实际 argument values a2/b2 实例化，为 eval_value、value_lc 显式补参；Ltac term 语法错误后改为把更新后的 env_rel 拆成独立 assert。T_Abs 越过这些错误，进入 environment lookup 的 beta-redex 问题。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        444,
+        450,
+        456,
+        462,
+        468,
+        471,
+        474,
+        480
+      ],
+      "qualification": "区间内是连续多次小修（pattern、HE、eval_value、value_lc、ltac term），均在同一 T_Abs proof block，无法从 step 端点再细分为单次耗时。"
+    },
+    {
+      "title": "fundamental T_Abs 的 environment lookup beta-redex：destruct (y =? x)/rewrite 找不到 subterm",
+      "intervals": [
+        {
+          "after": 325,
+          "through": 343
+        }
+      ],
+      "outcome": "改用命名函数 upd 及 upd_same/upd_neq/env_lc_upd/subst_env_upd_agree，在 env_rel 的 true/false 分支用这些 lemma 处理，不再对 (fun y => ...) y 的 redex 做 destruct/rewrite。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        480,
+        483,
+        492,
+        495,
+        498,
+        507
+      ],
+      "qualification": "区间内试过 change、cbn beta、统一 eqb notation 和独立 scratch 均未解决；改用 upd 后 H2 中又出现 upd 与展开 lambda 的表示差异，归入下一条。"
+    },
+    {
+      "title": "fundamental T_Abs 的 substitution 重写：H2 用展开 lambda 而 rewrite 用 upd，且 conditional rewrite 先出 main goal",
+      "intervals": [
+        {
+          "after": 343,
+          "through": 373
+        }
+      ],
+      "outcome": "用 match type of H2 打印确认 H2 的 environment 已展开成 (fun y => if y =? x then a2 else g1 y)（不是 folded upd），于是把 subst_env_open 实例改为 lambda 形式并显式补 env_lc 与 side proof；随后发现条件 rewrite 先生成 main goal、再生成 premises（env_lc_upd 被拿去匹配 Vp main goal），改为先 assert Hs1/Hu1/Hs2/Hu2 再 rewrite。T_Abs 通过，错误推进到 T_App 的 variable result type。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        507,
+        510,
+        516,
+        537,
+        549,
+        552
+      ],
+      "qualification": "scratch rworder/rworder3/rworder4 确认 rewrite 先留 rewritten main goal 再出 equality premise，是 assert-based rewrite 的直接动机。"
+    },
+    {
+      "title": "fundamental 的 T_App/T_Fst/T_Snd：Vp 在任意 result type 上不 unfold，需按 indirect_reader 是否 flow 到 observer 分流",
+      "intervals": [
+        {
+          "after": 373,
+          "through": 383
+        }
+      ],
+      "outcome": "确认 Vp 是 Fixpoint，只有 T 为 constructor 时才展开成 implication（因此对 T_App 的 T2 不能 intro visibility）；加入 flowb/flowb_true/flowb_false 与 Vp_invisible，对每个 elimination case 用 destruct (flowb ...) 分流：visible 分支用 arrow/prod/sum clause，invisible 分支由 join 的 flows_to 导出矛盾。step 383 重写后的 T_App/T_Fst/T_Snd 编译通过，错误转到 T_Case 的 match。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        552,
+        556,
+        558,
+        564,
+        567
+      ],
+      "qualification": "step 377-380 还修正了 flowb_true/flowb_false 的证明（tauto、discriminate、split），属同一 visibility 基础设施。"
+    },
+    {
+      "title": "fundamental 的 T_Case/T_If：match goal 无法引用 g1，改显式 constructor 分支并引入 case_branch_E/if_branch_E",
+      "intervals": [
+        {
+          "after": 383,
+          "through": 405
+        }
+      ],
+      "outcome": "放弃引用 g1 的 match-goal 分支：用 inversion 关闭 constructor 不一致的分支，为 constructive branch 建立 case_branch_E/if_branch_E（fresh atom、upd environment、Vp_protect_transfer 封装）；先修 env_lc_upd 需要 locally_closed 而非 value（改用 value_lc），再把 substitution equalities 改为 folded upd 以匹配 IH，helpers 于 step 401 编译通过。step 403 写入完整 T_Case/T_Protect/T_Sub/T_If 并以 Qed 结束，step 405 coqc exit=0，只剩最终 theorem 的 Admitted。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        567,
+        573,
+        579,
+        585,
+        591,
+        594,
+        597,
+        600
+      ],
+      "qualification": "核心困难是把 scrutinee 的 Vp payload relation 与 branch evaluation 连接起来（step 386）；match 无法引用 g1 只是迫使改用显式分支树的触发点，两个 helper 的参数/表示错误也归入同一分支构造工作。"
+    },
+    {
+      "title": "noninterference 的 env_lc g1/g2：simpl; trivial 未展开 locally_closed 导致 focus error",
+      "intervals": [
+        {
+          "after": 408,
+          "through": 438
+        }
+      ],
+      "outcome": "在 fvar 分支改为 unfold locally_closed; simpl; trivial，Hlc1/Hlc2 通过；错误推进到 env_rel true 分支的 Nat.eqb_refl rewrite。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        604,
+        616,
+        619,
+        622,
+        625,
+        637,
+        643,
+        649
+      ],
+      "qualification": "scratch 中 lctest8 的 Qed incomplete 一度被当作 assert 未关闭，实为 assert 后主 goal 还需 Hlc1；lctest4/lctest10 复现并确认是 fvar 分支未化简。"
+    },
+    {
+      "title": "noninterference 的 env_rel true 分支：重复 rewrite Nat.eqb_refl，第二次找不到 self-equality",
+      "intervals": [
+        {
+          "after": 438,
+          "through": 452
+        }
+      ],
+      "outcome": "确认一次 rewrite Nat.eqb_refl 已同时改写 E 两侧 arguments 里的两个 if，改为单次 rewrite；错误推进到 false 分支的 Hy rewrite。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        649,
+        652,
+        664,
+        667,
+        670
+      ],
+      "qualification": "scratch eqbrefl4 显示一次 rewrite 后 goal 直接变成 E ... t1 t2，第二次 rewrite 自然失败。"
+    },
+    {
+      "title": "noninterference 的 env_rel false 分支：Hy 已化为 None = Some U，rewrite E in Hy 失败",
+      "intervals": [
+        {
+          "after": 452,
+          "through": 458
+        }
+      ],
+      "outcome": "打印 Hy 得到 None = Some U 后，改为 simpl in Hy; discriminate Hy 关闭不可能的 lookup 分支；coqc 无输出，step 458 exit=0，最终 theorem 以 Qed 结束。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        670,
+        673,
+        676,
+        679
+      ],
+      "qualification": "line 673 的 Hy : None = Some U 表明 destruct/eqn 已把 lookup 分支化简；clean rebuild、statement/prefix 对照和 Print Assumptions 属 phase 7 的收尾验证。"
+    }
+  ],
+  "trace_sha256": "a9327df7ce60bc9613bdd1bcfd0d2913a964c48f032b8e9335834acfa914ec51",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 6,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a9327df7ce60bc9613bdd1bcfd0d2913a964c48f032b8e9335834acfa914ec51",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r06.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r06_20261027_212216_763023"
+  }
+}

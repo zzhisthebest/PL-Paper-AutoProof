@@ -1,5 +1,6 @@
 """Build an offline proof viewer from saved Claude Code traces. No model calls."""
 import argparse
+import base64
 import difflib
 import gzip
 import json
@@ -7,11 +8,17 @@ import re
 from datetime import datetime
 from pathlib import Path
 from timeline import build_timeline
-from blocks import BLOCKS, classify
+from blocks import BLOCKS, classify, sections
+from functional import DEFINITIONS, infer_labels
+from file_replay import attach_files
+from manual_review import apply_review
+from summaries import attach_summaries
+from problem_times import attach_problem_times, case_overview
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT = ROOT / 'benchmarkResults/feature_inversion_analysis_20_repeats'
 CASE = '001__stlc__strong-normalization__none__hard'
+ARCHIVES = [DEFAULT, ROOT / 'benchmarkResults/representative_cases_20_repeats']
 
 
 def declarations(text):
@@ -134,6 +141,7 @@ def parse_run(trace, final, record):
                         step['kind'] = 'compile' if re.search(r'\b(?:coqc|coqtop|rocq\s+(?:c|compile|top))\b', command) else 'shell'
                         step['label'] = args.get('description') or command.split('\n')[0][:100]
                         step['output'] = result.get('stdout', '') + '\n' + result.get('stderr', '')
+                        step['cwdHint'] = result.get('backgroundCwdHint', '')
                         step['note'] = 'Shell 命令没有文件快照；编译输出可能针对草稿文件。请以原命令为准。'
                     elif name == 'Read':
                         file = result.get('file', {})
@@ -148,6 +156,8 @@ def parse_run(trace, final, record):
                             observed[path] = sid
                         else:
                             step['output'] = file.get('content', step['output'])
+                            if not failed and path.endswith('.v') and isinstance(file.get('content'), str):
+                                step['partial'] = dict(text=file['content'], start=file.get('startLine', 1))
                     elif name == 'Edit' and not failed and path.endswith('.v'):
                         before = result.get('originalFile')
                         old, new = result.get('oldString'), result.get('newString')
@@ -164,6 +174,8 @@ def parse_run(trace, final, record):
                             observed[path] = step['after']
                 if failed:
                     step['label'] += '（工具报错）'
+                if initial is None and path == '/workspace/Task.v' and step['before'] is not None:
+                    initial = step['before']
                 if step['after'] is not None and step['before'] is None and step['previous'] is not None:
                     if step['after'] != step['previous']:
                         step['note'] = '与上次完整快照之间有变化；这段差异不能归因于当前读取操作。'
@@ -187,23 +199,8 @@ def parse_run(trace, final, record):
     timeline = build_timeline(raw, steps)
     timeline.append(dict(kind='archive', label='归档的最终 Task.v', lines=[], start=len(raw)+1,
                          end=len(raw)+1, interleaved=0, step=len(steps)-1, returned=False))
-    latest = None
-    latest_line = None
-    for item in timeline:
-        item['priorSnapshot'] = latest
-        item['gapBefore'] = False
-        step = steps[item['step']] if item['step'] is not None else None
-        if step and step['file'] == '/workspace/Task.v' and step['after'] is not None:
-            item['before'] = step['before'] if step['before'] is not None else latest
-            item['after'] = step['after']
-            item['gap'] = step['before'] is None and latest is not None and latest != step['after']
-            item['exact'] = step['before'] is not None
-            item['gapBefore'] = step['before'] is not None and latest is not None and step['before'] != latest
-            latest, latest_line = step['after'], item['end']
-        else:
-            item.update(before=None, after=None, gap=False, exact=False)
-        item['snapshot'], item['snapshotLine'] = latest, latest_line
-        item['changed'] = item['before'] is not None and item['after'] != item['before']
+    review = apply_review(record, steps, snapshot)
+    attach_files(timeline, steps, snapshots, snapshot, review=review)
     return dict(repeat=record['repeat'], status=record['status'], seconds=record['time_s'],
                 initial=initial, final=final_id, snapshots=snapshots, steps=steps,
                 history=file_history(steps, initial, final_id), originalLines=same_lines,
@@ -212,21 +209,39 @@ def parse_run(trace, final, record):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--results', type=Path, default=DEFAULT)
-    parser.add_argument('--case', default=CASE)
-    parser.add_argument('--output', type=Path, default=DEFAULT / 'proof-viewer-001.html')
+    parser.add_argument('--results', type=Path, help='只导出指定结果目录；默认包含两个重复实验目录')
+    parser.add_argument('--case', help='只导出指定题目；默认导出所有六题')
+    parser.add_argument('--output', type=Path, default=DEFAULT / 'proof-viewer.html')
     args = parser.parse_args()
-    records = json.loads((args.results / 'results.json').read_text())
-    runs = []
-    for record in sorted(records, key=lambda r: r['repeat']):
-        if record['case'] != args.case:
-            continue
-        runs.append(parse_run(args.results / record['trace'], args.results / record['proof'], record))
-        if args.case == CASE:
-            runs[-1]['blocks'] = classify(runs[-1])
-        print(f"r{record['repeat']:02}: {len(runs[-1]['steps'])} steps, {len(runs[-1]['snapshots'])} observed snapshots")
-    assert runs
-    data = json.dumps(dict(case=args.case, runs=runs, blockLabels=BLOCKS), ensure_ascii=False, separators=(',', ':'))
+    cases = []
+    for archive in ([args.results] if args.results else ARCHIVES):
+        records = json.loads((archive / 'results.json').read_text())
+        for case in sorted({r['case'] for r in records}):
+            if args.case and case != args.case:
+                continue
+            runs = []
+            for record in sorted(records, key=lambda r: r['repeat']):
+                if record['case'] != case:
+                    continue
+                run = parse_run(archive / record['trace'], archive / record['proof'], record)
+                attach_summaries(run, case)
+                attach_problem_times(run, case)
+                labels = {}
+                if case == CASE:
+                    labels = None
+                elif case[:3] in DEFINITIONS:
+                    labels = infer_labels(sections(run['snapshots'][run['final']]), case[:3])
+                run['blocks'] = classify(run, labels=labels, alpha=True)
+                runs.append(run)
+                print(f"{case[:3]} r{record['repeat']:02}: {len(run['steps'])} steps, {len(run['snapshots'])} snapshots", flush=True)
+            payload = json.dumps(dict(case=case, runs=runs, blockLabels=BLOCKS, problemOverview=case_overview(runs),
+                                      classified=case == CASE or case[:3] in DEFINITIONS, alpha=True),
+                                 ensure_ascii=False, separators=(',', ':')).encode()
+            # Keep one portable file without inflating all 120 traces at startup.
+            packed = base64.b64encode(gzip.compress(payload, mtime=0)).decode('ascii')
+            cases.append(dict(case=case, count=len(runs), data=packed))
+    assert cases, 'No matching cases'
+    data = json.dumps(cases, ensure_ascii=False, separators=(',', ':'))
     data = data.replace('<', '\\u003c').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = Path(__file__).with_name('viewer.html').read_text()
     args.output.parent.mkdir(parents=True, exist_ok=True)

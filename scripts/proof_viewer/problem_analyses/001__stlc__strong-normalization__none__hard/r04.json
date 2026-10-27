@@ -1,0 +1,365 @@
+{
+  "summary": "时间主要去向是步骤 6 约 352 s 的初始 LR 设计长思考（反复推翻 value-reachability、弱 arrow 等定义，设计与自我纠错混合、无法分时，整段保留在 phases）以及首版 Task.v 写入后约 203 s、由十余个报错驱动的编译调试；此前约 136 s 用于 scratch 行为测试、proof 草稿规划与写入。所有报错均在本次运行内修复，目标 normalization 于 692.8 s 编译通过；随后约 72 s 完成 assumptions 检查、clean rebuild、sanity example 与 /tmp/verify 独立目录复核，未留下未解决困难。",
+  "phases": [
+    {
+      "title": "阅读 Task.v 与 CBV strong-normalization 的 LR 设计推演（单步长思考约 352 s，含大量自我纠错）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "Rocq induction scheme / step inversion 行为测试与完整 proof 草稿规划（scratch test1、test2 均正常通过）",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 12
+        }
+      ]
+    },
+    {
+      "title": "首次实现：备份 Task.v 并一次性写入完整 proof development（subst/fvars/fresh、lrel、helper lemmas、fundamental）",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "编译修正 helper lemmas：fresh_atom 陈述、IH 命名、in_app_iff、value_lc、sn_step，直至 lrel_app 的 revert 报错",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 52
+        }
+      ]
+    },
+    {
+      "title": "lrel_app 的 `revert Ht Hu u` 报错排查（含 test4/test5 多个 scratch 最小复现）",
+      "intervals": [
+        {
+          "after": 52,
+          "through": 66
+        }
+      ]
+    },
+    {
+      "title": "以 step_app_inv 重构 application helper lemmas，并修正 fundamental 的命名/rewrite/bullet 问题直至 coqc 成功",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 107
+        }
+      ]
+    },
+    {
+      "title": "目标证明完成后的验证：escape-hatch grep、Print Assumptions、与 Task.v.orig 的 diff、clean rebuild",
+      "intervals": [
+        {
+          "after": 107,
+          "through": 121
+        }
+      ]
+    },
+    {
+      "title": "sanity example（具体 closed term idapp 的 typing/SN/reduction）调试",
+      "intervals": [
+        {
+          "after": 121,
+          "through": 127
+        }
+      ]
+    },
+    {
+      "title": "最终审阅、/tmp/verify 独立目录重编译复核与汇报",
+      "intervals": [
+        {
+          "after": 127,
+          "through": 137
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "fresh_atom 的陈述 `forall l, exists x, ~ In x l` 缺类型标注，报 \"Cannot infer the implicit parameter A of In\"",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 22
+        }
+      ],
+      "outcome": "把陈述改为 `forall (l : list nat), exists x : nat, ~ In x l`，编译推进到下一个错误（lc_at_open_rec）。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        25,
+        30
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_at_open_rec 的 tm_abs case 引用 `IHt0` 失败（induction t 自动生成的 induction hypothesis 名不存在）",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 28
+        }
+      ],
+      "outcome": "改为显式 patterns `induction t as [n | a | t1 IH1 t2 IH2 | T1 t1 IH1 | | ]`，application/abstraction case 改用 IH1/IH2；step 34 的编译已越过该声明。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        34,
+        39
+      ],
+      "qualification": "subst_open_rec 在 step 32 也做了同类显式命名，但那属于预防性改动，不是本区间内的失败。"
+    },
+    {
+      "title": "subst_open_rec 的 tm_app case：对 negated hypothesis `~ In x (fvars t1 ++ fvars t2)` 直接 `apply in_app_iff in Hfresh` 失败",
+      "intervals": [
+        {
+          "after": 34,
+          "through": 40
+        }
+      ],
+      "outcome": "先尝试 `simpl in Hfresh`（step 36）仍在同一处失败；最终改为两个 assert，用 `apply Hfresh; apply in_app_iff; left/right` 分别反推 `~ In x (fvars t1)` 与 `~ In x (fvars t2)`，再调用 IH1/IH2。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        49,
+        55,
+        57
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_lc 的 `induction Hv; simpl; auto using lc_true, lc_false` 留下未完成 goals，Qed 报 \"Attempt to save an incomplete proof\"",
+      "intervals": [
+        {
+          "after": 42,
+          "through": 46
+        }
+      ],
+      "outcome": "在 scratch 文件 test3.v 中确认 `destruct Hv as [T t Hlc | | ]` 可行，改为显式三分支：abstraction 直接返回 Hlc，true/false 用 lc_true/lc_false。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        61,
+        64,
+        66
+      ],
+      "qualification": "助手在 step 45 明确放弃追查原 auto 版本的失败原因，因此根因未完全确定。"
+    },
+    {
+      "title": "sn_step 中 `destruct Hsn as [Hred]` 把 SN_intro 的 term 参数绑成 Hred，报 \"Hred of type tm cannot be applied to t'\"",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 50
+        }
+      ],
+      "outcome": "改为 `destruct Hsn as [x Hred]`，使 Hred 正确指向所有一步 reducts 的 strongly_normalizing premise。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        70,
+        72
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lrel_app 进入外层 SN induction 前，组合命令 `revert Ht Hu u` 报 \"u is used in conclusion\"",
+      "intervals": [
+        {
+          "after": 52,
+          "through": 64
+        }
+      ],
+      "outcome": "用 test4/test5 最小复现确认 `revert Ht Hu u` 失败、而分开 revert 可行；改为 `revert Ht. revert Hu. revert u.`（内层同样拆开）后成功进入 `induction Hsn` / `induction Hsnu`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        76,
+        85,
+        91,
+        93
+      ],
+      "qualification": "test4 首次尝试因 lrel 被声明为 Parameter 而报 \"Not an inductive definition\"（step 56），属测试搭建问题，已并入同一调查、不另计。"
+    },
+    {
+      "title": "lrel_app 的 ST_AppAbs case 在 `inversion ...; subst` 后引用 constructor pattern 名 w 失败（variable w not found）",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 79
+        }
+      ],
+      "outcome": "新增 `step_app_inv` inversion lemma（显式给出 beta / function-step / argument-step 三种 reduct shape 及所需 value、locally_closed premises），并用它重写 lrel_intro_nonvalue / lrel_app / lrel_app_abs 三个 LR helper proofs，以 `rewrite Hr` / `subst t` / `injection` 显式对齐 reduct；step 79 的编译已越过全部 lrel_* 声明（报错位置推进到 fundamental）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        97,
+        103,
+        116
+      ],
+      "qualification": "区间含 step 67 约 36 s 的 step_app_inv 设计思考与三次 proof 重写，无法再按声明细分。"
+    },
+    {
+      "title": "fundamental 的 T_Abs case：freshness 子证明里的 `intro H` 与已存在的 typing premise H 冲突（\"H is already used\"）",
+      "intervals": [
+        {
+          "after": 79,
+          "through": 83
+        }
+      ],
+      "outcome": "把两处 `intro H` 改为 `intro Hin`，编译推进到 IHHty 缺失。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        116,
+        121
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case：自动生成的 induction hypothesis `IHHty` 不存在；改用显式 has_type induction patterns 后引发 IHHty1/2→IH1/2、Gamma→Gamma0 的连锁改名",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 93
+        }
+      ],
+      "outcome": "改为 `induction Hty as [Gamma0 x0 T0 Heq | L Gamma0 T1 T2 t1 Hprem IHAbs | Gamma0 t1 t2 T1 T2 H1 IH1 H2 IH2 | Gamma0 | Gamma0]`，并用脚本同步替换证明体旧名（含 env_rel_update 的 Gamma→Gamma0）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        127,
+        133,
+        136
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case：`rewrite (subst_open_rec ...) in Hres` 找不到 `open_rec 0 (fvar x) t1`（Hres 中为 `open t1 (fvar x)`），open 与 open_rec 不能直接匹配",
+      "intervals": [
+        {
+          "after": 93,
+          "through": 95
+        }
+      ],
+      "outcome": "先 assert 以 `open` 表述的等式 Hrw（用 `apply (subst_open_rec ...)` 靠转换证明），再 `rewrite Hrw in Hres`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        137,
+        139
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs case：`apply lrel_app_abs` 后漏掉第二个 premise `lrel T1 w`，bullet 报 \"Current bullet + is not finished\"",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 101
+        }
+      ],
+      "outcome": "把 opened body 条件与 `lrel T1 w` 分成两个 bullet，新增 `exact Hw` 收尾。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        143,
+        148
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "normalization 末步 `apply lrel_sn` 无法从 goal `strongly_normalizing t` 推断类型 index T，报 \"Unable to find an instance for the variable T\"",
+      "intervals": [
+        {
+          "after": 103,
+          "through": 107
+        }
+      ],
+      "outcome": "改为 `apply (lrel_sn T)`；step 107 的 coqc 无任何输出，Task.v 编译成功。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        152,
+        157,
+        158
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "验证脚本 check.v 的 Require Import logical path 写法错误（绝对路径 `Require Import /workspace/Task` 与 `From Task Require Import Task` 均失败）",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 116
+        }
+      ],
+      "outcome": "配合 `coqc -R /workspace \"\"` 改用 `Require Import Task.`，随后 Print Assumptions normalization/fundamental 均返回 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        165,
+        168,
+        171
+      ],
+      "qualification": "只影响 assumptions 检查脚本，不影响 Task.v 本身。"
+    },
+    {
+      "title": "sanity example（/tmp/scratch/sanity.v，非目标文件）对 `~ In x nil` 使用 `destruct Hx`，typing judgment 无法与 False goal 统一",
+      "intervals": [
+        {
+          "after": 123,
+          "through": 125
+        }
+      ],
+      "outcome": "删除该 destruct；T_Abs 分支直接用 T_Var 加 `update ... x Bool x = Some Bool` 证明打开后的 identity body；step 125 重跑后 typing proof 通过，编译推进到 reduction example 的 lia 报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        181,
+        183
+      ],
+      "qualification": "目标定理在 step 107（692.8 s）已 coqc 成功，此区间只是成功后的 sanity check，不计入目标证明耗时。"
+    },
+    {
+      "title": "sanity example 文件未 import Lia，`lia` tactic not found",
+      "intervals": [
+        {
+          "after": 125,
+          "through": 127
+        }
+      ],
+      "outcome": "在 sanity.v 中补 `From Stdlib Require Import Lia.`；全部 examples 通过，Print Assumptions idapp_sn 返回 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        184,
+        186,
+        187
+      ],
+      "qualification": "同上一项，属目标证明完成后的 sanity check。"
+    }
+  ],
+  "trace_sha256": "ac472554ee33412f0738394598d3ac74994df46e6b8fd2f7cac3f7ad84c10036",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 4,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "ac472554ee33412f0738394598d3ac74994df46e6b8fd2f7cac3f7ad84c10036",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r04.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r04_20261027_211736_968773"
+  }
+}

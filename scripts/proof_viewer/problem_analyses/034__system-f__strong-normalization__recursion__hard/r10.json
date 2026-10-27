@@ -1,0 +1,280 @@
+{
+  "summary": "3601 s 的运行里约 77%（0.8–2772 s）是四段长 thinking（其间 step 7/9/11 三次 output token limit 中断），围绕 CBV 下 LR 的 value/term 关系、`natrec` 与 System F `All` 的解释；step 14 再以 393 s 回应 guard checker 对 `All` 分支任意 `U` 递归调用的拒绝，转向 type erasure。实现直到 3191.7 s 才首次编辑 `Task.v`：erased syntax/erasure/`estep`/`eSN` transfer 在 step 67 编译通过，free-variable/occurrence/`fta` helper 在 step 120 编译通过。之后新增的 `wf_ty` weakening 与 type-substitution helper 首次编译即停在 `wf_ty_weaken` 的 `apply WF_All` 缺 `L`（step 133 只查看报错区域，trace 在 3598.1 s 结束），`normalization` 仍为 `admit`/`Admitted`，LR 的 `interp` 与 fundamental theorem 未写出。",
+  "phases": [
+    {
+      "title": "读取 Task.v 并确认 Rocq 9.1.0 环境",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计探索：LR 总体方案、`natrec` 与 System F `All` 的四次长 thinking（三次 output token limit 中断）",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 12
+        }
+      ]
+    },
+    {
+      "title": "probe 检验 `interp` 可接受性并转向 type erasure 方案（含 392 s thinking）",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "Part 1：erased syntax、erasure、erased step 与 SN transfer 的编写、probe 和调试（编译通过）",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 67
+        }
+      ]
+    },
+    {
+      "title": "Part 2a：free variable / freshness / occurrence helper 与 `fta` 引理的编写和调试（含 102 s 的 local-closure 方案修正；编译通过）",
+      "intervals": [
+        {
+          "after": 67,
+          "through": 120
+        }
+      ]
+    },
+    {
+      "title": "Part 2b：`wf_ty` weakening、`lc_ty_at`、type substitution 与 `typing_wf` 的编写和首次编译（停在 `WF_All` 缺 `L`）",
+      "intervals": [
+        {
+          "after": 120,
+          "through": 133
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`interp` 的 `Ty_All` 分支对任意 `U` 递归调用，被 Coq guard checker 拒绝（probe A.v）",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 14
+        }
+      ],
+      "outcome": "probe A.v 复现 `Recursive call to interp has principal argument equal to \"U\" instead of \"T1\"`，确认直接在 `Ty_All` 中对任意类型 `U` 递归解释的 candidate-environment 版本被拒；模型放弃该定义，改走不携带 type annotation、`etapp` 不带 type argument 的 type erasure，并在 Part 1 实现 erased syntax、`estep`、`eSN` 与 SN transfer 后编译通过（line 96）。但新的 erased-term LR `interp` 与 fundamental theorem 在 trace 结束前未写出、未编译，因此这只是方案层面的绕行。",
+      "resolution": "abandoned",
+      "category": "lr",
+      "evidence_lines": [
+        15,
+        16,
+        17,
+        96
+      ],
+      "qualification": "393 s 的 thinking 同时是对 guard 拒绝的反应和 erased-syntax 方案设计，无法再拆时；已编译验证的只是 erasure 基础设施。"
+    },
+    {
+      "title": "`eopen_rec` 的 `et_tabs` 分支多加 `S k`，与 `open_tm_rec` 的 `tm_tabs` 分支不符，报 `Unable to unify \"S k\" with \"k\"`",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 47
+        }
+      ],
+      "outcome": "`erase_open_tm_rec` 首次编译即失败；C.v/D.v 两个 probe 因为复制了同样的 `S k` 假设而编译通过、未能复现。用 T3.v 打印 goal 得到 `et_tabs (erase (open_tm_rec k u t)) = et_tabs (eopen_rec (S k) ...)`，再用 `sed` 核对 `Task.v` 原 `open_tm_rec`，确认 `tm_tabs` 分支保持 `k`；把 `eopen_rec` 的 `et_tabs` 改为 `eopen_rec k` 后，step 49 的编译越过该引理（转为 bullet 错误）。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        26,
+        35,
+        38,
+        59,
+        62,
+        66,
+        69
+      ],
+      "qualification": "最初误读了 `open_tm_rec` 的 `tm_tabs` 分支，两个自带 probe 复制了错误假设；最终靠 goal 打印与原定义核对定位。step 49 的编译只作验证，不计入区间。"
+    },
+    {
+      "title": "`erase_ty_subst` 等 erasure helper 的 `auto` 提前关闭全部目标，固定 bullets 报 `Wrong bullet -: No more goals`",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 53
+        }
+      ],
+      "outcome": "查看报错区域确认 `induction t; simpl; auto; try (f_equal; auto)` 已解决所有 goal，后续显式 bullets 多余；把 `erase_open_tm_ty_rec`、`erase_ty_subst` 等 proof script 改为 `all:` + try 组合，step 53 的编译越过 bullet 错误，转为 `erase_tm_subst` 的 incomplete proof。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        69,
+        72,
+        75
+      ],
+      "qualification": "修复只改变 proof script 结构，不涉及定理陈述。"
+    },
+    {
+      "title": "`erase_tm_subst` 的 `Nat.eqb` 参数顺序与 `tm_subst` 相反，修正后 fvar case 的 destruct 变量名仍被 `try` 吞掉",
+      "intervals": [
+        {
+          "after": 53,
+          "through": 63
+        }
+      ],
+      "outcome": "打印剩余 goal 发现原 `tm_subst` 用 `x =? a` 而 helper 陈述用 `a =? x`；把陈述改成 `Nat.eqb x y` 后 lemma 仍不闭合。step 61 打印确认两侧已同为 `x =? a`，step 62 判断 `destruct (Nat.eqb x n)` 写死了变量名 `n`（fvar 实际名为 `a`）并被 `try` 吞掉，改用 `match goal` 匹配 `Nat.eqb ?a ?b`；step 63 编译越过 `erase_tm_subst`，转为 `eSN_erase_SN` 错误。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        75,
+        81,
+        84,
+        87,
+        90
+      ],
+      "qualification": "该项混合陈述错误与一处 tactic 变量名错误；陈述修正是最实质的改动，故归为 statement。"
+    },
+    {
+      "title": "`eSN_erase_SN` 在 `remember ... as e` 后用反方向的 `rewrite <- He`，报 `Found no subterm matching \"erase t\"`",
+      "intervals": [
+        {
+          "after": 63,
+          "through": 67
+        }
+      ],
+      "outcome": "查看代码确认 goal 为 `estep e (erase u)`，而 `He : e = erase t` 应正向改写；把 `rewrite <- He` 改为 `rewrite He` 后，step 67 的 `coqc Task.v` 无输出，Part 1 编译通过（`normalization` 仍为 `Admitted`）。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        90,
+        93,
+        94,
+        96
+      ],
+      "qualification": "修复由 step 67 的整体编译验证。"
+    },
+    {
+      "title": "occurrence 引理中 `tauto` 未关闭 fvar 的 equality-symmetry goal，bullets 错位后报 `IHt1`/`IH1` 不存在",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 88
+        }
+      ],
+      "outcome": "首次编译报 `IHt1` not found；模型先怀疑 IH 自动命名，给 `tm_occ_fv`/`eocc_fv` 加显式 induction patterns，又因 `Ih1`/`IH1` 大小写与参数顺序多次失败。step 82 打印出首个剩余 goal 是 fvar 的 `x = y <-> y = x \\/ False`，才确认是 `tauto` 未关闭它、后续 bullets 命中了错误分支；改用 `all:` + `try (intuition (subst; auto); fail)` 的 solve-or-skip 组合（一次批量替换因 `AssertionError` 未写回，改用 regex 重做）后，step 88 的编译只剩 app/natrec 两个 goal。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        103,
+        106,
+        109,
+        112,
+        115,
+        118,
+        119,
+        121,
+        124,
+        127
+      ],
+      "qualification": "step 88 的 incomplete proof 已属于下一个 `In_app_iff` 障碍，不在本条的修复范围内。"
+    },
+    {
+      "title": "occurrence 的 app/natrec 目标依赖的 `In_app_iff` 名称不存在（Stdlib 实为 `in_app_iff`），错误被 `try` 吞掉",
+      "intervals": [
+        {
+          "after": 88,
+          "through": 106
+        }
+      ],
+      "outcome": "step 88 后仍剩 app/natrec 两个 goal；`repeat rewrite In_app_iff` 在 `try` 内没有任何效果，显式使用时 step 92 报 `Not an inductive definition`，step 100 打印显示 rewrite 前后 goal 未变。独立 probe E.v 报 `The variable In_app_iff was not found`，`Search` 找到实际名称 `in_app_iff`；step 106 全局改名后编译越过 `tm_occ_fv`/`eocc_fv`，转为 `erase_occ` 的多余 bullet 错误。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        127,
+        130,
+        133,
+        136,
+        139,
+        142,
+        145,
+        148,
+        151,
+        154
+      ],
+      "qualification": "这是 lemma 名称大小写问题，`try` 掩盖了失败；改名后 `all:` + `repeat rewrite in_app_iff; firstorder congruence` 通过。"
+    },
+    {
+      "title": "`erase_occ` 等 helper 的 `auto`/`tauto` 提前关闭目标，遗留固定 bullets 报 `No more goals`",
+      "intervals": [
+        {
+          "after": 106,
+          "through": 110
+        }
+      ],
+      "outcome": "step 106 的编译在 `erase_occ` 报多余 bullet；查看确认 `induction t; simpl; auto; try tauto` 已解决全部 goal。把 `erase_fv`、`erase_occ`、`open_tm_occ`、`open_tm_ty_occ` 重写为 `all:` + `repeat rewrite in_app_iff; firstorder congruence`（`open_tm_occ` 另用 `match goal` 处理 `Nat.eqb`），step 110 的编译越过这批 helper，进入 `fta_open_ty_rec` 的 `tauto failed`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        154,
+        157,
+        158,
+        160
+      ],
+      "qualification": "修复只调整 proof script 的 automation 与 bullet 结构。"
+    },
+    {
+      "title": "`fta_open_ty_rec`/`fta_open_ty` 的双向等价过强：opening 未命中 bound variable 时 `fta U` 的原子不出现",
+      "intervals": [
+        {
+          "after": 110,
+          "through": 120
+        }
+      ],
+      "outcome": "`fta_open_ty_rec` 的 `Ty_BVar` false branch 需要证 `False <-> False \\/ In X (fta U)`；probe G.v 中 `A <-> False \\/ A` 可证而 `False <-> False \\/ A` 的 `tauto` 失败，step 114 又显示 true branch 是 `In X (fta U) <-> False \\/ In X (fta U)`，step 117 进一步指出 false branch 在 `In X (fta U)` 成立时确实为假。模型据此把引理改成单向 `In X (fta T) -> In X (fta (open_ty_rec k U T))`；修正 free-variable case 误用不存在的 `n` 后，step 120 的 `coqc Task.v` 无输出。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        160,
+        163,
+        166,
+        169,
+        172,
+        175
+      ],
+      "qualification": "这是陈述过强，不是 tactic 能力问题；模型判断该单向性质足以支持计划中的 `wf_ty_fta`，但后者所在批次未通过编译，未单独验证。"
+    },
+    {
+      "title": "`wf_ty_weaken` 的 `apply WF_All` 未提供 `L`，报 `Unable to find an instance for the variable L`；trace 结束前未修复",
+      "intervals": [
+        {
+          "after": 131,
+          "through": 133
+        }
+      ],
+      "outcome": "step 129 写入的 `wf_ty_weaken` 等 helper 在 step 131 首次统一编译时先在第 727 行 `apply WF_All` 处失败（`L` 无法推断），后面的 helper 与 `typing_wf` 均未得到验证。step 133 只查看了 715–745 行的报错区域，trace 在 3598.1 s 结束（run_seconds=3601），错误未修复；`normalization` 仍为 `admit`/`Admitted`。",
+      "resolution": "unresolved",
+      "category": "tactic",
+      "evidence_lines": [
+        190,
+        191,
+        192,
+        194
+      ],
+      "qualification": "这是 trace 结束前的最后一条编译错误，但没有证据表明它是整次运行未完成的主因；LR 与 fundamental theorem 尚未实现。"
+    }
+  ],
+  "trace_sha256": "d4e834555a10592e0d5051207dc19d2158f6dc26c92403348a2bbb9387bcdae4",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 10,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "d4e834555a10592e0d5051207dc19d2158f6dc26c92403348a2bbb9387bcdae4",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r10.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r10_20261027_211753_208902"
+  }
+}

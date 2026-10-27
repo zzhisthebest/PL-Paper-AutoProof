@@ -1,0 +1,182 @@
+{
+  "summary": "本次 3601 s 的运行中，约 1994 s 花在阅读 Task 后的 LR/erasure 方案推演（含 direct inductive R 被 strict positivity 拒绝后的整体重定），随后约 1050 s 逐块实现和调试 erase/opening/local-closure、wf 类型替换、has_type_wf/lc 等 helper，最后约 510 s 用于设计 candidate-based R 并加入 candidate/projection 基础设施，最终因 coqc 挂起而被 timeout 截断。最终 normalization 仍是空证明，fundamental theorem 尚未实现；主要时间去向是证明架构设计与下层 helper 的反复泛化/重写，而不是单个已定位的最终错误。",
+  "phases": [
+    {
+      "title": "阅读 Task 并推演 LR/erasure 总体方案（含 strict positivity 试验后的方案重定）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "实现并调试基础 helpers（fvars/freshness、erase/E、numeric/value、lc monotonicity）",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 40
+        }
+      ]
+    },
+    {
+      "title": "实现并调试 chunk B（opening/substitution、local closure、erasure simulation）",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 173
+        }
+      ]
+    },
+    {
+      "title": "实现并调试 wf_ty 与 simultaneous type substitution 层",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 275
+        }
+      ]
+    },
+    {
+      "title": "实现 has_type_wf 与 has_type_lc",
+      "intervals": [
+        {
+          "after": 275,
+          "through": 286
+        }
+      ]
+    },
+    {
+      "title": "定义 candidate-based R 与 candidate infrastructure，最终 coqc 挂起",
+      "intervals": [
+        {
+          "after": 286,
+          "through": 338
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "scratch `Inductive R` 的 `R_Arrow` 子句因 `R T1 u` 出现在取反位置被 strict positivity 拒绝",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 17
+        }
+      ],
+      "outcome": "Rocq 报 `Non strictly positive occurrence of R`；放弃 direct inductive LR，改为按 type structural recursion 的 Fixpoint `R`，并用 `Cand`/candidate environment 解释类型变量。该 Fixpoint 在 step 293 的编译中（仅剩空的 normalization）被确认可接受。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        20,
+        21,
+        433
+      ],
+      "qualification": "direct inductive encoding 被放弃；本 interval 只覆盖错误后的方案重定，不含后续实现。该错误出现在 scratch 试验，不是最终 Task.v 中的声明。"
+    },
+    {
+      "title": "`erase_open_tm_ty_rec`、`erase_open_tm_rec`、`lc_ty_open_any`、`lc_open_tm_ty_drop`、`lc_tm_open_inv` 的 binder-depth 泛化与 opening 恒等式",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 127
+        }
+      ],
+      "outcome": "`open_tm_ty_rec` 只在 `tm_tabs` 下增加 type-opening depth，而在 `tm_abs` 下不增加；多处 induction hypothesis 固定了旧 depth，且 opened 结果的 lc depth 需要比原类型/term 低一级（从 `S j` 降到 `j`），原来的 inverse 形式不足以直接使用。最终引入 `lc_ty_open_drop`、`lc_ty_open_inv_j`、`lc_open_tm_ty_drop`/`inv`，并在 induction 前泛化 erase/subst 的 opening 层级；step 127 的编译已推进到 `lc_step`，说明这批 opening helper 通过检查。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        97,
+        100,
+        165,
+        186
+      ],
+      "qualification": "该区间还混有 natrec `f_equal`、`Nat.eqb` 语法、`lc_step` inversion pattern 名称冲突等多处小修，无法把耗时进一步细分到单个 lemma。"
+    },
+    {
+      "title": "`E_step`、`step_erase`、`SN_erase` 的 erasure simulation 与 11 个 step rules 的 case/injection 证明",
+      "intervals": [
+        {
+          "after": 128,
+          "through": 173
+        }
+      ],
+      "outcome": "反复出现 `injection` 名称/方向错误、`erase (open_tm ...)`/`erase (open_tm_ty ...)` 无法 rewrite、`SN_erase` 的 remember equality 方向错误等；补上 `E_app_inv`、`E_abs_inv`、`E_tapp_inv`、`E_natrec_inv` 并重写 simulation 后通过，编译只剩空的 `normalization`。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        189,
+        255
+      ],
+      "qualification": "最后一条 evidence 是 chunk B 通过、仅剩空定理的记录；区间开头还包含 `lc_step` 的 constructor/inversion 重写，区间内的具体子错误很多，未逐一分配时间。"
+    },
+    {
+      "title": "`wf_ty_subst_var`/`wf_ty_open`：单变量 head-context 形式在 All binder 下不可用，改用 `ty_subst_env` 与 `wf_ty_subst_env`",
+      "intervals": [
+        {
+          "after": 228,
+          "through": 275
+        }
+      ],
+      "outcome": "进入 All binder 后 context 从 `D = X :: Delta` 变成 `Z :: X :: Delta`，原先的 `wf_ty_subst_var` induction hypothesis 需要 `Z :: X :: Delta = X :: Z :: Delta` 而无法应用。最终改为 simultaneous type substitution `ty_subst_env`，证明 `wf_ty_subst_env`、`ty_subst_env_open_rec` 并重写 `wf_ty_open`，chunk C 编译通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        337,
+        339,
+        340,
+        407
+      ],
+      "qualification": "该区间还包含 `ty_subst_env` 的 lc/ext/opening commutation 等若干 helper 调试；step 228 的 `Z :: X :: Delta = X :: Z :: Delta` context equality 是 head-context 形式不可用的直接暴露点。"
+    },
+    {
+      "title": "candidate infrastructure `good_cand`/`nth_cand`/`top_cand`：False 默认候选不满足 non-value expansion，且 `nth_cand` 重复定义/顺序错误",
+      "intervals": [
+        {
+          "after": 293,
+          "through": 301
+        }
+      ],
+      "outcome": "发现 `fun _ => False` 不可能满足 `good_cand` 的 non-value expansion 子句，改用同时满足 SN、local closure 与 E 的 `top_cand` 作为 `nth_cand` 默认；插入时又因旧 `nth_cand` 定义未删而报 `already exists`，删除旧定义后 `R` 又引用了尚未声明的新 `nth_cand`。源码中已把 `top_cand`/`nth_cand` 移到 `R` 之前，但后续没有再得到成功编译，无法确认这批 candidate lemmas 全部通过。",
+      "resolution": "uncertain",
+      "category": "lr",
+      "evidence_lines": [
+        434,
+        437,
+        443
+      ],
+      "qualification": "修复只体现在 final.v 文本中；重复定义与 `nth_cand` 未声明的错误在文本上已通过删除旧定义、移动声明顺序处理，但移序后的整份编译随即挂起，未验证 `top_cand_good`、`R_sn`、`R_lc` 等。"
+    },
+    {
+      "title": "加入 candidate-based R 的 projection/candidate 基础设施（`top_cand_good`、`R_nat_destruct`/`R_arrow_destruct`/`R_all_destruct`、`R_sn`/`R_lc`/`R_E`）后 Task.v 编译挂起",
+      "intervals": [
+        {
+          "after": 301,
+          "through": 338
+        }
+      ],
+      "outcome": "移动 `top_cand`/`nth_cand` 后，`coqc Task.v` 超过 120 s 前台限制，`timeout 300` 也没有输出；多次后台重编译（包括一次 `coqc -time`）均在等待中失败/超时，trace 以 30 s heartbeat 结束。final.v 中 `normalization` 仍是空证明（line 1631），fundamental theorem 未开始，无法确认 candidate/LR 块是否 typecheck。",
+      "resolution": "unresolved",
+      "category": "uncertain",
+      "evidence_lines": [
+        453,
+        468,
+        484
+      ],
+      "qualification": "没有获得单个 declaration 的 timing，无法判定挂起来自 `cbn [R]`、某个 `R_*` projection、还是整体编译负载；这是本次运行超时的直接表现，但不能据此断言整份证明失败原因。"
+    }
+  ],
+  "trace_sha256": "76a4dd4a1fda7f0547958d526970d2d554fef5f9ba4a82ceee58ffd63c200082",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 15,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "76a4dd4a1fda7f0547958d526970d2d554fef5f9ba4a82ceee58ffd63c200082",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r15.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r15_20261027_211820_793515"
+  }
+}

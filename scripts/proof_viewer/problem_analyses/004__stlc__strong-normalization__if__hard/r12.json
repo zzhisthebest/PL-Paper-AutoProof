@@ -1,0 +1,164 @@
+{
+  "summary": "运行的大部分时间花在反复设计 R 的 arrow 条件、neutral expansion 与 locally nameless 的 semantic environment 上（单步思考约 483 秒）。之后逐次编译修复 subst_tm_open_rec 的 opening-invariance 前提、subst_tm_upd_agree 的 freshness 结合方式、SN induction 的 hypothesis 使用和 R_abs 的 subst 清理等阻塞。最终 normalization 编译成功，clean rebuild 与 assumptions 检查均通过。",
+  "phases": [
+    {
+      "title": "读取任务、语言定义与运行环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "反复设计 R、neutral expansion 与 fundamental 的证明路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "检查 library lemma 并写入完整 helper development 与 normalization",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 12
+        }
+      ]
+    },
+    {
+      "title": "逐次编译调试 substitution、local closure 与 LR proofs",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 94
+        }
+      ]
+    },
+    {
+      "title": "核对目标 statement、assumptions、原始定义并完成 clean rebuild",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 105
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "subst_tm_open_rec：无条件 commutation statement 缺少 substitution images 的 opening-invariance 前提",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 31
+        },
+        {
+          "after": 50,
+          "through": 52
+        }
+      ],
+      "outcome": "fvar case 暴露原 statement 不成立：右侧 opening 会进入 sigma x，左侧不会。修订为显式要求所有 images 对 open_rec 不变，新增 lc_open_rec_id，并在 fundamental 的 T_Abs case 从 R_env 和 related argument 的 local closure 建立该条件。期间修正了向 IH 多传 Himg 的 Illegal application；后来返回 lc_open_rec_id，先用 lc_app_inv 拆出 subterm 的 closure，再应用 IH。最终完整 development 通过编译。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        29,
+        31,
+        37,
+        41,
+        43,
+        72,
+        73,
+        74,
+        137
+      ],
+      "qualification": "lc_open_rec_id 的实现修复归入同一 commutation 修订，不另计子问题；两个区间之间的 freshness 等声明调试已排除。最终 premise 是 opening-invariance，local closure 只是用来证明它的充分条件。"
+    },
+    {
+      "title": "subst_tm_upd_agree：conditional case 按错误的 ++ association 拆解 freshness",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 42
+        }
+      ],
+      "outcome": "最初尝试 simpl in * 后仍失败，新的 proof state 明确显示 Hfresh 为 fv t1 ++ (fv t2 ++ fv t3)，与证明要求的 (fv t1 ++ fv t2) ++ fv t3 不对应。随后按 right association 先取得 H23，再分出三个 subterm 的 freshness，应用各自 IH；下一次编译已推进到 lc_at_mono。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        48,
+        52,
+        56,
+        57,
+        59,
+        63
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "SN_step 与 R_neutral：混淆 SN_intro 的 term argument、SN premise 和真正的 induction hypothesis",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 62
+        },
+        {
+          "after": 70,
+          "through": 80
+        }
+      ],
+      "outcome": "SN_step 中 destruct [Hprem] 实际把 term argument 命名为 Hprem、递归 premise 被自动改名为 H，apply Hprem 因类型不符失败，改成 [t0 Hprem] 后修复。随后 R_neutral 的 argument reduction case 又误用只能返回 SN 的 Hprem；两个 /tmp 测试确认 induction 同时留下原 SN premise 和 motive 对应的 IH，改用三名称 pattern 显式取得 IH_u，并在同一批编辑中更新 R_abs、R_if 的对应写法。编译随后越过 R_neutral，最终三个 LR lemmas 均通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        88,
+        89,
+        103,
+        106,
+        109,
+        110,
+        115,
+        116,
+        137
+      ],
+      "qualification": "SN_step 的 destruct pattern 与 R_neutral 的 apply Hprem 是同一底层误用的两次暴露，故合并为一条；R_abs、R_if 的 induction pattern 与 apply 只是同批顺带改写，并未报同类错误，R_abs 随后的 subst 失败另列。"
+    },
+    {
+      "title": "R_abs：inversion Ht; subst 已消去 u0，显式 subst u0 报 No such hypothesis",
+      "intervals": [
+        {
+          "after": 80,
+          "through": 86
+        }
+      ],
+      "outcome": "编译推进到 R_abs 第 650 行 `inversion Ht; subst. subst u0. subst w.` 时报 No such hypothesis: u0；前面的 inversion Ht; subst 已把 u0 = v 一并消去。先怀疑某次 subst 已处理 u0，随后打印编号代码确认失败点正是该行，改为 `inversion Ht; subst; subst` 并保留 apply Hbody; assumption。下一次编译越过 R_abs，推进到 R_env_update。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        116,
+        117,
+        121,
+        122,
+        123,
+        124,
+        125,
+        128
+      ],
+      "qualification": "该错误在 SN hypothesis 批量改名后编译首次推进到 R_abs 时才暴露，与命名问题无关，故从原合并条目拆出；R_if 没有对应的单独报错。"
+    }
+  ],
+  "trace_sha256": "78e3fe0aeefbad9500f29e0c11318b9676a385d4b84ed062e4e2f9f10cce3900",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 12,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "78e3fe0aeefbad9500f29e0c11318b9676a385d4b84ed062e4e2f9f10cce3900",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r12.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r12_20261027_211734_676925"
+  }
+}

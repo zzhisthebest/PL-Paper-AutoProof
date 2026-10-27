@@ -1,0 +1,387 @@
+{
+  "summary": "本次运行共 947 秒，其中约 486 秒在写码前用于推演并比较多套 CBV STLC strong normalization 的 LR 方案（value-reduct 条件、arrow 的 application clause、substitution environment 及 beta/application lemma 的依赖顺序）。写码后时间主要花在 R_app_abs / R_app 系列 LR lemmas 的调试：strongly_normalizing 的 induction scheme 中 raw recursive premise 与 motive IH 的错位、R_app_abs_val 缺 value premise、V_reducts_app 的 IH 依赖最耗时；最后 fundamental theorem 与验证约 50 秒完成，Task.v clean build 通过，Print Assumptions normalization 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "设计探索：读 Task.v、确认 Rocq 9.1 环境，并连续推演 CBV STLC strong normalization 的 LR 方案（未写代码）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "编写第一批 helper lemmas：lc_at 单调/open 引理、value/SN/multi 引理、subst_tm 与 fresh atom",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 12
+        }
+      ]
+    },
+    {
+      "title": "调试第一批 helper lemmas 至整体通过编译（lc_at_mono、multi_fvar、fresh_exists、subst_tm_open_fvar）",
+      "intervals": [
+        {
+          "after": 12,
+          "through": 53
+        }
+      ]
+    },
+    {
+      "title": "编写与调试 LR 定义及 beta 系列 lemmas：R/V、R_fvar、R_step、SN_app_abs、R_app_abs_val、R_app_abs",
+      "intervals": [
+        {
+          "after": 53,
+          "through": 94
+        }
+      ]
+    },
+    {
+      "title": "编写、失败与重构 R_app：按 function 的 strongly_normalizing derivation 做 induction，最终用 V_reducts_app_aux 并按 codomain type 组装",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 111
+        }
+      ]
+    },
+    {
+      "title": "env_good、fundamental theorem 与最终 normalization 证明的填写与修复",
+      "intervals": [
+        {
+          "after": 111,
+          "through": 120
+        }
+      ]
+    },
+    {
+      "title": "验证与收尾：exit code、forbidden construct 检查、Print Assumptions 与 clean rebuild",
+      "intervals": [
+        {
+          "after": 120,
+          "through": 129
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_mono：`induction H` 未给 lc_abs case 的 induction hypothesis 命名 IH，首次编译报 The variable IH was not found",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 17
+        }
+      ],
+      "outcome": "为 lc_at 写显式 induction pattern `[k i Hi | k x | k a b Ha IHa Hb IHb | k T t Ht IH | k | k]`，在 lc_abs case 命名 IH；重编译通过该 lemma，报错推进到 multi_fvar。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        19,
+        23,
+        25,
+        28
+      ],
+      "qualification": "只是 induction hypothesis 的自动命名与脚本引用不一致，不涉及 lc_at 的语义。"
+    },
+    {
+      "title": "multi_fvar：对 `multi step (tm_fvar x) v` 做 induction 后 source 变成任意 x0，`Hst : x0 --> y` 不能当作 fvar 的 step",
+      "intervals": [
+        {
+          "after": 19,
+          "through": 21
+        }
+      ],
+      "outcome": "新增 multi_inv（用 inversion 把 multistep 拆成 `t = v` 或 `exists y, step t y /\\ multi step y v`），再改 multi_fvar 用 multi_inv 分情况：refl 分支给 equality，step 分支用 fvar_no_step 排除；下一次编译已越过该 lemma。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        28,
+        30,
+        31,
+        34
+      ],
+      "qualification": "multi_inv 是为避开 index 未泛化的 induction 而补的 multistep 首步分解 lemma。"
+    },
+    {
+      "title": "fresh_exists：选 `S x` 作 fresh atom 时只有 `~ In x l`，无法排除 `In (S x) l`",
+      "intervals": [
+        {
+          "after": 23,
+          "through": 25
+        }
+      ],
+      "outcome": "改为先证 list_bounded（有限 atom list 有严格上界，构造为 `S (a + n)`），再取该上界作 fresh atom；`In n l` 与 `n < n` 矛盾。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        34,
+        36,
+        37,
+        40
+      ],
+      "qualification": "list_bounded 是为修复 fresh witness 构造补的辅助事实，不是原定理缺失的 premise。"
+    },
+    {
+      "title": "subst_tm_open_fvar 的 bvar case：`rewrite Nat.eqb_refl` 找不到 subterm，因为 goal 是未展开的 `extend x u sigma x = u`",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 39
+        }
+      ],
+      "outcome": "先用 /tmp/test_eqb.v 确认 simpl 后仍有 `if x =? x` 且 rewrite 可用（未能复现），再用 idtac 打印出实际 goal `extend x u sigma x = u`，确认 extend 未被 simpl 展开；补 extend_same/extend_other（内部 unfold extend 后用 Nat.eqb_refl/Nat.eqb_neq），把该分支改为 `rewrite extend_same`。下一次编译推进到 fvar case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        40,
+        44,
+        46,
+        52,
+        55,
+        57
+      ],
+      "qualification": "独立小例排除了 Nat.eqb 的猜测；真正差别是 extend 在 goal 中未 unfold。"
+    },
+    {
+      "title": "subst_tm_open_fvar 的 fvar case：`apply lc_open_rec_id` 无法推断变量 n",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 43
+        }
+      ],
+      "outcome": "确认 lc_open_rec_id 的 conclusion 不含 n（只有 `open_rec k u t = t`），unification 无法从 goal 定出 n；改为 `apply lc_open_rec_id with (n := 0) (u := u) (k := k)`。下一次编译推进到 application case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        61,
+        62,
+        63,
+        64
+      ],
+      "qualification": "只是给 apply 显式补统一参数。"
+    },
+    {
+      "title": "subst_tm_open_fvar 的 application case：`rewrite IH1` 报 Cannot find a relation to rewrite",
+      "intervals": [
+        {
+          "after": 45,
+          "through": 51
+        }
+      ],
+      "outcome": "用 idtac 打印 GOALAPP 确认 goal 确是两 application 的 equality，原 rewrite 仍失败且原因未确定；改为用 IH1/IH2 与 Hsigma/Hf1/Hf2 显式 assert E1、E2 两条 equality，再 `rewrite E1, E2`。下一次编译第一阶段 helpers 全部通过，只剩 normalization 的未完成 proof。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        67,
+        68,
+        70,
+        73,
+        74,
+        76,
+        79
+      ],
+      "qualification": "原 rewrite 失败的精确原因未在 trace 中确定；显式 E1/E2 是成功的替代写法，不是对原因的证明。"
+    },
+    {
+      "title": "R（LR Fixpoint）在 type 参数仍为 variable 时无法展开：R_fvar、R_app_abs、R_app 三处 `split` 报 Not an inductive definition",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 62
+        },
+        {
+          "after": 68,
+          "through": 70
+        },
+        {
+          "after": 97,
+          "through": 103
+        }
+      ],
+      "outcome": "三处都先 destruct 类型参数（R_fvar 的 T；R_app_abs 与 R_app 的 codomain B）再 simpl/split。R_app_abs 处把目标拆成 SN_app_abs、R_app_abs_val、R_app_abs 三个 helper；R_app 处先打印 goal 确认 conclusion 是 `R B (tm_app t u)`（不是 arrow LR），再拆出 SN_app_of_R_arrow、V_reducts_app，并按 B=Ty_Bool / B=Ty_Arrow 组装。R_fvar 的修复由 step 64 编译确认，R_app 最终由 step 111 编译确认。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        86,
+        89,
+        91,
+        92,
+        95,
+        101,
+        102,
+        103,
+        104,
+        134,
+        140,
+        144,
+        147,
+        150,
+        151,
+        153,
+        165
+      ],
+      "qualification": "同一展开问题在不同声明处复发，按三个 interval 计；R_app 处还包含对自身 conclusion 的误读（先以为 goal 是 arrow LR，补 simpl 无效后打印 goal 才确认是 `R B (tm_app t u)`），故该 interval 较长。"
+    },
+    {
+      "title": "SN_app_abs / R_app_abs：`induction Hsn as [u IH]` 把 IH 命名给 SN_intro 的 raw recursive premise，motive induction hypothesis 被自动命名为 H",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 84
+        }
+      ],
+      "outcome": "错误为 `IH t2' Hst2` 只有 type `strongly_normalizing t2'`，不能再应用于 A。用 /tmp/test_ind.v 逐步检查：match goal 只打印 context 的第一个 hypothesis，改用 Show 才看到 raw recursive premise 与 motive IH 并存；再在最小示例里 Check SN_ind，确认 scheme 的 case 同时接收两者，且 `as [u Hrec Hmot]` 能命名 motif IH。最后把 SN_app_abs 与 R_app_abs 的 pattern 改为 `as [u Hrec IH]`，IH application 错误消失，编译转到 R_app_abs_val 的 Wrong bullet。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        107,
+        108,
+        110,
+        113,
+        118,
+        119,
+        121,
+        122,
+        123,
+        125
+      ],
+      "qualification": "根因是 induction pattern 少给一个名字，使 raw premise 占用 IH、motive IH 落到默认名 H；不是 IH 类型本身有误。"
+    },
+    {
+      "title": "R_app_abs_val：缺少 `value (tm_abs A body)` 使 ST_App1 分支的 `eapply value_no_step; eauto` 留下 goals，表现为 Wrong bullet",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 90
+        }
+      ],
+      "outcome": "Show 显示 ST_AppAbs 分支完成后还剩两个 `V B v` 目标；定位到 ST_App1 分支的 value_no_step 缺 value premise。在 R_app_abs_val 内 assert `Habsval : value (tm_abs A body)`（由 v_abs 与 lc_abs 从 Hlcbody 构造），并用 `exact (value_no_step _ _ Habsval Hst1)` 关闭该分支。编译越过此处，在 R_app 组装处报 Incorrect number of goals。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        130,
+        131,
+        132,
+        133,
+        134
+      ],
+      "qualification": "初始表现像 bullet 结构错误，真正原因是 eauto 在 R_app_abs_val 中没有可用的 abstraction value 事实。"
+    },
+    {
+      "title": "R_app_abs 组装：`destruct B; simpl; split; [exact Hlcapp | split]` 的 bracket 面对 4 个 goals 只给 2 个 tactic，报 Incorrect number of goals",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 92
+        }
+      ],
+      "outcome": "判断 `;` 使 split 在每个 codomain case 都执行、共 4 个 goals，而双分支 list 只有 2 个 tactic；给 `split; [exact Hlcapp | split]` 加括号，使其作为整体分别作用于两个 type case。编译推进到 arrow case 的 `B1 -> B2`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        134,
+        135,
+        136,
+        137
+      ],
+      "qualification": "与后面的 arrow notation 错误是同一组装段的两处独立问题。"
+    },
+    {
+      "title": "R_app_abs 的 arrow case：`B1 -> B2` 在普通 term 位置被解析为 Coq function type",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 94
+        }
+      ],
+      "outcome": "识别普通 term 位置的 `->` 是 Coq product、不是 ty 的 custom notation；把 `R_sn (B1 -> B2)` 与 `R_app_abs_val A (B1 -> B2)` 改为显式 `Ty_Arrow B1 B2`。beta helper lemmas 全部编译通过，只剩 normalization 的未完成 proof。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        137,
+        138,
+        139,
+        140
+      ],
+      "qualification": "与 bracket 错误同属组装阶段，但根因是 notation 解析，故单列。"
+    },
+    {
+      "title": "V_reducts_app：ST_App1 分支需要 `R B (tm_app t1' u)`，而对 SN t 的独立 induction 只给 value reduct 的 `V B v`",
+      "intervals": [
+        {
+          "after": 103,
+          "through": 111
+        }
+      ],
+      "outcome": "先给 IH 补显式参数，报该位置需要 `R (Ty_Arrow A B) t1'` 而非 v（argument order）；补齐后编译报 `Unable to unify V B v with R B (t1' u)`，确认 apply R_V 后第一个 subgoal 是 `R B (tm_app t1' u)`，IH 无法提供。最终把 value 部分改为 V_reducts_app_aux，显式接收 R_app 风格的 IH（`forall t', step t t' -> forall A0 B0 u0, R (A0->B0) t' -> R A0 u0 -> R B0 (tm_app t' u0)`），由 R_app 对 SN t 的 induction 提供；R_app 再按 B 的两个 case 组装。编译通过全部 application lemmas。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        153,
+        157,
+        159,
+        162,
+        163,
+        164,
+        165
+      ],
+      "qualification": "不是 mutual recursion：把 R_app 的 IH 作为 aux lemma 的 premise 传入即可；两次报错（argument order、V B v 与 R B 不可统一）都源于对 IH conclusion 的误判。"
+    },
+    {
+      "title": "fundamental 的 T_Abs：`rewrite subst_tm_open_fvar in HRx` 找不到 subterm，因为 HRx 中的 `open` 尚未展开",
+      "intervals": [
+        {
+          "after": 116,
+          "through": 118
+        }
+      ],
+      "outcome": "判断 HRx 使用 folded `open`（`subst_tm ... (open t1 (fvar x))`），而 lemma 的 LHS 是 `open_rec 0 (tm_fvar x) t1`；加 `unfold open in HRx` 后再 rewrite。编译越过该 rewrite，转为 `lc_fvar 0` 的参数错误。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        172,
+        173,
+        174,
+        175
+      ],
+      "qualification": "只是 definitional unfolding 与 rewrite pattern 的匹配问题。"
+    },
+    {
+      "title": "fundamental 的 T_Abs：`lc_fvar 0` 仍缺 atom 参数，应为 `lc_fvar 0 0`",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 120
+        }
+      ],
+      "outcome": "错误指出 `lc_fvar 0` 的类型是 `forall x, lc_at 0 (fvar x)`，而期望 `locally_closed (fvar 0)`；确认 lc_fvar 有 k 与 x 两个 explicit arguments，改为 `(lc_fvar 0 0)`。coqc 无输出，随后 EXIT: 0、clean rebuild 与 Print Assumptions 确认完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        175,
+        176,
+        177,
+        178,
+        182,
+        188
+      ],
+      "qualification": "与前一处的 rewrite 失配同属 T_Abs 收尾，但根因（proof term 缺参数）不同。"
+    }
+  ],
+  "trace_sha256": "204fbe6ef7dcddb1866268b29d41cbe281bc6960d505af93455792c6142a88b1",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 18,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "204fbe6ef7dcddb1866268b29d41cbe281bc6960d505af93455792c6142a88b1",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r18.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r18_20261027_211738_840737"
+  }
+}

@@ -1,0 +1,641 @@
+{
+  "summary": "本次运行最终 status=proved：Rocq clean compile 通过，Print Assumptions 返回 Closed under the global context。0–10 步约 756 秒用于阅读任务与 LR/整体证明结构的设计探索，其中 step 10 的约 696 秒 thinking 混合了设计与反例推演、无法再按具体问题拆分；此后到 fundamental theorem 完成约 1248 秒，主要耗在 LR 基础引理、V_mono/V_protect、multi-step factorization、substitution/local-closure 与 fundamental theorem 的多轮编译调试，最后约 69 秒完成 noninterference 组装、assumption 检查与 clean compile。",
+  "phases": [
+    {
+      "title": "阅读 Task.v/card.md 与确认 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 7
+        }
+      ]
+    },
+    {
+      "title": "LR 与整体证明结构的设计探索（含 counterexample 推演）",
+      "intervals": [
+        {
+          "after": 7,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "实现 LR 定义与基础关系引理（V/E、protect_security、V_mono、V_sub）",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 67
+        }
+      ]
+    },
+    {
+      "title": "term-level value/multi helpers 与 evaluation factorization",
+      "intervals": [
+        {
+          "after": 67,
+          "through": 133
+        }
+      ]
+    },
+    {
+      "title": "protection/erasure 接口（V_protect、E_protect、transparent_all_ir、V_erase）",
+      "intervals": [
+        {
+          "after": 133,
+          "through": 189
+        }
+      ]
+    },
+    {
+      "title": "substitution/local-closure infrastructure（has_type_lc、subst_env、fvs_context）",
+      "intervals": [
+        {
+          "after": 189,
+          "through": 254
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem 及其 flow/environment helpers（has_type_ind 的 13 个 typing cases）",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 301
+        }
+      ]
+    },
+    {
+      "title": "最终 noninterference theorem 组装",
+      "intervals": [
+        {
+          "after": 301,
+          "through": 306
+        }
+      ]
+    },
+    {
+      "title": "最终文件组装、Print Assumptions 与 clean compile 验证",
+      "intervals": [
+        {
+          "after": 306,
+          "through": 325
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "protect_security_le：缺少 join 对 join 的单调性引理 flows_to_join_join",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 30
+        }
+      ],
+      "outcome": "原有 flows_to_join 只能由两个流到同一 c 的 flow 推出 join 的 flow，无法处理 goal 两侧都是 join 的情形；补上 flows_to_join_join 后在 unfold protect_security, security_le 下 split，reader 与 indirect_reader 两个 flow goal 由新引理一次解决，protect_security_le 通过；该最小测试文件随后仅因未包含已定义的 security_le_refl 停住。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        26,
+        32,
+        41,
+        44
+      ],
+      "qualification": "首个 incomplete proof 报错在 step 18 的输出，区间从其后计到 step 30 该 lemma 通过。t7.v 缺 security_le_refl 只是测试文件未包含已定义 lemma，不作为独立问题。"
+    },
+    {
+      "title": "protect_security_assoc：单次 join_assoc rewrite 只匹配 reader，indirect_reader 未改写",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 35
+        }
+      ],
+      "outcome": "unfold protect_security 后 rewrite join_assoc 只改到 reader，indirect_reader 仍为 join (join i a) b 与目标不符；改为 intros [r i] a b; destruct r, i, a, b; reflexivity 后 protect_security_assoc 通过，body.v 初始开发文件编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        48,
+        49,
+        51
+      ],
+      "qualification": "step 33 报 unification 错误，step 34 给出 destruct 方案，step 35 编译通过；区间到 35。"
+    },
+    {
+      "title": "V_mono 的 sum/prod：destruct pattern、repeat split 过深与 Hle 被消耗",
+      "intervals": [
+        {
+          "after": 37,
+          "through": 51
+        }
+      ],
+      "outcome": "sum 的嵌套 destruct pattern 先报至多 2 个 intro pattern，改用 & pattern 并分开 destruct disjunction/conjunction；repeat split 把 security_le 拆到 k1/k2 与 sigma'，改为显式嵌套 split；prod 前 assert Hle' 保留被 destruct 消耗的 security_le。product 通过，编译推进到 arrow case 的 Not an inductive definition。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        54,
+        63,
+        66,
+        69,
+        72,
+        75
+      ],
+      "qualification": "同一段 conjunction 构造中的 pattern、split 深度与 Hle 消耗连续修正，合为一项；arrow case 另列。"
+    },
+    {
+      "title": "V_mono arrow case：HV 未先应用于 visibility hypothesis，且 Hbody 参数顺序不对",
+      "intervals": [
+        {
+          "after": 51,
+          "through": 65
+        }
+      ],
+      "outcome": "Show 显示 arrow goal 首先要求 flows_to sigma.indirect_reader l；先用 flows_to_trans 从 Hi/Hf 得到该 visibility 再 destruct (HV ...) 取出 Habs1/Habs2/Hbody，修正 unused intro pattern；最后显式给 Hbody 的 a1/a2/r 与 multis/values，V_mono 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        81,
+        84,
+        93,
+        96
+      ],
+      "qualification": "arrow 的首个 Not an inductive definition 报错在 step 51 输出，归入上一区间；本区间从其后计到 V_mono 通过。"
+    },
+    {
+      "title": "value_no_step：value induction 的 IH 固定了 reduct，eauto 又留下 shelved evars",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 81
+        }
+      ],
+      "outcome": "对 value 做 induction 得到的 IH 目标 reduct 与当前 step 不匹配，Show 出 4 个 False goals；改用对 step derivation 做 induction，先 inversion Hv 再以 match 使用对应 IH，value_no_step 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        102,
+        105,
+        111,
+        117,
+        120
+      ],
+      "qualification": "value_no_step 在 step 81 通过并同时暴露 multi_abs_inv 报错，故区间在 81 结束。"
+    },
+    {
+      "title": "multi_abs_inv / multi_unit_inv / multi_value_inv：indexed multi induction 丢失起点",
+      "intervals": [
+        {
+          "after": 81,
+          "through": 85
+        }
+      ],
+      "outcome": "Show 显示 multi induction 后起点变成任意 term、IH 不再表达 abstraction 起点；先证 multi_step_inv（refl 或一步 step 加 tail），据此重写三个反演；三个反演通过，编译推进到 value_protect_value_inv。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        120,
+        123,
+        126
+      ],
+      "qualification": "multi_step_inv 是为绕开 indexed induction 新增的实质引理；区间在 value_no_step 之后。"
+    },
+    {
+      "title": "value_protect_value_inv：protect_value 的 constructor case 需显式区分",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 87
+        }
+      ],
+      "outcome": "原 try/exfalso 链在 value (protect_value v l) 的 constructor 上选错目标（value (tm_inr ...) vs value (tm_fvar ...)）；改为 destruct v 后逐 constructor 处理，trivial case 用 exact H，abs/pair/inl/inr 用 inversion H 取 value 前提，helper 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        126,
+        127,
+        129
+      ],
+      "qualification": "该 helper 的失败在 step 85 由前一问题解决后暴露，step 86 分析、step 87 重写并通过。"
+    },
+    {
+      "title": "multi_app_inv：remember 固定 application 起点与 ST_AppAbs/ST_App1/ST_App2 的变量名",
+      "intervals": [
+        {
+          "after": 89,
+          "through": 99
+        }
+      ],
+      "outcome": "用 remember (tm_app f a r) 固定起点；Show 出 ST_AppAbs 的 argument 为 a、ST_App1 的 reduct 为 t1'、ST_App2 的 reduct 为 t2'，据此替换草稿中的 v/a'；multi_app_inv 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        132,
+        135,
+        141,
+        147
+      ],
+      "qualification": "首错在 step 89 的 v 不存在；区间从其后计到 multi_app_inv 通过。"
+    },
+    {
+      "title": "multi_trans：intro t3 重名与 induction 泛化",
+      "intervals": [
+        {
+          "after": 101,
+          "through": 105
+        }
+      ],
+      "outcome": "revert t3 后 induction 再 intro t3 造成 identifier 冲突；改为 induction H12 in t3, H23 |- * 保留一般性，multi_trans 通过，编译推进到 multi_case_inv 的 t 重名。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        150,
+        153,
+        156
+      ],
+      "qualification": "只计 multi_trans 本身；同一批 factorization 后续命名问题另列。"
+    },
+    {
+      "title": "multi_case_inv / multi_if_inv 等 factorization 批量重写：subst 目标与自动命名错配",
+      "intervals": [
+        {
+          "after": 105,
+          "through": 125
+        }
+      ],
+      "outcome": "批量 remember 改写后，base/step 的 subst 目标改为 t/t1，ST_CaseLeft 的 value 用 Show 出的 v，multi_if_inv 的 binder 用 k（不是 kappa），exact H3 改为 assumption；这些 factorization 通过，编译推进到 multi_protect_result。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        156,
+        159,
+        168,
+        174,
+        180,
+        186
+      ],
+      "qualification": "多处命名/前提错配是同一次批量重写后的连续修正，合为一项；multi_protect_* 另列。"
+    },
+    {
+      "title": "multi_protect_result / multi_protect_inv：revert 依赖与 ST_ProtectValue 分支",
+      "intervals": [
+        {
+          "after": 125,
+          "through": 133
+        }
+      ],
+      "outcome": "multi_protect_result 改为直接对 multi 做 induction，不再 revert 被 Hm 使用的 v；multi_protect_inv 的 ST_ProtectValue 以 Show 出的 tt 为 witness，并用 multi_value_inv 得到 protect_value tt l 等于结果；两者通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        186,
+        189,
+        195,
+        198
+      ],
+      "qualification": "两个 protection factorization 合列；multi_protect_inv 后来在 T_Fst/T_Case 的误用另计。"
+    },
+    {
+      "title": "V_protect 的 unit/sum/prod：protected values 与 per-side join label",
+      "intervals": [
+        {
+          "after": 135,
+          "through": 149
+        }
+      ],
+      "outcome": "unit case 不能直接用原 HV，需 destruct canonical shapes；sum/prod 从 protected visibility 用 flows_to_join_l 推回原 visibility，annotation 的 security_le 用 protect_security_le，右侧 join inclusion 改用 flows_to_join_right；错误推进到末尾 Hw1eq。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        201,
+        204,
+        207,
+        216,
+        219,
+        222
+      ],
+      "qualification": "unit/sum/prod 与 per-side label 修正连续完成，step 149 后错误转为 Hw1eq；arrow 末尾两项另列。"
+    },
+    {
+      "title": "V_protect arrow 末尾：Hw1eq 已被 subst 消耗",
+      "intervals": [
+        {
+          "after": 149,
+          "through": 161
+        }
+      ],
+      "outcome": "Show 确认 w1 已被 subst 替换、Hw1eq 不在 context，goal 中直接出现 protect_value；删除对 w1/Hw1eq 的 rewrite，编译推进到 Hfin 与第二侧 w2 不匹配。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        222,
+        234,
+        237,
+        240
+      ],
+      "qualification": "从 step 149 的 Hw1eq 报错后计到 step 161 移除失效 rewrite。"
+    },
+    {
+      "title": "V_protect arrow 结果：Hfin 第二侧与 protect_security_ir 的 rewrite 顺序",
+      "intervals": [
+        {
+          "after": 161,
+          "through": 175
+        }
+      ],
+      "outcome": "确认 Hw2eq 仍在后，先 rewrite protect_security_ir、再 Hw2eq、再 protect_security_ir；旧顺序连续两次 ir rewrite 第二次找不到 subterm，调整后 Hfin 与 goal 对齐，V_protect 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        240,
+        243,
+        255,
+        258,
+        261
+      ],
+      "qualification": "与上一项同属 arrow 末尾，但根因是第二侧对齐与 projection rewrite 顺序，以 step 161 的 Hfin mismatch 分界。"
+    },
+    {
+      "title": "transparent_at_all_ir / transparent_all_ir / V_erase：binder 顺序与 IH 的显式 label/security 实例化",
+      "intervals": [
+        {
+          "after": 177,
+          "through": 189
+        }
+      ],
+      "outcome": "transparent_at_all_ir 的 statement 含 l 而 proof 再 intro l 导致 l is already used，改为按 T,l,sigma 顺序；IHT1/IHT2 显式给 sigma，transparent_all_ir 按 T,l intro，V_erase 的 IH 显式给 l；protection/erasure helpers 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        264,
+        267,
+        273,
+        279,
+        282
+      ],
+      "qualification": "erasure 接口的三个 helper 合列；step 177 的首个 l is already used 在区间起点之前。"
+    },
+    {
+      "title": "lc_at_open_rec 的 bvar case：eqb 后未 simpl in H，lia 找不到 witness",
+      "intervals": [
+        {
+          "after": 192,
+          "through": 202
+        }
+      ],
+      "outcome": "bvar case 在 destruct Nat.eqb 的 false 分支需要先把 local closure hypothesis 化到当前形式；加入 simpl in H 后 lia 关闭该分支，编译推进到 IH 的 u 参数。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        286,
+        295,
+        298,
+        301
+      ],
+      "qualification": "step 198 的最小 eqb 测试说明算术本身可行；区间到 step 202 暴露 IH 参数问题。"
+    },
+    {
+      "title": "lc_at_open_rec：IH 调用缺 u 与裸 with k 的 argument 位置",
+      "intervals": [
+        {
+          "after": 202,
+          "through": 212
+        }
+      ],
+      "outcome": "为 IH 显式给 (k := ...) (u := u)，修正裸 with k 把 argument 放到 nat 位置造成的 tm/nat mismatch，并补上遗漏的调用；lc_at_open_rec 通过，编译进入 has_type_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        301,
+        304,
+        310,
+        313,
+        316
+      ],
+      "qualification": "与上一项同 lemma，但根因是 IH 实例化；以 step 202 的 u 错误分界。"
+    },
+    {
+      "title": "has_type_lc：cofinite premise 与自动命名 IH 的错配",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 224
+        }
+      ],
+      "outcome": "Show 确认 T_Abs 可用的 IH 为 H2/H；显式列出 13 个 constructor patterns 后发现 IHabs 是原始 typing premise、H 才是 IH；按 H/H1/Hflow/IHyes/IHhas_type1 等实际名字重写 T_Case 与 T_If，has_type_lc 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        316,
+        319,
+        322,
+        325,
+        328,
+        334
+      ],
+      "qualification": "自动生成的 IH 名 fragile，本次按 Show 出的名字完成。"
+    },
+    {
+      "title": "open_rec_lc / subst_env_agree / subst_env_open_rec：local closure 前提与 conditional rewrite",
+      "intervals": [
+        {
+          "after": 226,
+          "through": 236
+        }
+      ],
+      "outcome": "open_rec_lc 的 conditional rewrite 报 lc_at 非 reflexive relation，改用 f_equal 并显式给 k；subst_env_agree 对两个 environment 显式 rewrite (IHt H)；subst_env_open_rec 显式应用 IH 并保留 local-closure 前提；三个 helper 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        337,
+        340,
+        343,
+        346,
+        349,
+        352
+      ],
+      "qualification": "local closure 的语义要求在 step 190 的设计 thinking 中识别，本区间只计具体报错处理。"
+    },
+    {
+      "title": "subst_env_id_on / subst_env_plug：rewrite 反向、t 重名与 statement 被误改",
+      "intervals": [
+        {
+          "after": 238,
+          "through": 246
+        }
+      ],
+      "outcome": "subst_env_id_on 的 rewrite <- (subst_env_id t) 无法统一，改用 etransitivity + subst_env_id；subst_env_plug 的 hole 变量改名 u 时把 statement 的 t 也改掉，恢复 statement 后编译推进到 C_Fst。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        355,
+        358,
+        361,
+        364,
+        367
+      ],
+      "qualification": "改名误伤 statement 是同一编辑的直接后果，故与 rewrite 修正合为一项。"
+    },
+    {
+      "title": "subst_env_plug 的 constructor cases：外层 constructor 需 f_equal 与 context fvs 成员分配",
+      "intervals": [
+        {
+          "after": 246,
+          "through": 254
+        }
+      ],
+      "outcome": "一元及嵌套 context 先 f_equal 再 apply IHC；ternary contexts 按每个 constructor 的实际 embedded terms 分配 subst_env_id_on 与 membership（step 252 一次分配有误，step 254 统一修正），subst_env_plug 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        367,
+        370,
+        373,
+        376,
+        379
+      ],
+      "qualification": "17 个 program_context constructor 的 freshness/membership 分析合列。"
+    },
+    {
+      "title": "fundamental theorem：has_type_ind 的原始 premise 与 IH 交错导致 intros 错位",
+      "intervals": [
+        {
+          "after": 263,
+          "through": 267
+        }
+      ],
+      "outcome": "打印 has_type_ind 后确认每个 constructor 的 recursive typing premise 与对应 IH 交错出现，不能只为 IH 命名；按打印出的 argument 顺序重写各 constructor 的 intros，编译推进到 T_Abs 内的 Henv 分支。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        392,
+        395,
+        398
+      ],
+      "qualification": "step 267 的 setoid rewrite 错误属于下一项；本区间到 267。"
+    },
+    {
+      "title": "fundamental theorem 的 Henv 分支：Nat.eqb disequality 触发 setoid rewrite",
+      "intervals": [
+        {
+          "after": 267,
+          "through": 271
+        }
+      ],
+      "outcome": "不再对 y <> x 做 rewrite，而是保留 Nat.eqb y x 的 boolean equation 并 destruct；Henv 分支通过，错误推进到 T_Fst 的 value premise mismatch。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        398,
+        401,
+        404
+      ],
+      "qualification": "与 T_Fst 问题在 step 271 分界。"
+    },
+    {
+      "title": "T_Fst / T_Snd：multi_protect_inv 需要 endpoint value 而非 pair component value",
+      "intervals": [
+        {
+          "after": 271,
+          "through": 275
+        }
+      ],
+      "outcome": "把 multi_protect_inv 的 value premise 从 pair component 的 Hvv1/Hvv2 改为 endpoint 的 Hv1/Hv2，再用 multi_value_inv 得到 y1=a1（Snd 为 y1=b1）；T_Fst/T_Snd 通过，fundamental 仅剩未写 cases。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        404,
+        407,
+        410
+      ],
+      "qualification": "T_Fst/T_Snd 的同一 endpoint-value 误用合列。"
+    },
+    {
+      "title": "T_Case：multi_case_inv 需要 5 个显式 term arguments",
+      "intervals": [
+        {
+          "after": 279,
+          "through": 283
+        }
+      ],
+      "outcome": "错误显示 Hm1 被放到一个 tm argument 的位置；在 Hm1/Hm2 前各补 5 个显式占位参数后调用通过，编译推进到 inversion 后 u1 不在 context。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        416,
+        419,
+        422
+      ],
+      "qualification": "只覆盖 multi_case_inv 的 arity；payload 命名与编辑范围问题另列。"
+    },
+    {
+      "title": "T_Case：payload 命名为 u1a/k1a/u2a/k2a 与过宽替换误改 T_App",
+      "intervals": [
+        {
+          "after": 283,
+          "through": 295
+        }
+      ],
+      "outcome": "按 Show 出的 u1a/k1a/u2a/k2a 及 L1/L2/HV1 改写 payload 与 annotation 引用；一次 k1→k1a 替换越过 T_Case 误改 T_App，收窄到 fundamental 的 T_Case 后编译在 Hprot 的 value premise 处失败，说明命名已正确。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        422,
+        425,
+        428,
+        431,
+        434,
+        437,
+        440
+      ],
+      "qualification": "命名修正与误改范围是同一编辑的直接因果链，合为一项；Hprot 前提另列。"
+    },
+    {
+      "title": "T_Case：Hprot 需要 endpoint value 而非 payload value",
+      "intervals": [
+        {
+          "after": 295,
+          "through": 299
+        }
+      ],
+      "outcome": "错误显示传入 payload 的 value hypothesis，而 Hprot 需要最终 result w1 的 value；改为 Hv1/Hv2 后 T_Case 通过，fundamental 仅剩未写 cases（pending）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        440,
+        443,
+        446
+      ],
+      "qualification": "与 projections 的 endpoint-value 修正同型，但发生在 T_Case，单独计时。"
+    },
+    {
+      "title": "Print Assumptions 检查：Load Task.vo 的 loadpath 失败",
+      "intervals": [
+        {
+          "after": 315,
+          "through": 319
+        }
+      ],
+      "outcome": "Load \"Task.vo\" 被解析为查找 Task.vo.v 而失败；改为把 Print Assumptions 追加到 Task.v 副本后重新编译，得到 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        469,
+        472,
+        475
+      ],
+      "qualification": "属于最终验证的工具问题，不是 proof 失败。"
+    }
+  ],
+  "trace_sha256": "e65368f2871527adc620374ae40007224cc2af3d493dac70e28046b5477f2371",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 12,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "e65368f2871527adc620374ae40007224cc2af3d493dac70e28046b5477f2371",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r12.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r12_20261027_212244_340130"
+  }
+}

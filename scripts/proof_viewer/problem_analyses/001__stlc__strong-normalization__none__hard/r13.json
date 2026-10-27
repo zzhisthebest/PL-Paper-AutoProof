@@ -1,0 +1,244 @@
+{
+  "summary": "本次运行 846 秒（最后有效端点 844 秒）：前约 621 秒用于读取任务、核查 induction principles，以及设计 CBV logical relation 与完整证明结构，其中 step 5 的 454 秒推演混合了试错和重构，原文无法再细分；约 26 秒写入 helper development，随后约 155 秒做 `strongly_normalizing` 顺序调整和逐条编译修复。主要困难是 term induction 的参数 generalization、`lc_at_open` 缺少可用的 Stdlib 算术引理，以及 `subst_open_rec`、`C_beta_aux`、`fundamental` 的局部改写；最后约 42 秒完成 clean rebuild、`Print Assumptions` 与原文 diff 检查，8 个问题全部解决，最终 `coqc` 为 `EXIT=0`，`normalization` 无额外 assumptions。",
+  "phases": [
+    {
+      "title": "读取 Task.v 与确认 Rocq 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "设计探索：CBV strong-normalization 的 logical relation 与完整证明结构",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "核查 induction principles 与细化 implementation 方案",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "编写 helper development 与 normalization proof",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "文件结构调整、首次编译与逐条修复编译错误",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 91
+        }
+      ]
+    },
+    {
+      "title": "最终验证：clean rebuild、Print Assumptions 与原文完整性检查",
+      "intervals": [
+        {
+          "after": 91,
+          "through": 110
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "辅助 development 被插在 `strongly_normalizing` 定义之前，造成前向引用",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 22
+        }
+      ],
+      "outcome": "在首次编译前发现该文件结构问题；把原样的 `strongly_normalizing` block 前移到 development 之前，并删除 theorem 前的重复 block。随后首次编译越过该结构问题，报错推进到 `lc_at_open_rec_id`。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        24,
+        25,
+        28,
+        31,
+        35
+      ],
+      "qualification": "这是编辑/文件顺序问题；`strongly_normalizing` 与 theorem statement 的文本均未改动。"
+    },
+    {
+      "title": "`lc_at_open_rec_id` 的 term induction 触发 `k is already used`，并同步修正相邻 term-induction lemmas",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 37
+        }
+      ],
+      "outcome": "改为先 `intros ...; revert ...` 再做 term induction，并同步修正 `lc_at_open_inv`、`lc_at_open`、`lc_at_subst`、`subst_open_rec` 的同类 IH generalization；重新编译后该错误消失，报错推进到 `lc_at_open` 的算术分支。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        35,
+        39,
+        41,
+        44,
+        47,
+        50,
+        53,
+        57
+      ],
+      "qualification": "首个报错在 `lc_at_open_rec_id`；同一诊断连续覆盖五个 lemma 的同类改写，按一个连续处理区间合并。"
+    },
+    {
+      "title": "`lc_at_open` 的 bvar 分支缺少可用的 `Nat.lt_of_le_of_ne`/`Nat.le_of_lt_succ`，相关 Stdlib 查询反复失败",
+      "intervals": [
+        {
+          "after": 39,
+          "through": 57
+        }
+      ],
+      "outcome": "编译报 `Nat.lt_of_le_of_ne` 不在当前环境，探库也确认 `Nat.le_of_lt_succ` 不可用；改用 `Nat.lt_ge_cases` 分情况，并用 `Nat.lt_succ_r` 与 `Nat.le_antisymm` 排除 `k <= n`。重新编译推进到 `lc_at_step` 的 type argument 错误。",
+      "resolution": "resolved",
+      "category": "other",
+      "evidence_lines": [
+        57,
+        60,
+        63,
+        66,
+        69,
+        75,
+        78,
+        81,
+        83,
+        87
+      ],
+      "qualification": "耗时主要是多次 `Search`/`Check` 探库；数学目标只是 `lc_at_open` 内的一个小 arithmetic side condition，没有新增实质引理。"
+    },
+    {
+      "title": "`lc_at_step` 调用 `lc_at_abs_inv` 时 type argument `T` 无法推断",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 63
+        }
+      ],
+      "outcome": "在 beta-reduction case 的 `apply lc_at_abs_inv with (k := 0)` 上补 `(T := T)`，显式给出 abstraction 的 type annotation；重新编译推进到 `subst_open_rec` 的 bvar 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        87,
+        90,
+        91,
+        92,
+        96
+      ],
+      "qualification": "`T` 只出现在 `lc_at_abs_inv` 的 premise 中，goal 无法确定它，属于 explicit argument 问题。"
+    },
+    {
+      "title": "`subst_open_rec` 的 bvar 分支展开顺序错误，`open_rec k v (bvar n)` 与 `v` 无法 unify",
+      "intervals": [
+        {
+          "after": 65,
+          "through": 69
+        }
+      ],
+      "outcome": "在 equality-test 分支内重新 `cbn [subst_tm open_rec]` 并显式 `rewrite E`，使 true branch 归约为 `v = v`、false branch 归约为 `bvar n = bvar n`；重新编译推进到 `C_beta_aux`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        96,
+        97,
+        99,
+        100,
+        101,
+        105
+      ],
+      "qualification": "根因是前一次 `cbn [open_rec]` 时 RHS 的 argument 尚被 `subst_tm` 包住，展开后出现新的 `open_rec` redex。"
+    },
+    {
+      "title": "`C_beta_aux` 的 ST_AppAbs reduct case 中无参 `subst` 消耗 `Hb : u = v`，`inversion Hb` 找不到 hypothesis",
+      "intervals": [
+        {
+          "after": 71,
+          "through": 75
+        }
+      ],
+      "outcome": "改用 `injection Ha as HA Hbod`，再分别 `subst Tbody`、`subst body'`、`subst v`，保留需要的等式并完成 `Hbody` 的应用；重新编译推进到 `C_beta` 的 argument 调用错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        105,
+        108,
+        109,
+        110,
+        114
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`C_beta`/`fundamental` 对 `C_sn`、`C_lc` 的直接调用漏掉 term argument",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 83
+        }
+      ],
+      "outcome": "编译先报 `C_sn A Hu` 把 `Hu` 放进 term 位置；通过 grep 找到两处，分别改成 `C_sn A u Hu` 和 `C_lc T1 v Hv`；重新编译推进到 `fundamental` 的 `Hlc1` 作用域错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        114,
+        115,
+        117,
+        119,
+        122,
+        126
+      ],
+      "qualification": "两处是同一类 explicit-argument 遗漏，合并为一个处理区间。"
+    },
+    {
+      "title": "`fundamental` 的 T_Abs 分支把 `Hlc1` assert 在第一个 `split` 子目标内，sibling subgoal 无法引用",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 89
+        }
+      ],
+      "outcome": "把 `Hlc1 : lc_at 1 t1` 的 `assert` 移到 `split` 之前，使其对 local-closure 与 application 两个 subgoals 均可见；随后 `coqc` 无报错，step 94 以 `EXIT=0` 和 `Task.vo` 确认编译成功。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        126,
+        129,
+        130,
+        131,
+        135,
+        139
+      ],
+      "qualification": "step 91 的 `coqc` 无输出只是初步信号，成功由 step 94 的显式 `EXIT=0` 确认。"
+    }
+  ],
+  "trace_sha256": "8ae1268b57277ad4cfc76a9df0f0a2a0bfa1ef9b47ca09e042ca3b86ea664160",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 13,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "8ae1268b57277ad4cfc76a9df0f0a2a0bfa1ef9b47ca09e042ca3b86ea664160",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r13.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r13_20261027_211737_689356"
+  }
+}

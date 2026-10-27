@@ -1,0 +1,387 @@
+{
+  "summary": "本次运行上限为 run_seconds=3601，trace 最后记录到 step 410（elapsed=3222.812s）；在记录到的步骤里，Task.v 的 `never_stuck` 自 step 42 起停在临时 `Admitted`，后续开发全在 /tmp 的 scratch 文件，V/E semantics、fundamental theorem 和主定理证明本身都还没有开始写。时间上，step 65 第一次写 helper 时 elapsed 已到 2162.785s，此前主要是路线比较、两次无结果的本地参考搜索，以及 step 38/43/58 关于 LR、`R_Poly` opening、type/existential witness 与 erasure 接口的长思考（纯设计与混合探索留在 phases，不单列 problem）；此后到 step 410 都在补 Stage 1–4 的 erasure/lc/fv/typing/reduction syntactic helper，最后记录到的编译在 `predicate_holds_erase_fwd` 的 `Pred_And`/`Pred_Or` bullet 报 `Wrong bullet`，但这不能单独归因为主定理失败，且 step 410 之后到 run_seconds=3601 没有记录步骤，无法判断那段时间。",
+  "phases": [
+    {
+      "title": "任务读取、全局路线比较（syntactic preservation vs logical relation）与本地参考搜索",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 26
+        }
+      ]
+    },
+    {
+      "title": "skeleton 编译验证、locally nameless opening 实验与 LR 初步可行性设计（step 38 长思考）",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 38
+        }
+      ]
+    },
+    {
+      "title": "临时 Admitted 的 scratch 环境、LR 整体设计与 dev1/dev2 opening 实验（step 43 长思考）",
+      "intervals": [
+        {
+          "after": 38,
+          "through": 49
+        }
+      ]
+    },
+    {
+      "title": "再次搜索参考实现与 LR/erasure 接口重设计（step 50/58）",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 58
+        }
+      ]
+    },
+    {
+      "title": "检查 has_rtype/subtype mutual induction principle（Scheme）并规划 fundamental theorem",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 63
+        }
+      ]
+    },
+    {
+      "title": "Stage 1：erasure/substitution/opening-commutation helper 编写与调试",
+      "intervals": [
+        {
+          "after": 63,
+          "through": 113
+        }
+      ]
+    },
+    {
+      "title": "Stage 2a：locally nameless lc/fv/opening helper 编写与调试",
+      "intervals": [
+        {
+          "after": 113,
+          "through": 212
+        }
+      ]
+    },
+    {
+      "title": "Stage 2b：typing invariants（value_lc、wf_rty_erase_lc、has_type_*、has_rtype_*）",
+      "intervals": [
+        {
+          "after": 212,
+          "through": 284
+        }
+      ]
+    },
+    {
+      "title": "Stage 3：reduction invariants（step_lc、step_fv、multi_lc、multi_fv）",
+      "intervals": [
+        {
+          "after": 284,
+          "through": 315
+        }
+      ]
+    },
+    {
+      "title": "Stage 4a：erasure correspondence 的 lc/value/forward-step 部分",
+      "intervals": [
+        {
+          "after": 315,
+          "through": 356
+        }
+      ]
+    },
+    {
+      "title": "Stage 4b：step_erase_rev（reverse erasure correspondence）",
+      "intervals": [
+        {
+          "after": 356,
+          "through": 395
+        }
+      ]
+    },
+    {
+      "title": "Stage 4c：multi/predicate erasure 与 predicate_holds_erase_fwd（未完成）",
+      "intervals": [
+        {
+          "after": 395,
+          "through": 410
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`open_ty_rec`/`open_tm_rec` 的 de Bruijn counter 约定：`Ty_All`/`tm_abs` 下递增，`open_ty (Ty_All T) U` 不替换该 binder 的 `Ty_BVar 0`",
+      "intervals": [
+        {
+          "after": 28,
+          "through": 37
+        }
+      ],
+      "outcome": "用 /tmp/test.v 与 /tmp/test2.v 的 Eval/debug 检查确认 counter 的递增行为：打开整段 `Ty_All` 只替换外层 free var，该 `Ty_All` 自己绑定的 `Ty_BVar 0` 保持不动；同时修掉测试文件把 `Fixpoint` 写成 `Definition` 的低级错误。test2 的负例证明停在 `lia` 的 `Cannot find witness`，没有继续追，但 Eval 结果已足够确定 counter 行为；约定澄清后继续 LR 设计，未改动 Task.v 的 statement。",
+      "resolution": "resolved",
+      "category": "other",
+      "evidence_lines": [
+        38,
+        41,
+        47,
+        50
+      ],
+      "qualification": "区间只计具体的 Eval/编译实验；step 38 中关于 opening/`R_Poly` 的整体推演属于 LR 设计，计入 phase 2。"
+    },
+    {
+      "title": "Stage 1 erasure commutation：`erase_qual_idem` 的单次 rewrite、`erase_open_tm_rec` 的 `Nat.eqb` bvar case，以及 `erase_rty_tm_rec`/`erase_rty_ty_rec` 的 `change`/显式 `k` 不匹配",
+      "intervals": [
+        {
+          "after": 65,
+          "through": 113
+        }
+      ],
+      "outcome": "`erase_qual_idem` 的 `rewrite erase_tm_idem` 只改第一个 term field，改成 `repeat rewrite` 后通过；`erase_open_tm_rec` 的 bvar case 显式 destruct `Nat.eqb` 后在 debug file 通过并移回主文件；`erase_rty_tm_rec`/`erase_rty_ty_rec` 在 `R_Func`/`R_Exists`/`R_Poly` 下需先把 goal `change` 成显式 `Ty_Arrow`/`Ty_All` 形式并显式传 `k`（如 `IHR1 k`、`IHR2 (S k)`）；step 113 编译无报错。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        88,
+        91,
+        118,
+        121,
+        136,
+        160
+      ],
+      "qualification": "Stage 1 其余 substitution commutation 小修正也在区间内；这里只归因 erasure commutation lemmas。"
+    },
+    {
+      "title": "`lc_ty_at_le`/`lc_ty_open_gen`/`wf_ty_lc` 与 `lc_tm_open_tm_inv`/`lc_tm_open_tm`/`lc_tm_open_tm_ty` 系列：归纳未 generalize depth、constructor 顺序与 IH 参数（K/k/j/x）不匹配",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 176
+        }
+      ],
+      "outcome": "先把 `le_lt_trans` 换成 `lia`，再把 target depth 与 opening counter revert/generalize，并按 constructor 逐个出题；`Ty_All`/`tm_tabs` 用 `S K`，`lc_tm_open_tm_inv` 显式传 `(IHt K (S k) (S j) x)`，`tm_tabs` case 的 IH premise 用显式 bullets 处理；step 176 的编译已推进到 fv 部分，说明这组 lc/open lemmas 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        167,
+        191,
+        206,
+        227,
+        248,
+        251
+      ],
+      "qualification": "覆盖多个相邻的 lc/open helper，失败机制相同（归纳/generalize、constructor 顺序、IH 参数）；step 176 的编译结果已进入 fv lemma，说明此组通过。"
+    },
+    {
+      "title": "`fv_open_tm_subset`/`fv_open_tm_incl`/`fv_open_tm_ty`：只打开 level 0 的 statement 不够，singleton membership 与 `Nat.eqb` 化简失败",
+      "intervals": [
+        {
+          "after": 176,
+          "through": 212
+        }
+      ],
+      "outcome": "将 opening counter `j` generalize（`tm_abs` 用 `S j`）；singleton membership 用 `destruct` 分开 true/false，append membership 用 `in_app_iff`，integer 的 empty membership 直接 destruct；`fv_open_tm_ty` 改为逐个 constructor 证明；step 212 编译无报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        254,
+        263,
+        266,
+        269,
+        284,
+        299,
+        302,
+        308
+      ],
+      "qualification": "step 176 的报错已经属于 fv lemma；本问题与 lc/open 组在 step 176 相接但不重叠。"
+    },
+    {
+      "title": "`wf_rty_erase_lc`：`wf_ty_lc` 的 `Delta` 参数、`RWF_Func/Exists/Poly` 的 cofinite IH 名称（H0/H1）、`open_rty_tm`/`open_rty_ty` wrapper 未展开与 erasure rewrite 方向",
+      "intervals": [
+        {
+          "after": 215,
+          "through": 239
+        }
+      ],
+      "outcome": "先对 `wf_ty_lc` 显式传 `Delta`；`RWF_Func/Exists` 的 cofinite IH 实际是 `H1`，`RWF_Poly` 是 `H0`；`unfold open_rty_tm/ty` 后正向 rewrite `erase_rty_*_rec`（不是反向）；最后补回被文本替换误删的 `End Dev2`；step 239 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        312,
+        318,
+        321,
+        333,
+        336,
+        348
+      ],
+      "qualification": "区间与 typing invariants 分开；它的成功是后续 has_type/has_rtype invariants 的前提。"
+    },
+    {
+      "title": "`has_type_lc`/`has_type_fv`：`T_Abs`/`T_TAbs` 的 cofinite premise 被误当成 IH；`T_Abs` 的 fresh variable 与 `T_TAbs` 的 `fv_open_tm_ty` 方向",
+      "intervals": [
+        {
+          "after": 242,
+          "through": 272
+        }
+      ],
+      "outcome": "发现 `H0` 是 cofinite has_type premise、`H1` 才是 lc/fv IH；`has_type_fv` 的 variable case 先 destruct singleton membership 再 `lookup_context_in`；`T_Abs` 用 `fresh (L ++ fv_tm t2)` 和 `fresh_notin_app_r` 处理 freshness，`T_TAbs` 反向 rewrite `fv_open_tm_ty` 把 conclusion 的 fv 转到 opened body；step 272 的编译已越过 `has_type_*`，进入 `has_rtype_lc`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        352,
+        358,
+        361,
+        364,
+        367,
+        370,
+        382,
+        397
+      ],
+      "qualification": "`has_type_lc` 与 `has_type_fv` 在同一段交替调试，归为同一 cofinite IH/freshness/opening 问题；step 272 的报错已属于下一个 has_rtype_lc 问题。"
+    },
+    {
+      "title": "`has_rtype_lc`/`has_rtype_fv`：`RT_Abs` 的 `wf_rty_erase_lc` 参数、`RT_TAbs` 的 IH 名称，以及 `RT_RefineValue` 的 `has_type_fv`+`dom_erase_context`",
+      "intervals": [
+        {
+          "after": 272,
+          "through": 284
+        }
+      ],
+      "outcome": "`wf_rty_erase_lc` 显式传 `Delta`/`RGamma`；`RT_TAbs` 改用实际 IH `H0`；`RT_RefineValue` 显式实例化 `has_type_fv Delta (erase_context RGamma) v T H y Hy` 并 `rewrite dom_erase_context`；step 284 四个 typing invariants 全部编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        400,
+        403,
+        406,
+        409,
+        412,
+        415
+      ],
+      "qualification": "与前一问题在 step 272 相接；此区间主体是 has_rtype invariants。"
+    },
+    {
+      "title": "`fv_open_tm_incl2`/`step_lc`/`step_fv`：append membership、`ST_AppAbs`/`ST_TAppTabs` 的 inversion hypothesis 名称，以及前置 tactic 消耗 `Hfv`",
+      "intervals": [
+        {
+          "after": 287,
+          "through": 315
+        }
+      ],
+      "outcome": "`fv_open_tm_incl2` 的 abstraction/application cases 用 `in_app_iff` 显式注入 append membership；`step_lc` 改用 `inversion H5` 取 abs/tabs 的 lc；`step_fv` 去掉会提前 split 并消耗 `Hfv` 的 `try`，自证 `eq_nil_iff` 替代不存在的 `List.nil_iff`，并在 TAppTabs 前 `unfold open_tm_ty`；step 315 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        419,
+        443,
+        452,
+        455,
+        458,
+        461
+      ],
+      "qualification": "涉及 3 个相邻 helper，机制都是 inversion/自动化顺序与 membership。"
+    },
+    {
+      "title": "`lc_erase_irrel`：`injection` 的 field 顺序、`subst` 清除 erasure equality，以及 IH 需要两个 depth",
+      "intervals": [
+        {
+          "after": 318,
+          "through": 342
+        }
+      ],
+      "outcome": "按 `injection` 实际给出的 field 顺序命名 equality：`tm_abs` 是 annotation equality 先、body erasure equality 后，`tm_tapp` 是 body 先、type 后；避免 bare `subst` 清掉后续还要用的 erasure equality `He`，并把 IH 显式实例化成 `proj1 (IHt He K (S k))`（两个 depth 都要给）；step 342 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        465,
+        471,
+        477,
+        486,
+        492,
+        498,
+        501
+      ],
+      "qualification": "该 lemma 的 erased-term type-depth irrelevance 是后续 value/step erasure 的前提。"
+    },
+    {
+      "title": "`value_erase_fwd`/`value_erase_rev`/`step_erase_fwd`：`lc_tm_erase` 的 implicit 参数、`ST_AppAbs` 的 `erase (open_tm)` 与 `ST_TAppTabs` 的 erased type opening",
+      "intervals": [
+        {
+          "after": 344,
+          "through": 356
+        }
+      ],
+      "outcome": "`value_erase_fwd` 显式 `lc_tm_erase 0 0 (tm_abs T t) H` 解决 implicit 参数；`step_erase_fwd` 的 `ST_AppAbs` 先 `unfold open_tm` 再 `erase_open_tm_rec`；`ST_TAppTabs` 用 `open_tm_ty_int_erased` 并只在第二处 `erase_tm t` 做反向 rewrite；step 356 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        504,
+        510,
+        513,
+        516,
+        519,
+        522
+      ],
+      "qualification": "与 `step_erase_rev` 分开；这里只证 forward 方向。"
+    },
+    {
+      "title": "`step_erase_rev`：从 erased step 反推 raw term 的 shape、`destruct`/`injection`/`subst` 的等式方向，以及 `Z.div`/`eval_integer_operator` reduct 选择",
+      "intervals": [
+        {
+          "after": 359,
+          "through": 395
+        }
+      ],
+      "outcome": "对 erased step derivation 做 induction 并 generalize raw term；app/tapp/div/arith 统一 destruct pattern；`ST_AppAbs` 取 reduct `open_tm bb a2`，`ST_DivInt`/`ST_ArithInt` 取 `tm_int (Z.div n1 m1)`/`tm_int (eval_integer_operator op0 n1 m1)`（不是 division source）；期间避免 bare `subst` 消耗 `E2`、按 `Hb : t = erase_tm bb` 与 `E2 : v = erase_tm a2` 的实际方向 rewrite；修正 `op0` 与 `Hop` 后 step 395 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        526,
+        535,
+        538,
+        544,
+        553,
+        562,
+        565,
+        574,
+        577,
+        580
+      ],
+      "qualification": "这是本次最长且最终解决的单条 syntactic lemma；它只解决 erasure correspondence，不涉及 LR。"
+    },
+    {
+      "title": "`predicate_holds_erase_fwd`（含 `multi_erase_rev`/`pms_erase_fwd`）：`Pred_Eq` 双向 erasure 在设计阶段被判为不成立后改证 forward-only，forward proof 的 equality 方向、`change` endpoint 与 `Pred_And`/`Pred_Or` bullet 仍未通过",
+      "intervals": [
+        {
+          "after": 396,
+          "through": 410
+        }
+      ],
+      "outcome": "step 396 的 Stage 4c 设计（计 phase）中，模型判断 `erase` 会抹掉 annotation、把不同 annotation 的 values 合并到同一 erased term，因此 `predicate_holds p ↔ predicate_holds (erase_qual p)` 不能双向成立（该判断是设计推理，未在 Rocq 中形式化），于是改证 forward-only；本区间内先去掉 `multi_erase_rev` reflexive case 多余的 `symmetry`，把 `pms_erase_fwd` 的 IH 显式命名为 `IHtail`，再去掉 `pms_erase_fwd; auto` 后已无 goal 的 conversion tactics；Lt/Le case 需 `change` 成 `predicate_multistep (erase_tm t) (erase_tm (tm_int n1))` 才能应用 `pms_erase_fwd`；step 408 在 line 1107 报 `Wrong bullet`（`Pred_And` bullet 未关闭、错误落在 `Pred_Or`），到 trace 结束未解决。",
+      "resolution": "unresolved",
+      "category": "statement",
+      "evidence_lines": [
+        581,
+        584,
+        587,
+        590,
+        596,
+        599,
+        602
+      ],
+      "qualification": "不可从这一 helper 报错推断 `never_stuck` 的失败原因；Task.v 的主定理仍是临时 `Admitted`，且 step 410 之后到 run_seconds=3601 没有记录步骤，无法判断那段时间。"
+    }
+  ],
+  "trace_sha256": "45943ee37e140dc4bbf55bfdb82a5f643e1b6c09d6c6e067cf4ce595daeef0b3",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 18,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "45943ee37e140dc4bbf55bfdb82a5f643e1b6c09d6c6e067cf4ce595daeef0b3",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r18.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r18_20261027_211828_446681"
+  }
+}

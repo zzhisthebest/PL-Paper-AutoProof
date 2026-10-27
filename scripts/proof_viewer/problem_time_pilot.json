@@ -1,0 +1,51 @@
+{
+  "timing_rule": "Each interval [a,b] starts at the end of HTML step a and ends at the end of step b. Step 0 is the trace clock origin. Intervals within each problem list do not overlap. Phase totals and problem details are different views and must not be added together.",
+  "runs": [
+    {
+      "case": "001", "repeat": 12,
+      "phases": [
+        {"title": "设计证明路线、试验 LR 并写出草稿", "intervals": [[0,22]]},
+        {"title": "逐项修复 helper proofs", "intervals": [[22,140]]},
+        {"title": "补完 fundamental 和 normalization，消除 Admitted", "intervals": [[140,155]]},
+        {"title": "移植、检查和清理最终文件", "intervals": [[155,206]]}
+      ],
+      "problems": [
+        {"title": "lc_open_rec_inv 的 lia 缺少 Nat.eqb_eq 转换", "intervals": [[22,30]], "evidence_lines": [40,42,43], "outcome": "转换布尔等式后编译越过该 lemma。"},
+        {"title": "step_det 的 value 与 step 矛盾分支无法关闭", "intervals": [[34,54]], "evidence_lines": [58,64,78,79], "outcome": "反复查看不同 branch、尝试 eapply/eauto；最后 contra_value 显式匹配 hypotheses 并调用 value_no_step，编译越过 step_det。"},
+        {"title": "LR_of_red_nonabs 与 application helpers 的 step 分支组织不稳定", "intervals": [[58,78]], "evidence_lines": [85,91,92,96,108,113,114], "outcome": "增加 step_app_cases，重写三个 helper，并修复 nested induction 的 binder 重名；随后到达 LR_app_aux 的 beta branch。"},
+        {"title": "LR_app_aux 的 beta branch 用反了 closure 方向", "intervals": [[78,84]], "evidence_lines": [114,117,120,123], "outcome": "改用 LR_step_forward，并按它的 premises 调整 proof 后越过 beta branch。"},
+        {"title": "LR_app 的 domain type 留成 evar，assumption 无法匹配", "intervals": [[88,94]], "evidence_lines": [135,137,138], "outcome": "显式提供 LR_app_aux 的参数后通过。"},
+        {"title": "fresh_notin_app 误判 append 的结合方向", "intervals": [[104,110]], "evidence_lines": [153,159,161,162], "outcome": "按 right-associative 的结构修正 in_or_app 的分支路径。"},
+        {"title": "substenv_open_rec 的 opening 与 substitution 证明写不通", "intervals": [[116,140]], "evidence_lines": [171,174,177,183,186,195,207], "outcome": "先改错 fvar branch，再修正 bvar 的 simpl/rewrite；之后显式提供 freshness，区分 type annotation 与 body 的 binder，最终越过此 lemma。"},
+        {"title": "fundamental 的 HLR 保留 open，无法匹配 open_rec 引理", "intervals": [[143,145]], "evidence_lines": [211,213,214], "outcome": "unfold open in HLR 后 rewrite 成功。"}
+      ]
+    },
+    {
+      "case": "001", "repeat": 7,
+      "phases": [
+        {"title": "设计、检查 induction principles 并写入草稿", "intervals": [[0,25]]},
+        {"title": "修复 helper proofs，完整 Task.v 编译成功", "intervals": [[25,55]]},
+        {"title": "assumptions、sanity examples、coqchk 和清理", "intervals": [[55,96]]}
+      ],
+      "problems": [
+        {"title": "lc_open 等 lemma 的 inversion pattern 没覆盖全部 constructors", "intervals": [[25,35]], "evidence_lines": [36,43,47,50], "outcome": "最小实验确认六分支 pattern，批量修正后越过该错误。"},
+        {"title": "lc_open 和 lc_open_inv 未拆出 application 两部分的 local closure", "intervals": [[35,39]], "evidence_lines": [50,53,55,56], "outcome": "先 inversion 整体 local closure，再使用对应 IH。"},
+        {"title": "lc_step 的 induction pattern 重名且漏掉 IH", "intervals": [[39,43]], "evidence_lines": [56,59,61,62], "outcome": "参照 step_ind 显式命名 premise 与 IH，编译越过。"},
+        {"title": "inert_no_step 与 inert_SN 不会把 negation hypothesis 用于当前 goal", "intervals": [[43,55]], "evidence_lines": [62,65,68,74,77,80], "outcome": "最小实验验证 eapply，修复调用并恢复 exfalso；完整 Task.v 返回 EXIT 0。"},
+        {"title": "额外 sanity.v 的 LR example 与 step example 写错", "intervals": [[63,75]], "evidence_lines": [91,94,97,100,103,106,109], "outcome": "修正 L、change、显式参数、intros 和 lc_app 后 sanity.v 通过；此时目标证明此前已编译成功。"}
+      ]
+    },
+    {
+      "case": "034", "repeat": 8,
+      "phases": [
+        {"title": "阅读原题", "intervals": [[0,4]]},
+        {"title": "设计并测试能被 Rocq 接受的多态 LR", "intervals": [[4,20],[24,46]]},
+        {"title": "搜索本地材料", "intervals": [[20,24]]}
+      ],
+      "problems": [
+        {"title": "多态 LR 的定义始终未通过 Rocq 检查", "intervals": [[4,20],[24,46]], "evidence_lines": [26,41,60,63], "outcome": "Inductive LR 和 Sem 分别违反 strict positivity；G 对任意 U 递归未通过 guard checking；最后的 higher-order Fixpoint 小实验也失败。没有进入 fundamental 的实际证明。", "qualification": "包含前期正常设计和失败后的重新设计，不把整个区间称为错误或浪费。长思考同时讨论 All、arrow、substitution、natrec，不能把分钟数可靠拆给这些声明。"}
+      ],
+      "unobserved_tail": "最后 trace 在累计约 3425 秒结束；result 为 3601 秒。余下约 176 秒没有可据以归因的记录，不计入 LR 区间。"
+    }
+  ]
+}

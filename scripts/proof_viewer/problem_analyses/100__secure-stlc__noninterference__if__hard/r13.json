@@ -1,0 +1,456 @@
+{
+  "summary": "本次 2478 秒中约 907 秒用于读题、环境探查和一次性推演整套 LR（以 indirect_reader 为 gate 的 binary logical relation、completed-evaluation 语义与 fundamental theorem 架构），其余约 1570 秒分块实现约 70 个辅助引理、VR/ER 定义、13 条 typing rule 的 fundamental theorem 与顶层 noninterference，并反复修正 induction pattern 顺序、inversion case 顺序、`subst` 消耗等式、locally-nameless 替换和 `protect_value` 下 annotation 变化等具体问题。fundamental 中 `ty_protect` result gate 的处理与设计思考混在长 thinking 内、无法单独分时，按要求保留在 phases；运行最终成功结束，Task.v 干净编译且 `Print Assumptions` 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "阅读 Task.v/card.md 并首次推演 noninterference 证明路线",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "探查 Rocq 环境与 filesystem 参考实现（find 超时转后台）",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 21
+        }
+      ]
+    },
+    {
+      "title": "LR 总体设计探索（单个长 thinking：indirect_reader gate、arrow/elimination clause、completed evaluation 语义）",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 25
+        }
+      ]
+    },
+    {
+      "title": "baseline 编译确认（保留原 Admitted）",
+      "intervals": [
+        {
+          "after": 25,
+          "through": 27
+        }
+      ]
+    },
+    {
+      "title": "编写基础辅助引理：label/security、freshness、context lookup",
+      "intervals": [
+        {
+          "after": 27,
+          "through": 54
+        }
+      ]
+    },
+    {
+      "title": "编写 substitution environment、local closure、typing_lc 与 plug/context 引理",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 164
+        }
+      ]
+    },
+    {
+      "title": "编写 completed evaluation 的 focalization/decomposition 引理",
+      "intervals": [
+        {
+          "after": 164,
+          "through": 225
+        }
+      ]
+    },
+    {
+      "title": "定义 VR/ER/env_rel 并证明保护、opacity、subtyping 与 ER helpers",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 278
+        }
+      ]
+    },
+    {
+      "title": "补齐 opening/binder/env 引理并设计 fundamental theorem 的 13 条 typing cases",
+      "intervals": [
+        {
+          "after": 278,
+          "through": 303
+        }
+      ]
+    },
+    {
+      "title": "实现并调试 fundamental theorem（13 条 typing rule）",
+      "intervals": [
+        {
+          "after": 303,
+          "through": 332
+        }
+      ]
+    },
+    {
+      "title": "实现 erasure 引理 VR_erase / same_result_of_ER",
+      "intervals": [
+        {
+          "after": 332,
+          "through": 342
+        }
+      ]
+    },
+    {
+      "title": "实现并调试顶层 noninterference",
+      "intervals": [
+        {
+          "after": 342,
+          "through": 361
+        }
+      ]
+    },
+    {
+      "title": "最终验证：clean build、definitions/statement diff、Print Assumptions",
+      "intervals": [
+        {
+          "after": 361,
+          "through": 376
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "flows_to_low_inv / wf_security_protect：首版 proof 在 False（High→Low）分支无法关闭",
+      "intervals": [
+        {
+          "after": 31,
+          "through": 40
+        }
+      ],
+      "outcome": "flows_to_low_inv 改为 `intros [] H; simpl in *; [reflexivity | tauto]`，用 tauto 吃掉 False premise；wf_security_protect 原 proof 以 `auto` 收尾仍报 incomplete proof（尚有 open goals），改为显式 `unfold wf_security` 后用 `destruct r, i, l; simpl in *; tauto`，第 38 步先在 scratch file 编译通过、第 40 步写回。随后第 42 步的 coqc 越过这两条引理并停在 max_atom_ge，确认修复。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        41,
+        47,
+        50
+      ],
+      "qualification": "两个相邻小引理的首版 proof 都因 `auto` 未能关闭全部 label case 而失败，故合并；chunk 起草时间在 phase 5，未计入本区间。"
+    },
+    {
+      "title": "max_atom_ge：lia 不能证明含 Nat.max 的边界（Cannot find witness）",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 54
+        }
+      ],
+      "outcome": "用 t2/t3/t4 多轮独立测试确认 lia 对 `Nat.max` 没有可用规则（错误信息一直是 Cannot find witness）；最终弃用 lia，改为 `Nat.le_max_l`、`Nat.le_max_r` 配合 `Nat.le_trans` 和 IH 显式证明。第 54 步 coqc 无报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        56,
+        62,
+        68,
+        74
+      ],
+      "qualification": "纯 Nat 工具问题，与 LR 主体无关；报错文本与其它 lia 失败相同，故用步骤/行号定位。"
+    },
+    {
+      "title": "lc_at_mono / lc_at_open_fvar / lc_at_subst_env：induction index 推断与 automation 误用",
+      "intervals": [
+        {
+          "after": 58,
+          "through": 97
+        }
+      ],
+      "outcome": "lc_at_mono 的 `apply IHt` 报无法推断 k，改为显式 `(IHt (S k) (S k'))` 并用 `[lia | assumption]` 只把 lia 用于 index 不等式；lc_at_open_fvar 中 `rewrite IHbody1, IHbody2` 因 x 未定留下两个 shelved evars，且 `induction body as [...]` 把 security 参数与 IH 混位（`IHbody : security`），改为显式交错 pattern（如 `T body IHbody kappa`）并按构造函数逐个用 proj1/proj2 显式给 k、x；lc_at_subst_env 的初始 `auto` 会提前关掉部分 case 造成 bullet 错位（IHbody not found），改为 13 个 syntax case 全显式。第 97 步这些引理通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        81,
+        87,
+        96,
+        99,
+        108,
+        111,
+        114,
+        129
+      ],
+      "qualification": "区间也含 env_lc_update 的小修；它只占极少时间，无法从这段调试中精确分离。"
+    },
+    {
+      "title": "typing_lc：has_type 13 条规则的 induction hypothesis 命名、destruct IH0 误用与遗漏 T_If",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 114
+        }
+      ],
+      "outcome": "先 `Print has_type_ind` 得到每条 rule 的 premise/IH 顺序（recursive premise 后紧跟其 IH），改写成显式 `as` pattern；T_Case 中 IH0 只是 locally_closed t 而非合取，改为 `split; [exact IH0 | split]`；在 Qed 前临时插入 `Show.` 发现漏写 T_If 分支，补 `repeat split; assumption`。第 114 步 typing_lc 通过，错误移到 subst_env_fix。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        138,
+        148,
+        154,
+        160,
+        163
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_env_fix / subst_env_plug / subst_env_plug_fresh：locally-nameless 替换与 open 的 commutation",
+      "intervals": [
+        {
+          "after": 114,
+          "through": 158
+        }
+      ],
+      "outcome": "subst_env_fix 先因 `induction s; ...; auto` 中 auto 提前关闭部分 syntax case 而使 bullet 与 case 错位（fvar bullet 落到 abstraction case），改为 13 个 case 全显式；fst/snd/inl/inr/protect 等 wrapper constructor 的 goal 需先 `f_equal` 再套 IH；随后的 Wrong bullet 定位到 conditional rewrite（`rewrite IH; [| side]`）的 side condition 排在主 goal 之后，改为先 assert 各 subterm 的 subst_env 等式再 rewrite；嵌套 append 的 `In` premise 改为 `simpl; repeat rewrite in_app_iff; tauto`；subst_env_plug 的 `induction C` 与 hole term 变量名 t 冲突，改为 17 个 program_context constructor 的显式 induction pattern；subst_env_plug_fresh 需 `unfold update_env` 并做一次 `Nat.eqb_refl`。第 152 步的编译已越过这三条引理（报错转入 value_locally_closed），第 153-154 步的 Show 进一步确认 subst_env_plug_fresh 无剩余 goal。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        163,
+        164,
+        166,
+        169,
+        196,
+        208,
+        217,
+        220
+      ],
+      "qualification": "区间含用 Show 确认 subst_env_plug_fresh 已无 goal、从而把错误定位到下一引理的验证时间（step 152-158），无法与替换引理调试完全分开。"
+    },
+    {
+      "title": "value_locally_closed / value_no_step：auto 造成的 bullet 错位与 value_ind 的 argument/IH 顺序",
+      "intervals": [
+        {
+          "after": 158,
+          "through": 164
+        }
+      ],
+      "outcome": "原先 `induction Hv; simpl; auto` 让 auto 提前关掉部分 case，value_locally_closed 的 `- (* abs *) assumption` 报 No such assumption；改为显式 induction pattern 后又发现 v_pair 的实际顺序是 `v1 v2 kappa, value v1, P v1, value v2, P v2`，按“参数全部在前、IH 在后”写成 `v1 IH1 v2 IH2 kappa` 会得到 `v1, IH1 : tm` 之类的错位；打印 value_ind 后改为 `v1 v2 kappa Hv1 IH1 Hv2 IH2` 等显式 pattern。value_no_step 对 pair/inl/inr 的 step 用 `eapply IH; eassumption`，第 164 步通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        230,
+        232,
+        238
+      ],
+      "qualification": "step 152 的 `No such assumption` 首先出现在 value_locally_closed，但 step 153-158 对 subst_env_plug_fresh 的 Show 复核已计入上一项；本项从第 159 步显式改写 value 引理开始。"
+    },
+    {
+      "title": "multi_abs / multi_unit：对 multi derivation 直接 induction 丢失 compound start term",
+      "intervals": [
+        {
+          "after": 167,
+          "through": 171
+        }
+      ],
+      "outcome": "直接 `induction Hm`（起始项是 `tm_abs ...`）会把 index 泛化成自由变量，Show 显示 19 个 goal 且起始项不再等于该 abs；改为 generalized statement：先引入 s u，保留等式 `s = tm_abs T body k`，再 induction multi derivation，最后 subst 等式。multi_unit 同样处理。第 171 步修正后错误变为 multi_pair 的 Heq 问题。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        242,
+        245,
+        248
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi_pair 等 decomposition lemmas：`subst` 消耗起始 equality 使后续 `inversion Heq` 报 No such hypothesis",
+      "intervals": [
+        {
+          "after": 171,
+          "through": 197
+        }
+      ],
+      "outcome": "编译报 `No such hypothesis: Heq`；用 t11–t21 最小例子逐步复现，排除变量名（改成 He 仍失败）和 intros 写法，最终确认 `subst s0` 会利用并移除 Heq，之后 `inversion Heq` 找不到该 hypothesis。改为先 inversion 等式（或直接 subst）再 inversion step，并在随后的 block rewrite 中统一应用；第 198 步重写后的 coqc 越过 multi_pair、停在 multi_app 的 `T is already used`，确认该问题已解决。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        248,
+        254,
+        281,
+        284,
+        288
+      ],
+      "qualification": "根本原因到 step 196-197 才确认，修复在区间结束后的 block rewrite（step 198）应用并验证；按规则不据此扩大区间。"
+    },
+    {
+      "title": "multi_app / multi_fst / multi_snd / multi_case / multi_protect：inversion 的 step-constructor 顺序、IH 显式参数与 witness 命名",
+      "intervals": [
+        {
+          "after": 197,
+          "through": 225
+        }
+      ],
+      "outcome": "确认 `inversion Hs` 的 case 顺序跟随 step 构造子声明顺序（ST_AppAbs 先于 ST_App1/2、ST_FstPair 先于 ST_Fst、ST_CaseLeft/Right 先于 ST_Case、ST_ProtectValue 先于 ST_Protect），据此重排 bullets；对带 premise 的 IH 显式给 t'/b1/b2/r 等参数（`destruct (IH Hval t' b1 b2 r eq_refl)`）；multi_app 的见证改名 Ta/ba/ka/va 避免 `T is already used`；multi_protect 的 ST_ProtectValue 分支以 t 而非不存在的 v 作 witness，并用显式 split + multi_refl 代替对 multi 目标用 reflexivity。第 225 步 evaluation helpers 全部通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        288,
+        297,
+        307,
+        313,
+        316,
+        325
+      ],
+      "qualification": "首个错误（T is already used）与上一项（multi_pair 的 subst/Heq 修复）处在同一次 block rewrite 编译，故用 step 197/198 切分两项。"
+    },
+    {
+      "title": "VR_ty_protect：arrow case 的 `apply H` 无法推断 w1/w2/r",
+      "intervals": [
+        {
+          "after": 227,
+          "through": 230
+        }
+      ],
+      "outcome": "`apply H` 需要先确定 w1 w2 r 与 gate/flow；改为先 assert `flows_to s.ind o` 与 `flows_to s.reader r`（用 `join_flows_to_inv_l` 从 protected type 的 gate/flow 反推），再 `exact (H gate w1 w2 r ...)` 完整应用。第 230 步 VR_ty_protect 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        332,
+        335
+      ],
+      "qualification": "小型 inference 问题，区间很短。"
+    },
+    {
+      "title": "VR_protect_value：protect_value 改变 annotation 后 arrow case 的 application evaluation 与保护 label 对齐",
+      "intervals": [
+        {
+          "after": 233,
+          "through": 256
+        }
+      ],
+      "outcome": "multi_app_abs_protect 先因引用不存在的 H1 失败（该分支的 step hypothesis 实为 H3），随后用 value_no_step 排除 abstraction/argument 的 step 时 eauto 选错 value hypothesis，留下 `tm_abs ... --> ?v'` 的 shelved evar，改为按 step hypothesis 显式匹配后通过。protect_value 只改外层 annotation，而 ST_AppAbs 的 reader flow 和 protect 的 indirect label 都取自 actual annotation；先加强 protect_value_abs_inv 返回 T/body 等式，新增 multi_app_abs_protect、multi_protect_congr、multi_protect_value、multi_trans、protect_value_compose；从 protected app 的 completed evaluation 反推原 app 的 evaluation（用 multi_value_inv 的原始方向，删掉多余 symmetry），再用 IH at T2 与 protect_value_compose 把 `z1 = protect_value u1 (join k1.ind l1)` 与 goal 对齐；value_protect_value 需显式传参以避免 evar 无法 iota 化简。第 256 步通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        339,
+        342,
+        345,
+        348,
+        355,
+        361,
+        367,
+        373
+      ],
+      "qualification": "区间含该 lemma 的大段设计性 thinking（protected app 重建），设计与纠错无法精确分时；具体失败点均可定位到编译记录。"
+    },
+    {
+      "title": "subtype_interp：subtype_ind 的 recursive premise 命名与 `repeat split; auto` 过早关闭 VR goal",
+      "intervals": [
+        {
+          "after": 262,
+          "through": 278
+        }
+      ],
+      "outcome": "S_Sum/S_Prod/S_Arrow 分支中 recursive subtype premise 本身与它的 IH 各占一个 pattern 位（`Hs1 IH1 Hs2 IH2`），按此重写；`repeat split; auto` 会提前把 `VR o U1 u1 u2` 一并解决（Show 显示该分支已 complete），导致后续 `apply IH1` 报 No such goal，改用 `try assumption` 后再显式 apply IH1/IH2；S_Arrow 用 IH1（contravariant）与 IH2（covariant）并通过 flows_to_trans 传递 reader flow。第 278 步通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        381,
+        384,
+        402,
+        405
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "open_rec_lc_gen / subst_env_open_rec / env_rel_update：lc_at premise、intros 顺序与声明依赖顺序",
+      "intervals": [
+        {
+          "after": 280,
+          "through": 299
+        }
+      ],
+      "outcome": "open_rec_lc_gen 的 bvar 分支需 `simpl in *` 把 lc_at premise 化成 `n < m`，再 `exfalso; lia`；abs/case 分支需给 IH 显式传 m/k（`S m`/`S k`）。subst_env_open_rec 的 intros 顺序应为 env_lc → locally_closed → freshness → k（原顺序把 k 绑到 env_lc premise）；各 subterm 的 freshness 需显式 assert 并用 `repeat rewrite in_app_iff; tauto`；开/代入的 IH 需显式传 k/S k。env_rel_update 依赖的 lookup_update_some 定义在其后，需把该引理移到 context lookup 之后，并按 (Gamma, 查询变量, 更新变量, T, U) 顺序传参。第 299 步通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        409,
+        412,
+        418,
+        421,
+        427,
+        433,
+        436
+      ],
+      "qualification": "区间与 fundamental 的前期构思相邻（step 279-280 的设计 thinking 已排除在区间外），这里只归因可定位的引理错误。"
+    },
+    {
+      "title": "fundamental：T_Pair 的 multi_pair destruct pattern 缺项、T_Case subst 后 payload 改名、case/if mismatch 的 discriminate 目标",
+      "intervals": [
+        {
+          "after": 309,
+          "through": 332
+        }
+      ],
+      "outcome": "multi_pair 返回两个 component 的 multi 与两个 value，原 pattern 少写一项导致 `subst z1` 报 Cannot find any non-recursive equality；补成 7 项 `(v1 & v2 & Hp1 & Hp2 & Hv1 & Hv2 & Ez1)`（第二次运行为 Hq1/Hq2），并让 IH1 接两次运行的第一分量 (Hp1,Hv1)/(Hq1,Hw1)、IH2 接第二分量 (Hp2,Hv2)/(Hq2,Hw2)。T_Case 的 l/l 与 r/r 分支 `inversion E1/E2; subst` 会把 v1/v2 换成 payload 变量 p1/p2，环境扩展与 subst_env_open 改写相应改用 p1/p2。case/if 的 l/r 与 r/l 两个 disjunct 的矛盾等式不同：l/r 先 discriminate E2 再 E1，r/l 先 E1 再 E2。第 332 步错误移到 VR_erase。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        451,
+        457,
+        472,
+        475,
+        478
+      ],
+      "qualification": "该区间与 fundamental 的整体实现重叠；三类失败（pattern、改名、discriminate 目标）可分别定位但共处同一调试段。"
+    },
+    {
+      "title": "VR_erase / same_result_of_ER：透明度的 κ 与 observer label o 混淆（statement 级）及 eauto 过解决",
+      "intervals": [
+        {
+          "after": 332,
+          "through": 342
+        }
+      ],
+      "outcome": "VR_erase 原先写成 `forall o T, transparent_at o T`，导致 o 被推断为 security 而 VR 需要 label；改为 `forall (o : label) (kappa : security) T`，transparency 固定在 kappa 上递归，并新增 gate premise `flows_to kappa.ind o`；组件处用 security_le + flows_to_trans 打开 gate。same_result_of_ER 也显式区分 o 与 (security_of T)，并改为先 apply VR_erase 的显式 premises，再单独 apply HER（先前 `eapply ...; eauto` 已把 VR goal 一并解决，后续 apply 报 No such goal）。第 342 步通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        484,
+        490,
+        493,
+        499
+      ],
+      "qualification": "VR_erase 是辅助 lemma，不是题面 theorem；但它确实需要修改陈述（κ/o 混淆），故 category 用 statement，需与题面 statement 区分。"
+    },
+    {
+      "title": "noninterference：Hrel 中连续两次 `Nat.eqb_refl` rewrite，第二次找不到 subterm",
+      "intervals": [
+        {
+          "after": 345,
+          "through": 361
+        }
+      ],
+      "outcome": "Hrel 目标是 `ER ... (if x =? x then t1 else fvar x) (...)`；`rewrite Nat.eqb_refl, Nat.eqb_refl` 报 Found no subterm，因为一次 `rewrite Nat.eqb_refl` 会改写 goal 中全部匹配 occurrences，第二次已无 subterm。期间用 `simpl`、`change` 反复排查（`change` 虽保留，但决定性的修改是删掉第二个 rewrite）。最终只保留一次 rewrite，第 361 步整个 Task.v 编译通过。第 366 步文本比较确认 definitions prefix 与 theorem statement 一致，第 369 步 clean build 与 `Print Assumptions` 均返回 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        503,
+        512,
+        521,
+        525,
+        527
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "6a31378033902a541dbaa4afd775309836cc706b515fd5b46712172c9a967053",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 13,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "6a31378033902a541dbaa4afd775309836cc706b515fd5b46712172c9a967053",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r13.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r13_20261027_212246_408189"
+  }
+}

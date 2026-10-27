@@ -1,0 +1,530 @@
+{
+  "summary": "本次 run_seconds=1068：step 6 用约 603 s 的单段 thinking 设计 CBV 的 type-indexed logical relation（local closure + SN + reachable values）与 fundamental theorem，其中含 SN closure/reachability 的设计自我纠错，无法再分时，故整体留在 phases；初版写入约 32 s，随后的编译调试约 365 s（637→1002），编译成功后的验证与收尾约 64 s。调试的主要障碍是 subst_open_rec 陈述缺少 substitution images 的 local closure 前提、R_cond 的 tauto 失败、inversion 自动命名不一致（T0/H/H0）、multi 在复合 source 上 destruct 丢失形状（新增 multi_cases）以及 fundamental T_Abs 的 HlcU/env_ok/HRx 重写链。目标 theorem 在 step 166 编译通过，Print Assumptions 返回 Closed under the global context，Task.v 最终与 supplied text 一致。",
+  "phases": [
+    {
+      "title": "初始化与任务读取：确认 Task.v 内容与 Rocq 9.1 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计探索：CBV 的 type-indexed logical relation、value/reachability 条件与 fundamental theorem（单段 thinking，含内部自我纠错）",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "初版写入：substitution/local-closure/value 基础设施、R/V、R_app/R_if、fundamental 及 normalization proof",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "基础 helper 引理编译调试（substitution、open/close、local closure、value、multi 基础引理）",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 61
+        }
+      ]
+    },
+    {
+      "title": "LR 引理与主证明调试（R/V 投影、R_app、R_if、has_type_lc、fundamental T_Abs）",
+      "intervals": [
+        {
+          "after": 61,
+          "through": 166
+        }
+      ]
+    },
+    {
+      "title": "编译成功后的验证与收尾（重复编译、原文 diff、Print Assumptions、review）",
+      "intervals": [
+        {
+          "after": 166,
+          "through": 196
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "subst_open_rec 的陈述缺少 substitution images 的 locally_closed 前提（对任意 sigma 不成立），并波及 fundamental 的 T_Abs 调用点",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 26
+        }
+      ],
+      "outcome": "把 subst_open_rec 改为要求 (forall x, locally_closed (sigma x))，新增 open_rec_lc_gen/open_rec_lc 证明 locally closed 的 term 不被 open_rec 改变；随后在 fundamental 的 T_Abs 以 HlcU 提供该前提并传给 IHbody；该陈述与调用点都进入最终通过编译的 Task.v。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        21,
+        25,
+        27,
+        28,
+        36,
+        37
+      ],
+      "qualification": "HlcU 的补充是同一次陈述修改的直接连带工作，故并入同一区间；该陈述的编译验证要等 open_rec_lc_gen 的证明修好后（step 46 起错误才落进 subst_open_rec 的 tm_fvar case），最终由 step 166 的整体编译确认。"
+    },
+    {
+      "title": "lc_app_inv/lc_abs_inv/lc_if_inv 定义在 open_rec_lc_gen 的使用点之后，environment 中找不到",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 38
+        }
+      ],
+      "outcome": "把三个 local-closure inversion lemmas 从原位置删除并插到 open_rec_lc_gen 之前；step 38 的编译不再报 lc_app_inv 未定义，错误推进到该引理内无法为 j 找 instance。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        43,
+        48,
+        51,
+        52,
+        55
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "open_rec_lc_gen/subst_open_rec 的 opening-equality 证明：induction hypothesis 的 j 无法从结论推断，tm_fvar 分支等式方向相反",
+      "intervals": [
+        {
+          "after": 38,
+          "through": 48
+        }
+      ],
+      "outcome": "先把各 subterm 的 opening equality 写成 assert，再在 apply IHa/IHb/IHBc 上用 with (j := j) 显式实例化；tm_fvar 分支改为先 symmetry 再 apply open_rec_lc；编译推进到 value_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        55,
+        61,
+        64,
+        67,
+        69,
+        70
+      ],
+      "qualification": "两处错误都在同一批 opening/substitution helper 引理的证明中（j 在 open_rec_lc_gen 的 application case，symmetry 在 subst_open_rec 的 tm_fvar case），中间只隔一次编译，故合并为一个连续困难。"
+    },
+    {
+      "title": "value_lc 的 destruct/auto 未闭合所有 goal（v_abs 分支已有的 locally_closed hypothesis 未被使用）",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 50
+        }
+      ],
+      "outcome": "改为显式 destruct value 的三个构造子：v_abs 用 exact Hlc，v_true/v_false 用 lc_true/lc_false。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        70,
+        72,
+        73
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "新增 helper block 被放在 Inductive strongly_normalizing 之前，value_SN 引用 strongly_normalizing 失败",
+      "intervals": [
+        {
+          "after": 50,
+          "through": 53
+        }
+      ],
+      "outcome": "用脚本把整个新增 block 移到 strongly_normalizing 定义之后、Theorem normalization 之前；之后编译继续。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        73,
+        74,
+        76,
+        77
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_SN 中 value_no_step 给出 False，而 goal 是 strongly_normalizing v'，缺少 exfalso",
+      "intervals": [
+        {
+          "after": 53,
+          "through": 55
+        }
+      ],
+      "outcome": "在 exact (value_no_step ...) 之前加 exfalso。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        77,
+        79,
+        80
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi_of_value 直接 destruct indexed multi，使 v 与 v' 被统一、v 从 environment 消失",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 59
+        }
+      ],
+      "outcome": "新增 generalized 的 multi_of_value_aux（multi step a b -> forall v, value v -> v = a -> b = v），用 induction 保留 source equality，再由它推出 multi_of_value。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        80,
+        84,
+        85,
+        86
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_step 的 ST_If case 中 induction pattern 与 IH 位置错配（IH 实际排在 reduction premise 之后、branch lc premises 之前）",
+      "intervals": [
+        {
+          "after": 59,
+          "through": 61
+        }
+      ],
+      "outcome": "把 pattern 改为 t1 t1' t2 t3 Hs IHs Hlct2 Hlct3。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        86,
+        87,
+        88,
+        89
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_cond 中 tauto 无法证出 V T v，需显式 destruct R T t 的三元 conjunction 再 apply 第三个前提（R_intro 也改为显式构造）",
+      "intervals": [
+        {
+          "after": 61,
+          "through": 77
+        }
+      ],
+      "outcome": "改为 destruct H as (H1 & H2 & H3); apply (H3 v Hm Hv)，并把 R_intro 预防性地改成显式 split/exact。期间用 scratch 实验检查 mutual Fixpoint 在 simpl 下的展开行为，排除了原先关于 R_intro/simpl 的猜想。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        89,
+        93,
+        96,
+        107,
+        111,
+        112,
+        113
+      ],
+      "qualification": "tauto 失败的确切原因未在 trace 中证实（中途一度误判为 R_intro）；显式 destruct/apply 后通过，scratch 实验只说明 mutual Fixpoint 在 simpl 下会展开。"
+    },
+    {
+      "title": "V_sn/V_lc/V_value 的隐式 T 参数无法由 conclusion 推断；term-mode 调用 V_value H 还缺少 T 与 v",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 85
+        }
+      ],
+      "outcome": "goal-directed 调用加 with (T := T)；term-mode 改成 V_value T v H。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        113,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi_step 构造子需要显式 relation 参数 step（否则第一个 tm 被当作 relation）",
+      "intervals": [
+        {
+          "after": 85,
+          "through": 89
+        }
+      ],
+      "outcome": "所有 term-mode 的 multi_step 调用补上 step 参数（R_forward、R_app_aux、R_if_aux）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        125,
+        126,
+        130,
+        131
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_app_aux/R_if_aux 的 successor 分析依赖 inversion 自动生成的变量与 hypothesis 名（T0/H/H0 均不存在），需用 Show 确认",
+      "intervals": [
+        {
+          "after": 89,
+          "through": 97
+        },
+        {
+          "after": 105,
+          "through": 109
+        },
+        {
+          "after": 118,
+          "through": 122
+        }
+      ],
+      "outcome": "在对应 case 插入 Show 读取 proof state，按实际的 T/t/H1/H3、t1'/H1、t2'/H3、t1'/H2 等名字改写 IH 调用与 multi_step 构造。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        131,
+        137,
+        140,
+        143,
+        155,
+        158,
+        161,
+        174,
+        177,
+        180
+      ],
+      "qualification": "三处都是同一类 inversion 命名问题；中间夹着的 bullet 未闭合是另一个问题（apply Hcond1 漏 value premise）。"
+    },
+    {
+      "title": "R_app_aux 的 Hsucc 中 apply Hcond1/Hcond2 只提供了 multi-step premise，漏掉 value premise，导致后续 bullet 未闭合",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 105
+        }
+      ],
+      "outcome": "改成 apply Hcond1; [exact (multi_step step ... H1 Hm) | exact Hval]（Hcond2 同理）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        143,
+        147,
+        153,
+        154,
+        155
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi 在复合 source 上 destruct 会把 source 泛化成新变量并丢失形状（R_app_aux/R_if_aux/fundamental 的 reachable-value 证明），新增 multi_cases",
+      "intervals": [
+        {
+          "after": 109,
+          "through": 114
+        },
+        {
+          "after": 122,
+          "through": 126
+        },
+        {
+          "after": 132,
+          "through": 136
+        },
+        {
+          "after": 164,
+          "through": 166
+        }
+      ],
+      "outcome": "新增 multi_cases : multi step a b -> a = b 或存在 c 使 step a c 且 multi step c b，在各 cond 证明里先 destruct multi_cases，refl 分支用 subst v 后 inversion Hval，first-step 分支用 R_cond (Hsucc s Hs)；fundamental 的 T_True/T_False 同样改用。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        161,
+        164,
+        167,
+        168,
+        180,
+        185,
+        186,
+        195,
+        200,
+        201,
+        243,
+        245,
+        246
+      ],
+      "qualification": "四处是同一个 destruct/index 信息丢失问题在换到不同声明后重复出现，故列多个 interval 而不是多个独立问题。"
+    },
+    {
+      "title": "R_app_aux/R_app 的 type argument T1 只出现在 premises 中，无法由 conclusion 推断",
+      "intervals": [
+        {
+          "after": 114,
+          "through": 118
+        },
+        {
+          "after": 162,
+          "through": 164
+        }
+      ],
+      "outcome": "分别改为 apply (R_app_aux T1 T2 t1) 与 apply (R_app T1 T2 (subst sigma t1))。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        168,
+        169,
+        173,
+        174,
+        240,
+        241,
+        242,
+        243
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "has_type_lc 需要 opening 的反向引理 lc_open_inv（lc_open_rec 的方向相反）",
+      "intervals": [
+        {
+          "after": 126,
+          "through": 128
+        }
+      ],
+      "outcome": "新增 lc_open_inv : lc_at k u -> lc_at k (open_rec k u t) -> lc_at (S k) t（对 t 做 induction），并把 has_type_lc 的 T_Abs case 改用它。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        186,
+        187,
+        188,
+        189
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs 中 simpl 先展开 R，导致 apply R_intro 无法把 goal 与 R ?T ?t 统一（需 change）",
+      "intervals": [
+        {
+          "after": 128,
+          "through": 132
+        }
+      ],
+      "outcome": "改用 change (R (Ty_Arrow T1 T2) (tm_abs T1 (subst sigma t1))) 只调整 term 形状，再 apply R_intro；T_True/T_False 同样改成 change (R Ty_Bool tm_true/false)。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        189,
+        192,
+        193,
+        194,
+        195
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs 中 HlcU 与 env_ok 分支：destruct 对 if Nat.eqb 的化简与后续 rewrite 目标不一致",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 150
+        }
+      ],
+      "outcome": "确认 HlcU 分支 destruct eqb 后 goal 已是 locally_closed w，删掉多余的 rewrite Nat.eqb_refl；env_ok 分支同样删掉 goal 中多余的 rewrite subst_update_eq，但保留 Hy 里的 rewrite Nat.eqb_refl（用 Check Hy 确认 simpl 后仍保留 if）。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        201,
+        204,
+        213,
+        216,
+        219,
+        221,
+        222
+      ],
+      "qualification": "期间一度把 env_ok 分支的 rewrite subst_update_eq（行 816）误认成 simpl in HRx 之后的那一处，删掉 HRx 的重写后错误未变，随后在 HRx 链中恢复；实际此处只涉及 HlcU 与 env_ok，HRx 的重写问题紧随其后。"
+    },
+    {
+      "title": "fundamental 的 T_Abs 中 HRx 的重写链：subst_open_rec 需先 unfold open，simpl 后还需 subst_update_eq",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 156
+        }
+      ],
+      "outcome": "在 HRx 上先 unfold open，再 rewrite (subst_open_rec ... HlcU)，simpl 后补 rewrite subst_update_eq，使 HRx 变成 R T2 (open (subst sigma t1) w)。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        222,
+        225,
+        228,
+        230,
+        231
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "v_abs 的 term-mode 应用缺少 T 与 body 参数，把 locally_closed proof 当成 ty",
+      "intervals": [
+        {
+          "after": 156,
+          "through": 162
+        }
+      ],
+      "outcome": "改为 v_abs T1 (subst sigma t1) Hlc_abs。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        231,
+        234,
+        238,
+        239,
+        240
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "Print Assumptions 用未限定名 normalization 找不到 module 内的 theorem",
+      "intervals": [
+        {
+          "after": 177,
+          "through": 179
+        }
+      ],
+      "outcome": "改用 STLCCBVNormalizationTask.normalization，得到 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        262,
+        264,
+        265
+      ],
+      "qualification": "目标 theorem 在 step 166 已编译通过；此项只是事后 assumptions 检查的限定名问题。"
+    }
+  ],
+  "trace_sha256": "2d39e2320f5d961bb379bee91396f0c3e723a48e765bc9a2d136d295393e9367",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 20,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "2d39e2320f5d961bb379bee91396f0c3e723a48e765bc9a2d136d295393e9367",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r20.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r20_20261027_211738_431248"
+  }
+}

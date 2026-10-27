@@ -1,0 +1,195 @@
+{
+  "summary": "本次 821 秒的运行中约 597 秒（约 73%）花在开头的 LR/CR 设计与完整证明路线推演：这段长 thinking 包含对「通用 CR3 对 abstraction 不成立、需改用仅作用于 non-value term 的 neutral rule」等概念困难的自我纠正，但没有工具交互、无法再按时间细分，故整体留在 phases。其余约 222 秒用于编写、编译和验证；实际调试集中在 `open_rec_lc`/`subst_env_lc` 的 binder 命名冲突（约 20 秒）、`subst_env_open_rec` 中 `simpl` 不展开 `env_update` 导致的 `Nat.eqb_refl` rewrite 失败（约 15 秒），以及 `step_det` 的 evar 误配与随后的 inversion pattern 命名冲突（合计约 74 秒），这些问题均在本次运行内解决。LR chunk、`fundamental` 和最终 `normalization` 均首次编译通过，`Print Assumptions` 返回 closed global context；`Check` 未 `Import` module、scratch 类型注解、`Print assumptions.` 写法等数秒级小错未单列为问题。",
+  "phases": [
+    {
+      "title": "阅读 Task.v 与确认 Rocq 9.1.0 环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "设计探索 I：CBV strong normalization 的 LR/CR 方案推演",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计探索 II：检查 generated induction principles 并定稿 neutral-rule 与完整 lemma 路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 10
+        }
+      ]
+    },
+    {
+      "title": "tactic 预测试与 chunk 1（fvars/lc/subst_env）编写、首轮编译",
+      "intervals": [
+        {
+          "after": 10,
+          "through": 21
+        }
+      ]
+    },
+    {
+      "title": "调试 chunk 1 编译错误（open_rec_lc / subst_env_lc / subst_env_open_rec）",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 43
+        }
+      ]
+    },
+    {
+      "title": "编写 chunk 2（value/step/SN/typing_lc）并首轮编译",
+      "intervals": [
+        {
+          "after": 43,
+          "through": 48
+        }
+      ]
+    },
+    {
+      "title": "调试 step_det 的 evar 选择与 inversion pattern 命名问题",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 72
+        }
+      ]
+    },
+    {
+      "title": "编写 LR 与 closure lemmas（LR_step/LR_step_back/LR_neutral_intro/abs_app_LR），一次编译通过",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 77
+        }
+      ]
+    },
+    {
+      "title": "编写 fundamental theorem 与 normalization，一次编译通过",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 82
+        }
+      ]
+    },
+    {
+      "title": "最终验证：Print Assumptions、diff、clean rebuild、coqchk",
+      "intervals": [
+        {
+          "after": 82,
+          "through": 96
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`open_rec_lc` 与 `subst_env_lc`：`induction t` 的 `tm_bvar` 参数与 `intros n` 的 local-closure level 重名，连续两处 `n is already used`",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 31
+        }
+      ],
+      "outcome": "第一次错误出现在 `open_rec_lc`（Task.v line 291）：`induction t` 已把 `tm_bvar` 的索引命名为 `n`，`intros n Hlc u` 再引入同名变量；改为 `intros k Hlc u`，把 bvar 比较改为 `(k =? n)` 并把 IH 调用改为 `IHt1 k`/`IHt2 k`/`IHt (S k)` 后通过。重新编译后 `subst_env_lc`（Task.v line 327）因同样的 `intros n Hlc` 再次报 `n is already used`，同样把 local-closure level 改名为 `k`；再次编译越过这两个声明，错误转到 `subst_env_open_rec` 的 `rewrite`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        30,
+        33,
+        35,
+        39,
+        42,
+        44,
+        48
+      ],
+      "qualification": "两处是同一 binder 命名模式在相邻两个 lemma 中的失败，按同一困难合并为一项；区间从首个错误后的处理到第二次修复编辑（step 25/31 两次 Edit），step 33 的再次编译（line 48）仅用于确认两处已越过，未据此延长区间。"
+    },
+    {
+      "title": "`subst_env_open_rec` 的 `tm_bvar` true branch：`simpl` 未展开 `env_update`，`rewrite Nat.eqb_refl` 找不到 `?M =? ?M`",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 41
+        }
+      ],
+      "outcome": "报错在 `subst_env_open_rec` 的 `tm_bvar` true branch（Task.v line 357）的 `simpl. rewrite Nat.eqb_refl. reflexivity.`；scratch `Test2.v` 的 `Show` 显示 `simpl` 后 goal 是 `env_update sigma x u x = u`，`Test3.v` 进一步确认 `simpl` 不展开 `env_update`，所以目标中没有 `?M =? ?M` 可重写。该 branch 加入 `unfold env_update` 后再 `rewrite Nat.eqb_refl`，lemma 通过；step 43 的编译确认 chunk 1 全部通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        48,
+        51,
+        54,
+        57,
+        59,
+        63
+      ],
+      "qualification": "错误文本只说明找不到 `?M =? ?M`；`simpl` 不展开 `env_update` 这一原因由 scratch `Show`（line 54/57）确认，非猜测；区间止于修复编辑，line 63 的编译仅用于确认 chunk 1 通过。"
+    },
+    {
+      "title": "`step_det` 的 beta case / `ST_App2` 子目标：`eapply value_no_step; eassumption` 的 evar 误选 `value (tm_abs T b)`，报 `No applicable tactic`",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 66
+        }
+      ],
+      "outcome": "`step_det` 第 434 行（beta case 的第三个 inversion 子目标）报 `No applicable tactic`；初查曾怀疑 `ST_App1` 的 `f_equal`，用 `awk` 核对行号后确认失败的是 `exfalso. eapply value_no_step; eassumption`。scratch `Debug.v` 的 `Show`（line 88/94）显示该子目标同时有 `Hv : value v` 和 `Hv1 : value (tm_abs T b)`（以及 `Hsb1 : v --> b1'`），`eapply` 的 evar 先匹配了后者，`eassumption` 无法同时满足 `value ?v` 与 `step ?v b1'`。改为 `inversion H2 as [...]` 显式命名每个 constructor premise，并写成 `exact (value_no_step v b1' Hv Hsb1)`、`exact (abs_no_step ...)` 等显式项（首版见 line 96）；该显式版随后因下一项的 pattern 命名冲突返工，改名后 `Debug.v` 与 `Task.v` 均编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        70,
+        73,
+        76,
+        82,
+        88,
+        94,
+        95,
+        96
+      ],
+      "qualification": "首个错误只报 `No applicable tactic`，实际位置由 `awk` 行号核对（line 82）确认在 beta case，evar 误配由 `Show` 的 hypothesis 组合（line 88/94）定位，非猜测；区间止于写出显式 inversion 版 `step_det` 的编辑，改名后的最终编译验证见下一项（line 100/106）。"
+    },
+    {
+      "title": "显式 `inversion ... as` 版 `step_det`：pattern 名 `v1` 与 `ST_App2` induction case 的 binder `v1` 重名，报 `v1 is already used`",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 70
+        }
+      ],
+      "outcome": "显式版 `step_det` 在 `Debug.v` 编译时第 439 行报 `v1 is already used`：第三个 inversion 的 pattern `v1 b1 b1' Hv1' Hsb1` 与外层 `ST_App2` induction case 已有的 `v1` 冲突。step 67 定位到该 binder，step 68 把 pattern 统一改为 `TA/bA/vA`、`u1/u1'/w1`、`z1/w2/w2'` 等新名并同步更新 `Hu1/HvA/Hz1/Hw2` 等引用；`Debug.v` 重新编译无报错（line 100），随后写回 `Task.v`（line 103），step 72 的编译越过 `step_det`，只剩空的 `normalization` proof（line 106）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        97,
+        98,
+        100,
+        103,
+        106
+      ],
+      "qualification": "该错误由显式 inversion pattern 引入，与外层 `ST_App2` induction case 的 binder `v1` 重名，与前面的 evar 误配分开定位；区间止于写回 `Task.v` 的编辑，line 106 的验证编译未用于延长区间。"
+    }
+  ],
+  "trace_sha256": "2c933bc15c8e4b806bb531a69245a655224ca855c85e8437570b00f7cf35ff2d",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 10,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "2c933bc15c8e4b806bb531a69245a655224ca855c85e8437570b00f7cf35ff2d",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r10.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r10_20261027_211737_055828"
+  }
+}

@@ -1,0 +1,382 @@
+{
+  "summary": "本次 3600s run 的主体时间用于从零设计/重构 SLam noninterference 的 logical relation（step 12、22、144 的 thinking 约 774s、604s、252s，step 14 另有约 160s 设计回顾），两次 API stream idle timeout 另占约 315s 与 307s。编译调试集中在 evaluation shape lemmas、hidden/bound 与 application helpers、Vp_Rp_weaken、Vp_protect（含 abs_multi_eq）、Vp_Rp_sub 与桥接 lemmas，这些在各自时点均编译通过；但到 3600s 上限时 locally nameless 的 subst_env/open_rec 交换问题仍未解决，`Theorem noninterference` 始终是 Admitted，最终文件停在 open_rec_lc_at 的编译错误。",
+  "phases": [
+    {
+      "title": "初始化 session、列出工作目录并读取 Task.v，随后第一次 API stream idle timeout",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "重启 session、读取 card.md 并确认 Rocq 版本；随后 LR 设计探索、本地参考搜索及 step 12/14/22 的 design thinking（约 774s/160s/604s）",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 22
+        }
+      ]
+    },
+    {
+      "title": "编写基础 label/security lemmas、Vp/Rp/R 与 subst_env/env_rel 定义，首次编译通过",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 28
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 evaluation shape lemmas（value_no_step、eval_protect/app/pair/fst/snd/inl/inr/case/if）",
+      "intervals": [
+        {
+          "after": 28,
+          "through": 143
+        }
+      ]
+    },
+    {
+      "title": "重构 LR invariant：给 Vp 增加两侧 value annotation equality 与 Arrow 的 value argument premises，并更新定义",
+      "intervals": [
+        {
+          "after": 143,
+          "through": 150
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 hidden_at/bound_at monotonicity 与 application/protection evaluation helper lemmas",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 199
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 Vp_Rp_weaken（protection parameter weakening）",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 211
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 Vp_protect（value protection），含 abs_multi_eq 与第二次 API stream idle timeout",
+      "intervals": [
+        {
+          "after": 211,
+          "through": 260
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 semantic subtyping Vp_Rp_sub（含 hidden_transfer/bound_transfer）",
+      "intervals": [
+        {
+          "after": 260,
+          "through": 267
+        }
+      ]
+    },
+    {
+      "title": "编写并调试 ty_protect/V/R 桥接 lemmas（Vp_ty_protect、R_ty_protect、Vp_to_R、R_protect_wrap）",
+      "intervals": [
+        {
+          "after": 267,
+          "through": 273
+        }
+      ]
+    },
+    {
+      "title": "编写 environment substitution/freshness/locally-closed 基础设施，未完成即 run timeout",
+      "intervals": [
+        {
+          "after": 273,
+          "through": 289
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "value_no_step：直接 `inversion Hstep` 未关闭 pair/inl/inr 的 value-no-step cases，Qed 报 incomplete proof",
+      "intervals": [
+        {
+          "after": 33,
+          "through": 47
+        }
+      ],
+      "outcome": "改为对 5 个 value constructor 逐一处理，并在 pair/inl/inr 显式调用 IHHv1/IHHv2/IHHv；step 47 的 coqc 越过该 lemma，下一处错误出现在 eval_protect。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        44,
+        57,
+        60,
+        63
+      ],
+      "qualification": "coqtop 加载时只重复 incomplete proof 报错、未能显示剩余 goal，因此修复依据是对 induction hypothesis 的推断而非交互式 proof state。"
+    },
+    {
+      "title": "eval_protect 等 evaluation shape lemmas：对 compound source 的 multi derivation 直接 induction 丢失 source constructor（Wrong bullet、refl goal 变成任意 term）",
+      "intervals": [
+        {
+          "after": 47,
+          "through": 72
+        }
+      ],
+      "outcome": "先用 `remember (tm_protect l x) as s` + `revert` 尝试，仍得到 `No such hypothesis: s`；用最小 multi 例子确认 induction 会把 source 泛化成任意 term 且带等式的 IH 对 step case 不可用；最终确定改用带 source equality 的 generalized `_gen` 陈述。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        63,
+        75,
+        82,
+        85,
+        98
+      ],
+      "qualification": "该区间包含临时 Dbg 文件与最小 induction 实验；`_gen` 版本的实现与后续命名/参数问题另列为后续 problem，故此处只归因 induction statement 本身。"
+    },
+    {
+      "title": "eval_app_gen/eval_pair_gen 等 `_gen` shape lemmas：induction/inversion 自动命名、`multi_value` 方向与 lemma 参数冲突（`No such hypothesis: t`、`t1 is already used`、`a1'`/`v` not found）",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 107
+        }
+      ],
+      "outcome": "改用不指定变量名的 `subst`；修正 ProtectValue case 的 `multi_value` 方向（去掉多余 symmetry）与 `IHHm` 应传 inner reduct t' 而非原 x；把 app 的量化参数改名为 a1/a2/ra，AppAbs witness 改为 a2，并沿用 inversion 生成的 t1'/t2'；step 107 编译越过 eval_app_gen，转到 eval_fst 的 `Hv0`（下一 problem）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        104,
+        119,
+        122,
+        125,
+        131,
+        146,
+        149
+      ],
+      "qualification": "这些失败主要来自 Coq 自动生成的变量名与显式参数/方向不匹配，修复为改名、显式取值与调整 subst，不涉及 LR 结构。"
+    },
+    {
+      "title": "eval_fst_gen/eval_snd_gen 等六处旧 `multi_value Hv0 Hp` 引用失效（`Hv0` 不存在）；新增 `eval_protect_value` 并补 `multi_value` 的显式参数",
+      "intervals": [
+        {
+          "after": 107,
+          "through": 115
+        }
+      ],
+      "outcome": "把六处 `rewrite (multi_value Hv0 Hp)` 换成 `eapply eval_protect_value`；新增 `eval_protect_value`，在其证明中用 `multi_value v v' Hv Hp` 把 `eval_protect` 的 witness 化为 payload equality；随后编译推进到 eval_fst 的 Wrong bullet。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        152,
+        161,
+        164
+      ],
+      "qualification": "`eval_protect_value` 成为后续多个 shape lemma 的公共 helper；本区间末尾编译暴露的 eval_fst bullet 问题归入下一 problem。"
+    },
+    {
+      "title": "eval_fst_gen/eval_snd_gen：`repeat split` 后剩 pair multi 与 protect equality，且 Task.v 残留旧的 `eval_protect in Hm` 片段",
+      "intervals": [
+        {
+          "after": 115,
+          "through": 131
+        }
+      ],
+      "outcome": "在独立 Dbg 文件验证 `apply multi_refl` + `eapply eval_protect_value` 的写法；用 regex 删除 fst/snd 中残余旧片段后 coqc 越过 fst/snd，编译推进到 eval_case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        164,
+        170,
+        176,
+        182,
+        185,
+        188
+      ],
+      "qualification": "独立测试证明 proof 本身可行，Task.v 的持续失败主要来自未清理的旧 tactic 行；属于 proof 结构与编辑残留混合。"
+    },
+    {
+      "title": "eval_case_gen/eval_if_gen：branch step cases 的 `exists v'` witness 未构造，且 eval_if 实际构造子顺序是 ST_If/ST_IfTrue/ST_IfFalse 而非 proof 假设的顺序",
+      "intervals": [
+        {
+          "after": 131,
+          "through": 143
+        }
+      ],
+      "outcome": "case/if 的直接 branch cases 改用 `eval_protect` 取回 v' 再 `exists v'`；两个 context-step（ST_Case/ST_If）分支补内层 `exists v'` 并重建外层 witness；按实际构造子顺序重排 eval_if；step 143 coqc 无报错，所有 evaluation shape lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        188,
+        191,
+        197,
+        203,
+        206
+      ],
+      "qualification": "eval_case 的构造子顺序是 CaseLeft/CaseRight/Case，eval_if 是 If/IfTrue/IfFalse，两者不一致；这是 Wrong bullet 的独立原因，不是同一 case 的延续。"
+    },
+    {
+      "title": "security_le_protect_join_r / multi_protect：二次 protection 需要中间 `security_le_protect_r`，且 induction 后 source value 名不可引用",
+      "intervals": [
+        {
+          "after": 155,
+          "through": 159
+        }
+      ],
+      "outcome": "security_le_protect_join_r 先用 `security_le_protect_r` 得到 `security_le k1 (protect k2 p)` 再 `security_le_join`；multi_protect 的 refl case 改为 `eapply multi_step` 不引用被重命名的 v；step 159 编译越过 multi_protect，转到 multi_app_value。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        223,
+        224,
+        226,
+        229
+      ],
+      "qualification": "该区间末尾（step 159）的编译同时暴露 multi_app_value 的错误，故归入下一 problem；multi_protect 的修复在此得到验证。"
+    },
+    {
+      "title": "multi_app_value：对 `multi (tm_app ...) w` 用 `destruct` 丢失 application source（refl case 只剩任意 EQ），以及后续 eval_protect/bullet/value_no_step evar 处理",
+      "intervals": [
+        {
+          "after": 159,
+          "through": 199
+        }
+      ],
+      "outcome": "改用 `inversion Hm; subst` 保留 source；逐个适配 inversion 的 H/H0 名称、显式 destruct `eval_protect`、`exists z; repeat split; auto`，并为 value_no_step 的 App1/App2 cases 显式指定 v（`tm_abs ...` 与 v）；step 199 coqc 无报错，helper 区块编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        229,
+        235,
+        241,
+        253,
+        262,
+        289
+      ],
+      "qualification": "后段（`No such goal`、Wrong bullet）是同一 proof 中 evar/bullet 的连锁失败，与 destruct-vs-inversion 的根因交织，难以干净拆分，故合并为一个 problem；其中 `value_no_step` 的 evar 需显式指定 App1/App2 的 witness 才最终关闭。"
+    },
+    {
+      "title": "Vp_Rp_weaken：lemma 被插到 hidden_at_mono 等 helpers 之前，且 ty 构造子顺序（Unit, Sum, Prod, Arrow）与 proof 假设的 Unit, Prod, Sum, Arrow 不符",
+      "intervals": [
+        {
+          "after": 201,
+          "through": 211
+        }
+      ],
+      "outcome": "先移动到 helpers 之后；再把 Sum/Prod 两个 case 块对调，使第二个 `-` case 对应 Ty_Sum、第三个对应 Ty_Prod；step 211 coqc 无报错，Vp_Rp_weaken 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        292,
+        295,
+        301,
+        307
+      ],
+      "qualification": "第一处是插入顺序（tooling），第二处才是实质 case 顺序错误；两者在同一段处理中一起修正，未分时。"
+    },
+    {
+      "title": "Vp_protect（Arrow case）：value 的 runtime annotation 与 type 的 protection parameter 不一致，`eapply flows_to_trans` 的 evar 被 `join_assoc` rewrite 实例化；并需要 abs_multi_eq/eval_app_protected",
+      "intervals": [
+        {
+          "after": 217,
+          "through": 229
+        },
+        {
+          "after": 230,
+          "through": 260
+        }
+      ],
+      "outcome": "先把 Vp_protect 块移到 helpers 之后（hidden_at_mono 未定义）；Arrow case 改为用 eval_app/eval_app_protected 从 protected application 的 evaluation 找回 body evaluation，重建原 application 的 multi（ST_AppAbs + multi_protect），对 codomain 调 IH2，再用 protect_value_compose 与 join_assoc 对齐；显式指定 flows_to_trans 的中间 label、补 bounds 的 split；step 260 coqc 无报错，Vp_protect 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        315,
+        318,
+        321,
+        324,
+        333,
+        351,
+        366,
+        375,
+        378
+      ],
+      "qualification": "interval 1 至 step 229 结束，随后是第二次 API stream idle timeout（step 230，间隔约 307s）；interval 2 从 step 230 之后继续，包含为 Vp_protect 服务的 abs_multi_eq 修复（multi_value 需要 source 是 value，改为 generalized statement），未把它另计为独立问题。"
+    },
+    {
+      "title": "Vp_Rp_sub / hidden_transfer / bound_transfer：source/target type 无法从 security_le goal 推出（evar），且二次 protection 需要中间 security_le",
+      "intervals": [
+        {
+          "after": 263,
+          "through": 267
+        }
+      ],
+      "outcome": "bound_transfer 改为显式 `security_le_trans` 经 `protect_security (security_of T) p`，再用 Hle+Hpq 构造 `security_le_join`；hidden_transfer/bound_transfer 在所有 subtype cases 显式传 `T := ...`；step 267 coqc 无报错，Vp_Rp_sub 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        382,
+        385,
+        388
+      ],
+      "qualification": "错误均为 unification/evar 层面，修复使用已有 lemmas，不需要新增实质辅助事实。"
+    },
+    {
+      "title": "Vp_ty_protect/R_ty_protect 桥接：`protect_security (protect_security s p) Low` 未与 `protect_security s p` 归约，且整块再次被插到 helpers 之前",
+      "intervals": [
+        {
+          "after": 269,
+          "through": 273
+        }
+      ],
+      "outcome": "加入 `rewrite ?protect_security_join, ?join_low_r` 消去嵌套 Low protection；再把区块移到 helpers 之后；step 273 coqc 无报错，Vp_ty_protect、R_ty_protect、Vp_to_R、R_protect_wrap 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        391,
+        394,
+        397
+      ],
+      "qualification": "前半是 protection 归约（rewrite），后半是文件插入顺序（tooling）；两者在同一段修正，未分时。"
+    },
+    {
+      "title": "subst_env_open_rec：`subst_env` 与 `open_rec` 不交换（env term 含 bound bvars 时被后续 opening 改写）；要求 environment entries locally closed 后仍未证完",
+      "intervals": [
+        {
+          "after": 276,
+          "through": 289
+        }
+      ],
+      "outcome": "确认 fvar case 需要 `open_rec k (rho x) (rho y) = rho y`，即 rho 每项须 locally closed；据此加强 env_rel（两侧 `forall x, locally_closed (rho x)`）、给 subst_env_open_rec 加 premise，并补 open_rec_lc_at/open_rec_lc/value_lc/lc_open_rec/has_type_lc；step 289（run 结束前最后一次编译）open_rec_lc_at 的 bvar case 仍报 `Found no subterm matching \"j =? i\"`，run 在 3600s 上限结束。",
+      "resolution": "unresolved",
+      "category": "statement",
+      "evidence_lines": [
+        401,
+        404,
+        405,
+        408,
+        411,
+        420
+      ],
+      "qualification": "最终文件不能编译，`Theorem noninterference` 仍是 Admitted；这是最后一次编译状态，不代表定理被证明或否证。修复还涉及 locally nameless opening 的接口设计与 env_rel 的 strengthening，尚未完成。"
+    }
+  ],
+  "trace_sha256": "a16e57745854c05a45d4a40f40abad02ecf5b81b37c13ca01bb0f3e87a9ec4a2",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 14,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "a16e57745854c05a45d4a40f40abad02ecf5b81b37c13ca01bb0f3e87a9ec4a2",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r14.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r14_20261027_212246_414932"
+  }
+}

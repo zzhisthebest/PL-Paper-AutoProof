@@ -1,0 +1,189 @@
+{
+  "summary": "本次运行 status=proved（run_seconds=876）。时间主要去向是开头的设计探索：step 6 的 315s thinking 以及 step 9/14/25/66/73/75 等用于 LR 结构、`R_props` 与 `R_abs_app_aux`/fundamental 编排的 thinking，其中既有 CBV 下 value/`ST_App1` premise 的选择与自我纠错，也无法与后续操作分时，故整体保留在 phases 作为其他时间。编译层面五处卡点（同形 SN inductive 试验、substitution/local-closure 的隐式参数与命名、`step_det` 的 induction 泛化、`has_type_lc` 的自动 IH 命名、`fundamental`/`normalization` 的 rewrite 与 goal 形状）均由后续 coqc 验证解决，最终 `Task.v` 经 coqc 与 rocq compile 通过、`Print Assumptions` 为 Closed under the global context。",
+  "phases": [
+    {
+      "title": "设计探索：阅读 Task.v/card.md、确认 Rocq 9.1 工具链并推演 CBV STLC 的 LR 证明方案",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "用 scratch 验证与 `strongly_normalizing` 同形的 inductive 的 induction 形态与 `step` inversion，并准备 block.v 增量编译流程",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 29
+        }
+      ]
+    },
+    {
+      "title": "实现 substitution/freshness 与 local-closure metatheory（`subst`、`fv`、`fresh`、`lc_at_*`、`subst_open_rec`）",
+      "intervals": [
+        {
+          "after": 29,
+          "through": 46
+        }
+      ]
+    },
+    {
+      "title": "实现 value/step lemmas、local-closure preservation 与 `step_det` determinism",
+      "intervals": [
+        {
+          "after": 46,
+          "through": 65
+        }
+      ]
+    },
+    {
+      "title": "定义 unary type-indexed LR `R`，证明 `R_props` 及 `R_step`/`R_app`/`R_abs_app_aux`/`R_abs`",
+      "intervals": [
+        {
+          "after": 65,
+          "through": 77
+        }
+      ]
+    },
+    {
+      "title": "编写 `subst_open_fresh`、fundamental theorem 与目标 `normalization` proof",
+      "intervals": [
+        {
+          "after": 77,
+          "through": 95
+        }
+      ]
+    },
+    {
+      "title": "axiom-free 验证、迁入 `/workspace/Task.v`、clean-room 编译与最终核对",
+      "intervals": [
+        {
+          "after": 95,
+          "through": 125
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "与 `strongly_normalizing` 同形的 scratch `sn`（`sn_step`/`sn_alt`）：`destruct` pattern 取错 constructor 参数，且 induction motive 带 property premise 时 IH 会重复要求该 premise",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 24
+        }
+      ],
+      "outcome": "先用 `inversion H as [t0 Hpred]` 确认能取出 `forall t', st t t' -> sn t'` 的 successor premise（line 29），再由 `Show` 确认 motive 含 `P` 时 IH 变成 `forall t', st t t' -> forall P, (...) -> P t'`（line 35）。`sn_alt` 本身以 `Abort` 收场、未修，但据此在 step 25 决定把 `T1`/`T2`/`body`、local closure、beta obligation 和 `R T1 u` 都放到 `strongly_normalizing u` 之后引入（line 36），`R_abs_app_aux` 即按该 statement 书写，`induction Hsn` 生成的 IH 对每个 reduct 保留这些 premises，该引理在 line 112 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        23,
+        26,
+        29,
+        32,
+        35,
+        36,
+        112
+      ],
+      "qualification": "这是对同形 scratch inductive 的试验，正式证明并不使用 `sn_alt`；本项区间只覆盖 steps 17-24 的处理（step 16 是触发错误的首轮编译），紧随的 step 25 是长时间 thinking，混合了本项收尾与 LR/`R_props` 设计、无法分时，后续设计留在 phase。"
+    },
+    {
+      "title": "substitution/local-closure metatheory 首轮编译（`lc_at_mono`、`open_rec_lc_gen`、`open_rec_lc_inv`、`subst_open_rec`、`subst_extend_fresh`）：IH 隐式参数无法由 goal 推出、等式方向相反、fvar binder 命名不符",
+      "intervals": [
+        {
+          "after": 30,
+          "through": 46
+        }
+      ],
+      "outcome": "显式给出 `k`/`k'`/`Hle`/`Hj`/`x`/`j` 等参数（如 `exact (IHt1 k k' Hle H1)`、`apply (IHt (S j) Hj (S k) u)`），对 `subst_open_rec` 的 fvar case 先 `symmetry` 再显式 `apply (open_rec_lc_gen (f a) 0)`，并把 `subst_extend_fresh` 的 fvar binder 由 `n` 改为 `a`；line 67 整个 block 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        43,
+        49,
+        55,
+        58,
+        61,
+        64,
+        67
+      ],
+      "qualification": "五项 lemma 的失败在 steps 31-46 连续出现：三项（`lc_at_mono`/`open_rec_lc_gen`/`open_rec_lc_inv`）同为 IH/隐式参数无法由 goal 推出，另两项分别是 `subst_open_rec` 的等式方向与 `subst_extend_fresh` 的 binder 命名；每次都只靠下一次编译验证，按连续失败合为一项，按 lemma 细分会造成区间交叠和重复计时。"
+    },
+    {
+      "title": "`step_det`：先固定第二个 reduct 再做 induction/inversion，使 `IHstep` 被具体化成某个 app term，无法证明内部 reduct 的 equality",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 65
+        }
+      ],
+      "outcome": "最终先 `revert H2; revert t2`，再 `induction H1; intros s H2`（`intros t2` 会与 constructor 变量重名，故改用 `s`，line 92），让 `IHstep` 保持 `forall s, step t1 s -> t1' = s`；同时补 `value_step_absurd` 与 `Ltac solve_step_absurd`（用 `match goal` 配对同源的 value/step hypotheses）处理 `ST_AppAbs`×`ST_App2`、`ST_App1`×`ST_App2` 等矛盾分支；`step_det` 在 line 95 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        71,
+        74,
+        77,
+        86,
+        89,
+        92,
+        95
+      ],
+      "qualification": "区间内还包含 `Show` 不能带 goal selector（line 77）、`coqtop` batch 不打印 goal（line 80）、`tail` 截取不到 `multi` 定义（line 83）与 `intros t2` 重名（line 92）等子故障，均随本项一并解决，未单独计时。"
+    },
+    {
+      "title": "`has_type_lc`：`induction H` 对 cofinite abstraction premise 生成的 IH 名为 `H0` 而非 `IHH`，首次编译卡住整个 LR block",
+      "intervals": [
+        {
+          "after": 68,
+          "through": 72
+        }
+      ],
+      "outcome": "用 scratch `ht_test`（line 102）确认自动生成的 IH 名称，把 `apply IHH` 改成 `apply H0`；`has_type_lc` 与随后的 `R_props` 在 line 105 一并编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        99,
+        102,
+        105
+      ],
+      "qualification": "纯命名问题，实际只改一处；单列是因为它直接阻塞了包含 `R_props` 的首次编译。"
+    },
+    {
+      "title": "`fundamental`/`normalization` final assembly：`open`/`open_rec` 与 `subst` 的 fixpoint 展开使 rewrite 找不到 subterm、`Nat.eqb_neq` 触发 setoid rewrite、`R_app` 隐式 `T1` 与 assert 形状不 unify",
+      "intervals": [
+        {
+          "after": 79,
+          "through": 95
+        }
+      ],
+      "outcome": "在 `subst_open_fresh` 中先 `change` 成 `open_rec 0` 形状再 rewrite；T_Abs 的 `Nat.eqb` 分支保留 boolean equality（`destruct ... eqn:E` 已化简 `Hctx`，去掉 `rewrite E in Hctx`）；beta goal 改用 `assert (Heq : subst (extend f y v) (open t1 (tm_fvar y)) = open (subst f t1) v)` 并在 `Hres` 上 `rewrite Heq`，用 `exact` 的 conversion 吸收 fixpoint 展示差异；T_App 改为显式 `apply (R_app T1 T2 (subst f t1) (subst f t2))`；`normalization` 的 assert 改成 `R T (subst (fun x => tm_fvar x) t)` 后 `rewrite subst_id in HR`。line 139 整个 scratch 文件编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        115,
+        118,
+        124,
+        127,
+        130,
+        133,
+        136,
+        139
+      ],
+      "qualification": "这些错误都在 steps 80-95 的连续 final assembly 中出现，逐个 fix 由下一次编译验证，line 139 是最后一次修复（`normalization` 的 assert 形状）后的编译通过。"
+    }
+  ],
+  "trace_sha256": "9de581eacc0b928399e8cfb4286ce22566aad86b89032ab224d71f4ddb5b1a82",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 14,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "9de581eacc0b928399e8cfb4286ce22566aad86b89032ab224d71f4ddb5b1a82",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r14.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r14_20261027_211738_555971"
+  }
+}

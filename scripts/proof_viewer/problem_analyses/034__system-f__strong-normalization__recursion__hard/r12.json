@@ -1,0 +1,189 @@
+{
+  "summary": "本次运行约 3592s 的绝大部分（step 4→11 与 step 16→17 两段设计探索）都花在 logical relation 的设计与反复自我推翻上：核心卡点是如何为 `Ty_All` 给出 Rocq 可接受的定义（`open_ty T U` 无法结构递归、Inductive LR 触发负出现、任意 candidate 会区分 type annotation），模型在 Fixpoint/Inductive LR/candidate environment/erased-term 等路线间多次改弦更张；期间四次触发 output token 上限（前三次以续写请求继续，最后一次报 64000-token 超限并导致会话终止与重启），这些长 thinking 混合设计与纠错、无法拆分计时，故整段保留在 phases。真正落盘的只有最后阶段（step 18→66）：`sn`/`sn_step`/`sn_succ`/`sn_num`/`num_no_step`/`value_no_step`/`sn_value`/`multi_value`、`sn_app_abs`/`sn_app_l`/`sn_app` 及 step-inversion helper lemmas 通过编译，但 `logical relation` 与 `fundamental theorem` 从未写出，`normalization` 结束时仍是 `Proof. Qed.`（coqc: Attempt to save an incomplete proof）。",
+  "phases": [
+    {
+      "title": "阅读 Task.v 并确认 target、环境与 placeholder",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "第一轮 LR 设计探索：Ty_All 解释、candidate 条件、CBV value/lc、natrec 归纳，反复否决但未落盘",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "输出超限中断（API max_output_tokens）后重启，并确认 Task.v 无已保存进度",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "第二轮设计重述：erasure/Inductive LR/type environment 比较后决定先写 SN helper lemmas",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "写入 SN 与 application helper lemmas 初稿（sn、num_no_step、sn_value、sn_app_abs、sn_app_l、sn_app）",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 18
+        }
+      ]
+    },
+    {
+      "title": "编译调试 SN 与 application/step-inversion lemmas；最终 coqc 仅剩 normalization 的 Proof. Qed. 未完成",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 66
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`num_no_step` 的 succ 分支：`apply IH` 无法把 `forall u, ~ n --> u` 作用于 `False` goal",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 22
+        }
+      ],
+      "outcome": "按 proof state 显式传入 reduct `t'` 与 step 假设 `H0`，改为 `exact (IH t' H0)`；下一次 coqc 的首错推进到 `sn_app_abs`，说明该 lemma 已通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        24,
+        26,
+        30
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sn_app_abs`：`inversion Hs` 后第二个 bullet 未完成（`inversion H3` 未关闭 subgoal），报 'Current bullet - is not finished'",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 28
+        }
+      ],
+      "outcome": "怀疑自动生成的 `H3` 不是所需的 step premise，改为显式 `inversion Hs as [...]` 并显式命名各 premise，代码不再引用 `H3`；该显式 pattern 写法随即因 `step` 有 11 个 constructor 而在编译中失败（见下一项），最终随下一项的独立 inversion helper lemmas 一并替换，并由最后一次 coqc 的首错推进到 `normalization` 的 `Qed` 确认通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        30,
+        32,
+        35,
+        93
+      ],
+      "qualification": "本项只覆盖 bullet/自动命名问题；显式 pattern 方案被下一项的 11-branch 错误取代，最终解决方案在下一项，故 `resolved` 依赖下一项完成后的最终 coqc。"
+    },
+    {
+      "title": "`sn_app_abs`/`step` inversion：`inversion ... as [...]` 对 `step` 的 11 个 constructor 要求 11 个 branch，报 'Expects a disjunctive pattern with 11 branches'",
+      "intervals": [
+        {
+          "after": 32,
+          "through": 36
+        }
+      ],
+      "outcome": "放弃显式 disjunctive pattern，新增独立 inversion helper `step_abs_app_inv`、`step_app_l_inv`、`step_app_inv` 描述 `tm_app` 的可能 reduct 情形，并据此重写 `sn_app_abs`/`sn_app_l`/`sn_app`；最后一次 coqc 的首错停在 `normalization` 的 `Qed`，说明这些 helper 与三个 application lemmas 已通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        42,
+        47,
+        93
+      ],
+      "qualification": "没有逐个 lemma 的单独编译成功记录；随后几次 coqc 的首错位置依次后移（Task.v 第 458、463、492 行，最终第 503 行 normalization 的 Qed），据此推断此前内容已通过。"
+    },
+    {
+      "title": "`sn_app_l`：induction 前 `revert v1 Hv1` 未包含依赖 `v1` 的 `Hbeta`，报 'v1 is used in hypothesis Hbeta'",
+      "intervals": [
+        {
+          "after": 40,
+          "through": 46
+        }
+      ],
+      "outcome": "把 `Hbeta` 一并 revert 再对 `Hsn : sn t2` 做 induction；对 `sn_app` 同样先 `intros t2 H2 Hbeta` 再 `revert t2 H2 Hbeta`，下一次 coqc 的首错从 sn_app_l 的 revert 行推进到同 lemma 的 beta case（`Heq` 缺失），证明 revert 依赖问题已解决。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        54,
+        56,
+        59,
+        61,
+        62,
+        66
+      ],
+      "qualification": "`sn_app` 的同型修正是当场 thinking 自查后编辑的，未产生独立的编译错误；并入本项是因为同属 revert/generalization 依赖问题。"
+    },
+    {
+      "title": "`sn_app_l` 的 beta case：`subst` 已消除 `Heq : v1 = tm_abs T t`，仍传给 `Hbeta` 报 'variable Heq was not found'",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 52
+        }
+      ],
+      "outcome": "改为向 `Hbeta` 传 `eq_refl`；下一次 coqc 将该错误推进到 `sn_app` 的 argument-reduction 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        66,
+        69,
+        71,
+        75
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`sn_app` 的 ST_App2 分支：`sn_app_l` 误用原 argument `t2`（goal 是 `tm_app t1 t2'`），随后 `Hbeta` 缺少 `t2 -->* v2` 的第一步",
+      "intervals": [
+        {
+          "after": 54,
+          "through": 64
+        }
+      ],
+      "outcome": "改用 `sn_app_l t1 t2'` 并以 `sn_step t2 H2 t2' Hstep` 提供 `sn t2'`；beta premise 用 `multi_step t2 t2' v2 Hstep Hm` 拼出 `t2 -->* v2`；最后一次 coqc 的首错仅剩 `normalization` 的未完成证明。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        75,
+        78,
+        80,
+        87,
+        89,
+        93
+      ],
+      "qualification": ""
+    }
+  ],
+  "trace_sha256": "4d0d7c5de443d80babf86e393aa2fbb4862c0aea66969d99f244b55824683681",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 12,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "4d0d7c5de443d80babf86e393aa2fbb4862c0aea66969d99f244b55824683681",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r12.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r12_20261027_211746_992799"
+  }
+}

@@ -1,0 +1,543 @@
+{
+  "summary": "本次 3601 秒中前约 1468 秒用于 LR 设计与推演（step 9 被输出上限打断后重新梳理），其后约 2100 秒用于编码、编译调试与最终验证；主要耗时集中在 fundamental theorem 的 abstract result type 重构（约 365 秒）、multi-step inversion（约 310 秒）、locally-closed/substitution（约 300 秒，含 120 秒 coqtop 挂起）、val_rel_protect1/2（约 113 秒）与 subtype_val_rel（约 120 秒）。除 step_det 的 determinism 路线被主动放弃外，列出的困难最终都解决；noninterference 在 step 493（约 3569 秒）编译通过，step 506（约 3589 秒）clean 后 fresh compile 并输出 Print Assumptions \"Closed under the global context\"，轨迹在 step 510（约 3597 秒）的最终完整性复核处结束，接近 3601 秒运行上限。<br>另：目标 theorem 语句曾在 step 236 的整段替换中被截掉，直到 step 470 才发现并恢复，主证明仍按原 statement 完成。",
+  "phases": [
+    {
+      "title": "初读 Task.v/card.md 与首轮 LR 设计（step 9 被输出上限打断）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "输出上限后续写：第二轮 LR 设计与 locally nameless/substitution 方案推演（本地无参考实现）",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 14
+        }
+      ]
+    },
+    {
+      "title": "基础 label/security/value/step helper lemmas 与 determinism 尝试",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 50
+        }
+      ]
+    },
+    {
+      "title": "locally-closed 与 functional substitution 基础设施（含命名检查的 coqtop 绕行）",
+      "intervals": [
+        {
+          "after": 50,
+          "through": 126
+        }
+      ]
+    },
+    {
+      "title": "has_type_lc、fv_context 与 plug/substitution commute",
+      "intervals": [
+        {
+          "after": 126,
+          "through": 143
+        }
+      ]
+    },
+    {
+      "title": "LR 定义 val_rel/interp 及 monotonicity/symmetry",
+      "intervals": [
+        {
+          "after": 143,
+          "through": 174
+        }
+      ]
+    },
+    {
+      "title": "multi-step evaluation inversion lemmas",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 262
+        }
+      ]
+    },
+    {
+      "title": "one-sided/two-sided protection lemma 与 subtype_val_rel",
+      "intervals": [
+        {
+          "after": 262,
+          "through": 332
+        }
+      ]
+    },
+    {
+      "title": "env_rel 机制与 fundamental theorem（含 abstract-type 重构）",
+      "intervals": [
+        {
+          "after": 332,
+          "through": 437
+        }
+      ]
+    },
+    {
+      "title": "erase-equality lemma、目标 theorem 语句恢复与主证明",
+      "intervals": [
+        {
+          "after": 437,
+          "through": 493
+        }
+      ]
+    },
+    {
+      "title": "清理 debug markers、fresh compile 与 Print Assumptions 验证",
+      "intervals": [
+        {
+          "after": 493,
+          "through": 510
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "protect_security_twice / protect_security_low：simpl 后 join 对变量 label 不归约，rewrite join_assoc 找不到子项",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 30
+        }
+      ],
+      "outcome": "改为 destruct label 与 security record 字段来判定 join，并使用显式 change/unfold；第一组 helper lemmas 在 step 30 编译无输出。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        29,
+        38,
+        44
+      ],
+      "qualification": "属于早期辅助 lemma 的 rewrite/reduction 细节，未影响 LR 设计。"
+    },
+    {
+      "title": "value_protect_value / value_protect_value_inv：try(inversion Hv; fail) 误关闭子目标，导致多余 bullet",
+      "intervals": [
+        {
+          "after": 35,
+          "through": 39
+        }
+      ],
+      "outcome": "改为逐 constructor 的显式 bullet；step 41 的编译越过两个 value/protection lemma 并推进到 step_det（同时暴露其命名冲突），可确认本项已通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        51,
+        55,
+        60
+      ],
+      "qualification": "编译验证发生在 step 41（区间之后），step 41 的输出同时是下一项的第一个错误。"
+    },
+    {
+      "title": "step_det：inversion 产生 26 个含 evar 的残留目标，最终删除 step_det 与 multi_step_inv",
+      "intervals": [
+        {
+          "after": 41,
+          "through": 50
+        }
+      ],
+      "outcome": "先遇 t2' 已使用命名冲突，随后 Qed 时残留 26 个 focused goals（含 17 个 shelved goals/evar）；判定 determinism 非必需，删除 step_det 与 multi_step_inv，改走直接 evaluation inversion，step 50 编译无输出。",
+      "resolution": "abandoned",
+      "category": "proof_structure",
+      "evidence_lines": [
+        60,
+        66,
+        69,
+        73
+      ],
+      "qualification": "该引理并非最终证明必需；这是有意的策略放弃，不是未解决的证明阻塞。"
+    },
+    {
+      "title": "tm induction as-pattern 的 IH 槽位错位与 tm_case/tm_protect bullet 顺序（lc_at_S/open_rec_closed）",
+      "intervals": [
+        {
+          "after": 55,
+          "through": 56
+        },
+        {
+          "after": 72,
+          "through": 92
+        }
+      ],
+      "outcome": "用小例子确认 as-pattern 的名称会占用 induction hypothesis 槽位，改用默认 IHt/IHt1..3 重写整组 fixpoint induction；确认 tm_case 位于 tm_protect 之前并重排 bullets；step 92 编译已越过 lc_at_S、进入 open_rec_closed 的 bvar 分支（暴露下一个 eqb 顺序错误）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        80,
+        81,
+        102,
+        114,
+        118,
+        130
+      ],
+      "qualification": "step 57-63 的 coqtop -l 挂起另计为下一项；本项于 step 72 恢复命名分析。"
+    },
+    {
+      "title": "coqtop -l 未关闭 stdin：命名检查挂起 120 秒并被移到后台",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 71
+        }
+      ],
+      "outcome": "coqtop -l 等待 stdin 超时（120 秒，后台任务 exit 144）；pkill/coqc 尝试也返回 exit 144；改用 printf 输入并以 Quit 显式结束的 coqtop，step 71 成功打印三个 induction goals。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        90,
+        96,
+        99
+      ],
+      "qualification": "120 秒挂起发生在 step 64 的命令（1678→1799 秒）；区间含其后终止尝试与 stdin 方式的恢复，不含随后的命名分析。"
+    },
+    {
+      "title": "open_rec_closed/open_lc：Nat.eqb 参数方向、IH 的 k/x 参数与 f_equal/前提关闭不匹配",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 112
+        }
+      ],
+      "outcome": "把 open_rec 的 if 条件统一为 j =? n / k =? n，给 abstraction case 显式传 k := S k，按 constructor equality 用 f_equal 拆分，并用 apply ...; [..] 关闭两个前提；open_lc 的 bvar case 加 simpl in H，abstraction case 显式传 k 与 x0；step 112 编译推进到 subst_fn_ext。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        130,
+        133,
+        139,
+        148,
+        157,
+        160
+      ],
+      "qualification": "本项止于 step 112 的编译；其输出同时暴露下一项的 fv membership 错误。"
+    },
+    {
+      "title": "subst_fn_ext/subst_fn_lc/subst_fn_open_rec：fv membership 的 ++ 结合方向、intros 顺序与 binder 名",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 126
+        }
+      ],
+      "outcome": "按 fv 的 ++ 右结合改为 left / right-left / right-right 的 membership 路径；把 subst_fn_lc 的 intros 改为 sigma、term、depth 后接环境 lc 前提并显式传入环境条件；Show 确认 subst_fn_open_rec 的 fvar binder 为 a，改 sigma n 为 sigma a；step 126 编译无输出，整组 locally-closed/substitution 引理通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        160,
+        163,
+        166,
+        169,
+        172,
+        175,
+        181
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "val_rel Fixpoint 定义被 python 写入转义破坏：'/\\' 后接换行导致 conjunction 丢失",
+      "intervals": [
+        {
+          "after": 145,
+          "through": 151
+        }
+      ],
+      "outcome": "用 raw string 重写 val_rel，恢复所有 /\\ 后 Fixpoint 通过 guard check；step 151 编译推进到 security_le_public。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        208,
+        214,
+        217
+      ],
+      "qualification": "定义文本在编译前已损坏，首次报错表现为 Prop/nat 类型错误；本区间不含 security_le_public 的处理。"
+    },
+    {
+      "title": "security_le_public：simpl/auto 不展开 security_le 与 public",
+      "intervals": [
+        {
+          "after": 151,
+          "through": 155
+        }
+      ],
+      "outcome": "Show 看到 4 个 security_le public record goals 未归约；改为 unfold security_le, public 后 destruct labels，再用 simpl/auto；step 155 编译无输出。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        217,
+        220,
+        223
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "val_rel 的 Ty_Arrow 分支缺外层括号：/\\ 与 -> 优先级错误；val_rel_mono/val_rel_sym 应用参数不匹配",
+      "intervals": [
+        {
+          "after": 158,
+          "through": 174
+        }
+      ],
+      "outcome": "在 Ty_Arrow 分支为 (value v1 -> ... -> ...) 加括号，修复 destruct 得到 clause 而非 value v1；再修 val_rel_sym 的 product case 与 Hst 的显式 u1 u2 参数，mono/sym 在 step 174 编译无输出。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        227,
+        239,
+        251
+      ],
+      "qualification": "括号缺失是定义层问题，影响此后所有 destruct；修复后未再复发。"
+    },
+    {
+      "title": "multi_protect_inv：remember 方程方向错误，refl/step case 需 rewrite E 并向 IH 传入 value 前提",
+      "intervals": [
+        {
+          "after": 180,
+          "through": 194
+        }
+      ],
+      "outcome": "Show 显示 refl case 的方程方向为 index = tm_protect L0 t0；改用 rewrite E in Hv / rewrite E in Hstep，step case 的 IH 需要额外 value u3 前提，修正后 multi_protect_inv 通过，step 194 编译推进到 multi_app_abs_shape。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        259,
+        264,
+        269,
+        280
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "multi_app_abs_shape/decomp：value 假设阻止 revert，改用 multi_not_value_step 与显式 value_step_false",
+      "intervals": [
+        {
+          "after": 194,
+          "through": 206
+        }
+      ],
+      "outcome": "revert f 因 Hvf : value f 依赖 f 失败；改为 revert value hypotheses 后仍有 bullet focus 错误，最终新增 multi_not_value_step，用首个 step 分解并以显式 match value/step 假设应用 value_step_false 排除 congruence cases；step 206 编译推进到 multi_app_inv。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        280,
+        287,
+        289,
+        296,
+        298
+      ],
+      "qualification": "改道后 multi_app_abs_* 只对 value arguments 成立，但足以支撑 protect1 与 fundamental 的 T_Abs。"
+    },
+    {
+      "title": "multi_app_inv/multi_fst_inv/multi_snd_inv/multi_inl_inv/multi_inr_inv：Show 得到的 reduct/argument binder 名不匹配",
+      "intervals": [
+        {
+          "after": 206,
+          "through": 220
+        }
+      ],
+      "outcome": "Show 确认 ST_AppAbs 的 value argument 名为 t2'、fst/snd 与 injection 的 recursive reduct 名为 t'；按实际名称修正 recursive IH 调用，multi_pair_inv 随组通过，step 220 编译推进到 case/if。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        304,
+        310,
+        313,
+        319
+      ],
+      "qualification": "multi_pair_inv 未报错，随整组编译通过。"
+    },
+    {
+      "title": "multi_case_inv/multi_if_inv：payload/witness 名、ST_If constructor 顺序与首个 bullet 内重复 inversion",
+      "intervals": [
+        {
+          "after": 220,
+          "through": 262
+        }
+      ],
+      "outcome": "case payload 名为 v，if 的 payload/security 为 v,k；ST_If 位于 ST_IfTrue/ST_IfFalse 之前，需先处理 congruence 再处理分支选择；排查 No such goal 时发现首个 + bullet 内又执行了一次 inversion Hstep，删除重复 inversion 并整体重写两个 lemma；step 262 编译无输出，整组 multi inversion lemmas 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        322,
+        337,
+        364,
+        382
+      ],
+      "qualification": "期间出现 Show 插错位置与相似文本误替换等编辑噪声，均在区间内解决。"
+    },
+    {
+      "title": "val_rel_protect1/2：Ty_Arrow case 中 protected application 无法还原到原 function 的 evaluation",
+      "intervals": [
+        {
+          "after": 265,
+          "through": 289
+        }
+      ],
+      "outcome": "先对 protect_value v1 L 用 multi_app_abs_shape 取 abs 形状，新增 protect_value_abs 反推原 lambda 与 annotation；再用 multi_app_abs_decomp/multi_protect_inv 重建未保护 application 的 evaluation，并补回遗漏的 value v1 断言；step 289 编译无输出，protect1/2 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        386,
+        392,
+        407,
+        413,
+        422
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subtype_val_rel：S_Trans 的 abstract target 无法 intro obs，且 sum/prod/arrow 的 IH 名与显式参数不匹配",
+      "intervals": [
+        {
+          "after": 294,
+          "through": 332
+        }
+      ],
+      "outcome": "识别 S_Trans 的 target type 是变量、val_rel 不能展开为 implication，改为只在四个 concrete constructor cases intro obs；按 Show 得到的 Hsub1/Hsub2/H1/IHHsub1/IHHsub2 修 sum/prod/arrow，显式给 sum/prod IH 传入 Low 与 components，并在 S_Arrow 用 Hpq 与显式 Hlev 通过 join_mono；step 332 编译无输出，subtype_val_rel 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        429,
+        447,
+        485
+      ],
+      "qualification": "S_Arrow 的 domain 反变由 IHHsub1（subtype U1 T1）处理。"
+    },
+    {
+      "title": "interp_ty_protect：apply val_rel_ty_protect 选错 p/T 实例，生成多套一层 ty_protect 的目标",
+      "intervals": [
+        {
+          "after": 346,
+          "through": 350
+        }
+      ],
+      "outcome": "显式写成 apply (val_rel_ty_protect l p T v1 v2)，避免 p:=Low、T:=ty_protect p T 的错误实例；interp_ty_protect 通过，step 350 编译推进到 subst_open_extend。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        505,
+        508,
+        511
+      ],
+      "qualification": "同类实例化错误在 T_App 再次出现，已随 abstract-type 重构修正，未重复计时。"
+    },
+    {
+      "title": "subst_open_extend：open 未展开为 open_rec，subst_fn_open_rec 与 Nat.eqb_refl rewrite 均找不到子项",
+      "intervals": [
+        {
+          "after": 350,
+          "through": 358
+        }
+      ],
+      "outcome": "先 unfold open 把 goal 变成 open_rec，rewrite subst_fn_open_rec；再 simpl 使 lambda application beta-reduce，rewrite Nat.eqb_refl；整体重写 subst_open_extend 后通过，step 358 编译推进到 fundamental 的 observer 命名冲突。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        511,
+        514,
+        520,
+        523
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "fundamental 的 T_Abs：env_rel_extend 误把新变量映射到 body 结果 w1/w2，而非参数 a1/a2",
+      "intervals": [
+        {
+          "after": 366,
+          "through": 370
+        }
+      ],
+      "outcome": "从 'No such assumption' 定位到 env_rel_extend 需要 val_rel Low T1 a1 a2；把环境扩展的 x 映射由 w1/w2 改为 a1/a2，并把 subst_open_extend 的 lc premise 改为 value_lc Ha1/Ha2；step 370 编译推进到 T_App（暴露 IH 名问题）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        535,
+        538,
+        541
+      ],
+      "qualification": "紧邻的 T_Unit multi_value 断言缺 source value 前提（step 362-366）与 observer 改名 l→lv（step 358-362）未单独计时。"
+    },
+    {
+      "title": "fundamental 的 T_App/T_Fst/T_Snd/T_Case/T_If：abstract result type 上 val_rel 无法展开，引入 flows_to_dec 与 val_rel_vacuous 重构",
+      "intervals": [
+        {
+          "after": 376,
+          "through": 437
+        }
+      ],
+      "outcome": "引入 flows_to_dec 与 val_rel_vacuous，对 T_App/Fst/Snd/Case/If 按 visible/invisible 分两支：visible 分支从 concrete constructor relation 取 clause，invisible 分支用 type-level obs 不成立直接得 LR；同时修正 T_Case 的 body IH 名（H1/H3）、T_Protect 的 label l、T_Sub 的 H 与 T_If 的 branch bullet 顺序；step 437 编译无输出，fundamental 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        553,
+        568,
+        612,
+        624,
+        638
+      ],
+      "qualification": "abstract type 上 val_rel 不展开是关键发现；区间前的 T_App IH 名（IHHty1/2）修正（step 370-376）未单独计时，其后的 intro Hobs 失败才引出本项。"
+    },
+    {
+      "title": "val_rel_erase：sum/product 的 payload 变量名与 IHT 参数顺序不匹配",
+      "intervals": [
+        {
+          "after": 444,
+          "through": 462
+        }
+      ],
+      "outcome": "删除 IHT 调用中多余的 l（l 在 type induction 前已固定），并按 destruct 后的 payload 名（v1/v2、v1_1/v1_2、v2_1/v2_2）重写 sum/prod recursive calls；step 462 编译无输出，val_rel_erase 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        647,
+        652,
+        660,
+        670
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "noninterference 目标 theorem 语句在早前 python 整段替换中被截掉，直到最终才被发现并恢复",
+      "intervals": [
+        {
+          "after": 470,
+          "through": 493
+        }
+      ],
+      "outcome": "step 470 查看文件末尾时发现 noninterference 不在，step 476 的 wc/grep 确认 2177 行且 Theorem 计数为 0；step 477 定位为重写 multi_case_inv/multi_if_inv 时 s = s[:i] + new 未保留尾部；按原 statement 恢复并写入完整 proof，随后修 has_type_lc 的显式实例化与 subst_fn_plug 的 rewrite side conditions，step 493 编译无输出。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        681,
+        690,
+        696,
+        704,
+        712,
+        721
+      ],
+      "qualification": "语句在 step 236（约 2542 秒）的 s = s[:i] + new 整段替换中被截掉，直到 step 470 才发现；此前 helper 开发不依赖该语句，因此未把约 984 秒的潜伏期计入本问题。step 500 与 Task.v.orig 比对确认 statement 相同、给定定义前缀未变。"
+    }
+  ],
+  "trace_sha256": "e4701a2855b9415e9c5afc12b85e49a135ecd970ff96f9825fbe7471811acec0",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 20,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "e4701a2855b9415e9c5afc12b85e49a135ecd970ff96f9825fbe7471811acec0",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r20.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r20_20261027_212306_212834"
+  }
+}

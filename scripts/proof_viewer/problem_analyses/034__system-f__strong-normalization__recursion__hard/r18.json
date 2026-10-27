@@ -1,0 +1,445 @@
+{
+  "summary": "本次运行约 2635 秒，前约 1030 秒用于设计探索：围绕 CBV System F + natrec 的 reducibility candidates，反复权衡 impredicative `Ty_All`、type annotation substitution 与 structural recursion，最终改在 erased calculus `ut` 上建立 LR。其余时间主要用于 erased calculus 基础引理、generic ustep equations 与 lc opening、`lc_ut_step_fwd`、candidate/`R_ty` 环境外延与 type-opening、`natrec_mem`/`abs_app_red` 以及 `fundamental` 的设计与编译调试；列出的失败最终都解决，`normalization` 经 `Print Assumptions` 显示 \"Closed under the global context\"。",
+  "phases": [
+    {
+      "title": "设计探索与环境确认：CBV System F + natrec 的 LR 与 erased calculus 路线",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "erased calculus 基础实现与编译调试（ut/erase/open/subst/lc/ustep/SN_ut）",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 162
+        }
+      ]
+    },
+    {
+      "title": "擦除模拟与 SN transfer（erase_open、step_erase、SN_annot_of_SN_ut）",
+      "intervals": [
+        {
+          "after": 162,
+          "through": 169
+        }
+      ]
+    },
+    {
+      "title": "lc opening 引理与 generic ustep equations",
+      "intervals": [
+        {
+          "after": 169,
+          "through": 202
+        }
+      ]
+    },
+    {
+      "title": "lc_ut_step_fwd：functional ustep 对 local closure 的保持",
+      "intervals": [
+        {
+          "after": 202,
+          "through": 255
+        }
+      ]
+    },
+    {
+      "title": "candidate、R_ty 与 type-substitution 基础设施",
+      "intervals": [
+        {
+          "after": 255,
+          "through": 340
+        }
+      ]
+    },
+    {
+      "title": "Nat/recursion 与 abstraction reducibility lemmas",
+      "intervals": [
+        {
+          "after": 340,
+          "through": 381
+        }
+      ]
+    },
+    {
+      "title": "freshness、substitution 与 typing local-closure lemmas",
+      "intervals": [
+        {
+          "after": 381,
+          "through": 392
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem 的 typing induction",
+      "intervals": [
+        {
+          "after": 392,
+          "through": 429
+        }
+      ]
+    },
+    {
+      "title": "最终 normalization 实例化、编译与验证",
+      "intervals": [
+        {
+          "after": 429,
+          "through": 448
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "is_val_spec：value_ut 的 bvar/numeric 不可能 case 未被 inversion 消除，且 destruct pattern 依赖自动命名",
+      "intervals": [
+        {
+          "after": 20,
+          "through": 36
+        }
+      ],
+      "outcome": "改为按 ut 的 constructor 分别证明 iff，显式命名 destruct pattern 的变量，并把 zero case 的 iff 两方向拆开；step 36 编译确认 is_val_spec 通过，推进到 value_ut_ustep_none。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        27,
+        36,
+        45,
+        51
+      ],
+      "qualification": "以 step 20 首次报错到 step 36 编译越过 is_val_spec 为界；step 36 同时首次暴露 value_ut_ustep_none 的错误，归入下一项。"
+    },
+    {
+      "title": "value_ut_ustep_none：auto 先消去 abstraction cases 导致 bullet 错位，numeric case 的 ustep n = None 不能直接 reflexivity",
+      "intervals": [
+        {
+          "after": 36,
+          "through": 56
+        }
+      ],
+      "outcome": "用临时最小文件确认 numeric induction 的 IH 形态，改为按 value_abs/value_tabs/value_num 三个 bullet 显式处理，numeric case 调用 numeric_ut_ustep_none；step 56 编译确认 value_ut_ustep_none 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        51,
+        60,
+        72,
+        76,
+        81
+      ],
+      "qualification": "以 step 36 的 numeric case 报错到 step 56 编译越过 value_ut_ustep_none 为界；step 56 同时首次暴露 ustep_app_abs_value 的错误，归入下一项。"
+    },
+    {
+      "title": "ustep_app_*/ustep_tapp_tabs：simpl 已展开 ustep，重复 rewrite 失配；is_val_false 缺 term argument，numeric/succ 分支需再 destruct",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 86
+        }
+      ],
+      "outcome": "删除 simpl 已化简的 ustep_abs/ustep_tabs rewrite，给 is_val_false 显式传 v2，对 numeric_ut 与 u_succ 分支 destruct 后改写 ustep m，并把 ustep_tapp_tabs 的 proof 改为 simpl; reflexivity；step 86 编译确认这批 application/type-application helper 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        81,
+        87,
+        96,
+        105,
+        111,
+        117,
+        126
+      ],
+      "qualification": "以 step 56 的 ustep_app_abs_value rewrite 失配到 step 86 编译越过 ustep_tapp_tabs 为界；step 86 同时首次暴露 ustep_tapp_stuck 的错误，归入下一项。"
+    },
+    {
+      "title": "ustep_tapp_stuck：application 分支的 residual match 无法用 rewrite Hns 消去，需显式 change 后 rewrite",
+      "intervals": [
+        {
+          "after": 86,
+          "through": 112
+        }
+      ],
+      "outcome": "从 Task.v 提取最小环境并用 Show 确认 ustep (u_app t1 t2) 已展开成 residual match；对 app/tapp/succ/natrec 各分支用显式 change 暴露 match，再 rewrite Hns；step 112 编译确认 ustep_tapp_stuck 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        127,
+        132,
+        153,
+        162,
+        165
+      ],
+      "qualification": "以 step 86 的 residual match 报错到 step 112 编译越过 ustep_tapp_stuck 为界；中间含 step 94-110 的临时文件与提取环境调试。step 112 同时首次暴露 natrec successor helper 的 is_nat 问题，归入下一项。"
+    },
+    {
+      "title": "ustep_natrec_succ/ustep_natrec_values：is_nat (u_succ n) 未化简导致 rewrite is_nat n 失配，随后 ustep u_zero 已被 simpl 消去",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 130
+        }
+      ],
+      "outcome": "用 cbn [is_nat] 展开 successor 的 numeric test；natrec values 引理改用 ustep_natrec_zero/ustep_natrec_succ，并在 succ 分支用 numeric_ut_ustep_none 与 is_nat_spec；step 130 编译确认两个引理通过，推进到 lc_ut_open_inv。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        165,
+        183,
+        186,
+        191,
+        192
+      ],
+      "qualification": "以 step 112 的 is_nat n 失配到 step 130 编译越过 ustep_natrec_values 为界；step 130 同时首次暴露 lc_ut_open_inv 的 Nat.max 算术问题，归入下一项。"
+    },
+    {
+      "title": "lc_ut_open_inv/lc_ut_open_gen 与 lc_ty_open_inv/lc_ty_open_fwd：Nat.max 边界与 eqb conditional 无法直接 lia/rewrite",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 162
+        },
+        {
+          "after": 186,
+          "through": 202
+        }
+      ],
+      "outcome": "用 Nat.le_max_l、Nat.le_max_r 和 Nat.succ_max_distr 处理 max 边界，显式 inversion lc_ty_at 并为 IH 补 x；lc_ut_open_gen 中对 eqb/conditional 用 destruct 和保留的 boolean equation；这些 opening 引理最终全部通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        195,
+        198,
+        213,
+        240,
+        284,
+        296,
+        299
+      ],
+      "qualification": "第一段从 step 130 的 Nat.max 算术失败到 step 162 编译只剩 normalization 未完成；第二段从 step 186 的 lc_ut_open_gen 'No such assumption' 到 step 202 编译越过该引理。中间 step 163-185 转去 erasure 与 generic ustep equations 的设计，故不连续计时。"
+    },
+    {
+      "title": "erase_open_tm_rec 与 step_erase：induction 前未 generalize，且 step 的 induction pattern 中 premise/IH 顺序错误",
+      "intervals": [
+        {
+          "after": 165,
+          "through": 169
+        }
+      ],
+      "outcome": "在 induction 前 revert k/u；把 step_erase 的 induction pattern 改成递归 premise 紧跟其 IH、非递归 premise 在后；erase_open_tm_rec 与 step_erase 通过，SN transfer 不再报错。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        244,
+        248,
+        250
+      ],
+      "qualification": "区间从 step 165 报错后的处理（step 166）到 step 169 编译越过 step_erase；step 165 的批量插入与首次编译不计入。"
+    },
+    {
+      "title": "lc_ut_step_fwd：functional ustep 对 local closure 的保持，需重构 app/tapp/succ/natrec 的 destruct/IH 使用",
+      "intervals": [
+        {
+          "after": 202,
+          "through": 255
+        }
+      ],
+      "outcome": "用 generic ustep equations 显式化 residual match，按 destruct 后的 IH 形状传 eq_refl/reflexivity，并在 beta 分支补 lc_ut_open_gen；step 255 编译确认 lc_ut_step_fwd 通过，只剩 normalization 未完成。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        303,
+        318,
+        339,
+        378
+      ],
+      "qualification": "区间从 step 203 的证明规划到 step 255 编译越过 lc_ut_step_fwd；中间经过 app/tapp/succ/natrec 各分支的 destruct、injection 与重复 rewrite 清理。"
+    },
+    {
+      "title": "arrow_cand/all_cand 的 neutral 分支：numeric_ut (u_app/u_tapp) 不可能分支与 is_val_false/~value_ut 前提混淆",
+      "intervals": [
+        {
+          "after": 260,
+          "through": 286
+        }
+      ],
+      "outcome": "inversion Hv 后再 inversion 剩余的 numeric_ut 不可能假设，all_cand 的 neutral 分支直接传 Hnv 而不是 is_val_false；step 286 编译确认 arrow_cand/all_cand 通过，推进到 arrow_cand_rel。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        385,
+        388,
+        418,
+        424
+      ],
+      "qualification": "区间从 step 260 的 arrow_cand incomplete proof 到 step 286 编译越过 all_cand；step 264-282 的两次 s.replace 未命中，最终直接改写现存片段才生效。candidate extensionality 的后续失败归入下一项。"
+    },
+    {
+      "title": "candidate extensionality 与 R_ty 环境/type-opening 引理：split-semicolon goal 数不符、S 遮蔽、replace_at/Nat.eqb 展开与 HIH x 实例化",
+      "intervals": [
+        {
+          "after": 286,
+          "through": 340
+        }
+      ],
+      "outcome": "把 arrow_cand_rel/all_cand_rel 的 split; ...; auto 拆成显式两方向，candidate 变量 S 改名 Sc，FVar 使用 a 的 equality，R_ty_open_gen 中显式 unfold replace_at/cons_cand、destruct Nat.eqb 并保留 boolean equation，最后用 proj1/proj2 (HIH x)；step 340 编译确认这些引理通过，只剩 normalization。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        430,
+        439,
+        448,
+        472,
+        505
+      ],
+      "qualification": "区间从 step 286 的 arrow_cand_rel goal 数错误到 step 340 编译越过全部 candidate/environment 引理；其中也包含 step 302/324 的 setoid rewrite 方向、step 306/332 的 All case 与 step 332-340 的 HIH x 实例化。"
+    },
+    {
+      "title": "SN_ut_succ：destruct 后 induction hypothesis 变成 Some t'=Some u，需要 ustep_succ_step 与 reflexivity",
+      "intervals": [
+        {
+          "after": 343,
+          "through": 357
+        }
+      ],
+      "outcome": "在 destruct 后用 ustep_succ_step/ustep_succ_none 改写 Hv，并把已被 destruct 改写成 Some t'=Some t' 的 IH step premise 改用 reflexivity；step 357 编译确认 SN_ut_succ 通过，推进到 natrec_mem_aux。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        509,
+        512,
+        527,
+        530
+      ],
+      "qualification": "区间从 step 343 的 rewrite 失配到 step 357 编译越过 SN_ut_succ（同一编译开始报 natrec_mem_aux 的 SN_ut_ind 错误，归入下一项）；step 347-354 多次文本修改未命中，检查行号后直接改现存代码块才生效。"
+    },
+    {
+      "title": "natrec_mem_aux/natrec_mem：SN_ut_ind 的 motive 不足，is_val 与 value_ut 需并存，reduct 的 lc 还要补",
+      "intervals": [
+        {
+          "after": 357,
+          "through": 375
+        }
+      ],
+      "outcome": "对 Hb/Hs0 改用普通 induction 而非 apply SN_ut_ind，把 is_val equation 与 value_ut 证据并存，destruct 后的 IH step premise 用 eq_refl，并由 Hreds_s 重建 SN_ut s1，最后用 lc_ut_step_fwd 补 reduct n' 的 local closure；step 375 编译确认 natrec_mem 通过，推进到 abs_app_red。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        531,
+        538,
+        546,
+        557
+      ],
+      "qualification": "区间从 step 357 的 apply SN_ut_ind 报错到 step 375 编译越过 natrec_mem；natrec_mem_aux 的 motive/IH 问题与 natrec_mem 的 IHn lc 参数问题合并在本项。"
+    },
+    {
+      "title": "abs_app_red：revert Hsn 后 apply SN_ut_ind 的 motive 不匹配，改用普通 induction；随后 IHu 的 step premise 已被 destruct 改写",
+      "intervals": [
+        {
+          "after": 375,
+          "through": 381
+        }
+      ],
+      "outcome": "把 revert Hsn; apply SN_ut_ind 改为 induction Hsn 并保留 HA premise；再把 IHu 的 equation argument 改为 eq_refl，Eustep 继续给 cand_fwd；step 381 编译确认 abs_app_red 通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        557,
+        563,
+        566
+      ],
+      "qualification": "区间从 step 375 的 SN_ut_ind 应用错误到 step 381 编译越过 abs_app_red；它是 natrec/LR helper 批次的最后一个障碍。"
+    },
+    {
+      "title": "subst_ut_ext/has_type_lc_ty：ut induction 的 natrec binder 命名与 wf_ty_lc 的隐式 Delta",
+      "intervals": [
+        {
+          "after": 384,
+          "through": 392
+        }
+      ],
+      "outcome": "为 subst_ut_ext 的 ut induction 显式命名 natrec 参数与 IH；把 `apply wf_ty_lc. exact Hwf` 改成 `exact (wf_ty_lc Delta T Hwf)`；两个引理通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        570,
+        573,
+        576,
+        582
+      ],
+      "qualification": "两个小修复合并；不包含后面的 fundamental theorem。"
+    },
+    {
+      "title": "fundamental theorem 的 T_Abs 分支：gamma0/gammau 未展开导致 update_ut_eq 失配，subst_ut_open_fvar 与 Ty 对齐需额外处理",
+      "intervals": [
+        {
+          "after": 395,
+          "through": 419
+        }
+      ],
+      "outcome": "environment extension 中显式 unfold update_ut 并用保留的 eqb equation；单独 assert gamma0 x=u_fvar x 与 gammau x=u 只改写 opening argument；对 erase (fvar x) 先 simpl；从 Hlook 提取 Ty=T1；T_Abs 分支通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        586,
+        601,
+        607,
+        619,
+        622
+      ],
+      "qualification": "区间从 step 395 的 update_ut_eq 失配到 step 419 编译越过 T_Abs；step 419 同时首次暴露 T_TAbs 的 append 分组错误，归入下一项。"
+    },
+    {
+      "title": "fundamental theorem 的 T_TAbs/T_TApp 分支：freshness list append grouping、lc_ty_fvar 名称与 R_ty_open_gen 的 iff 方向",
+      "intervals": [
+        {
+          "after": 419,
+          "through": 429
+        }
+      ],
+      "outcome": "把 freshness list 显式写成 L ++ (free_ty T ++ free_gamma Gamma)，用 in_or_app 直接证明三个 not-in 条件；修正 constructor 名为 lc_ty_fvar；把 R_ty_open_gen 与 env_rel 的 proj1 改为 proj2；T_TAbs/T_TApp 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        622,
+        628,
+        631,
+        637
+      ],
+      "qualification": "区间从 step 419 的 T_TAbs append 报错到 step 429 fundamental theorem 整体通过；其中包含 lc_ty_fvar 名称修正与 T_TApp 的 iff 方向修正。"
+    },
+    {
+      "title": "normalization：pose proof fundamental 后的 premise/bullet 结构导致 intros 无 product",
+      "intervals": [
+        {
+          "after": 432,
+          "through": 438
+        }
+      ],
+      "outcome": "改为先 assert Hlcg0 与 Henv0，再 specialize Hfund，随后 rewrite subst_ut_id 并用 SN_annot_of_SN_ut 完成；step 436 coqc 无错误输出，step 438 重新编译 status=0。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        641,
+        643,
+        647,
+        650
+      ],
+      "qualification": "区间从 step 432 的 intros y 无 product 到 step 438 显式确认 status=0；此后的 forbidden constructs、diff 与 Print Assumptions 验证不在本项。"
+    }
+  ],
+  "trace_sha256": "01c6ccc15558f5884143d579eed137c67803cf9bf0c8927a2ba442777676a713",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 18,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "01c6ccc15558f5884143d579eed137c67803cf9bf0c8927a2ba442777676a713",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r18.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r18_20261027_211847_205308"
+  }
+}

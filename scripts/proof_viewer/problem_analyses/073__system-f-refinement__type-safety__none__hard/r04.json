@@ -1,0 +1,459 @@
+{
+  "summary": "本次 3601 秒的 timeout run 中，step 9 与 step 16 两次长 thinking 合计约 1287 秒，用于 LR/fundamental theorem 的设计与反复推演（其中发现 predicate_holds 对 qualifier term 的 type annotation 敏感、直接按原 semantics 做 type substitution 不成立，这些纠错与设计混在一起，无法可靠拆分计时），其余时间主要用于自底向上实现 substitution/opening 代数、step determinism、free-type-atom/well-formedness invariants 和 fuel-based LR。到超时为止 never_stuck 仍是空的 Proof/Qed，最后正在修 semVf 的 R_Func codomain opening，修正后的 semV_Func 尚未编译通过；不能把下面任一具体问题单独视为 timeout 的唯一原因。",
+  "phases": [
+    {
+      "title": "读取 Task.v/card.md、确认 Rocq 环境与 initial proof strategy",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "第一轮 LR 设计长推演：CBV value relation、erasure 到 core typing 的可行性、fuel/structural recursion 方案",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "本地源码搜索与第二轮 LR 设计长推演：predicate/type-annotation 敏感性、sigma-parameterized fundamental theorem 与 fresh-variable 方案",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "基础库编写与调试：substitution/opening/freshness、identity、free-type-atom 与 commutation/erase/size 引理",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 97
+        }
+      ]
+    },
+    {
+      "title": "step/multi 操作语义：value_no_step、step_det、multi congruence、local closure preservation",
+      "intervals": [
+        {
+          "after": 97,
+          "through": 185
+        }
+      ]
+    },
+    {
+      "title": "opening 下 free-type atoms 的 incl 引理与 well-formedness/has_type/has_rtype invariants",
+      "intervals": [
+        {
+          "after": 185,
+          "through": 273
+        }
+      ]
+    },
+    {
+      "title": "fuel-based logical relation：semVf、fuel irrelevance、canonical semV 与 value shape",
+      "intervals": [
+        {
+          "after": 273,
+          "through": 338
+        }
+      ]
+    },
+    {
+      "title": "soundness 辅助引理：env_ok、substitution agreement、value_subst_all、opening/substitution commutation",
+      "intervals": [
+        {
+          "after": 338,
+          "through": 397
+        }
+      ]
+    },
+    {
+      "title": "entailment soundness 的实现与调试",
+      "intervals": [
+        {
+          "after": 397,
+          "through": 422
+        }
+      ]
+    },
+    {
+      "title": "has_rtype/subtype mutual induction 设计、fresh-open helpers 与 semVf codomain 修复（超时）",
+      "intervals": [
+        {
+          "after": 422,
+          "through": 443
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "SystemFRefinementTask/SystemFRefinementInv/SystemFRefinementSem 的 module 边界与自引用：文本插入三次破坏 module 结构",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 22
+        },
+        {
+          "after": 238,
+          "through": 239
+        },
+        {
+          "after": 313,
+          "through": 320
+        }
+      ],
+      "outcome": "第一次插入 Lib 模块时把 `Module SystemFRefinementTask.` 及其 imports 一并替换，step 20 的 tail 确认 opening 缺失，step 22 补回并加入 identity 引理；第二次插入 `SystemFRefinementInv` 的全局替换把该 module 自身的 Import 改成 self-import（Cannot find module SystemFRefinementInv），step 239 诊断、step 240 去掉后编译转到 wf_ty_fv_subset；第三次插入 `SystemFRefinementSem` 的 anchor 替换又吞掉了 `Module SystemFRefinementTask.`，Sem 未关闭、Task opening 与 imports 缺失，step 314 的 grep 发现，step 316 因 anchor 不存在而 assertion 失败，step 319 改以 theorem 前的 imports 为 anchor，step 320 补齐 `End SystemFRefinementSem`/`Module SystemFRefinementTask` 后编译转到 semTf_iff_semT。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        28,
+        30,
+        351,
+        352,
+        354,
+        464,
+        467,
+        470,
+        473
+      ],
+      "qualification": "纯文件编辑/模块结构失误，不是数学困难；三次修复的验证分别落在后续编译 step 24（qsubst_id）、step 240（wf_ty_fv_subset）与 step 320（semTf_iff_semT）。"
+    },
+    {
+      "title": "qsubst_id 与 q_ty_subst_atoms_id：qualifier 内嵌 term 没有 IH，`try (f_equal; auto)` 留下子目标与重复 rewrite",
+      "intervals": [
+        {
+          "after": 24,
+          "through": 38
+        }
+      ],
+      "outcome": "`induction q; simpl; try reflexivity; try (f_equal; auto)` 在 Pred_Eq/Lt/Le 上留下 `tsubst id t = t` 目标（qualifier 内的 tm 没有 IH），需显式用 `tsubst_id`；q_ty_subst_atoms_id 中同一 automation 先把目标拆成 `tm_ty_subst_atoms id t = t`，此后再连续 `rewrite tm_ty_subst_atoms_id, ...` 第二次已无匹配 subterm。改为按 constructor 显式证明并引用 `tsubst_id`/`tm_ty_subst_atoms_id`，step 38 编译越过 identity 组。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        34,
+        40,
+        48,
+        51,
+        55
+      ],
+      "qualification": "identity 引理本身成立；两次失败分别是子目标残留和重复 rewrite；step 38 的 never_stuck 空 proof 报错说明 identity 组已通过。"
+    },
+    {
+      "title": "lc_tm_mono 的 lia 残留与 open_ty_id_lc/open_tm_id_lc/open_tm_ty_id_lc：对 lc derivation 做 induction 的 as-pattern/IH 命名与 binder depth",
+      "intervals": [
+        {
+          "after": 43,
+          "through": 69
+        }
+      ],
+      "outcome": "lc_tm_mono 的 tm_tabs 分支 `apply lc_tm_tabs. apply IH. lia` 留下子目标触发 Wrong bullet（step 43/45），改为 `apply IH; lia` 后错误转到 open_ty_id_lc；初版在 lc derivation 上 induction 的 `as` pattern 写成 H1 H2 IH1 IH2，实际顺序是 H1 IH1 H2 IH2，于是 `rewrite IH1` 拿到的是 lc_ty_at k T2 而非 IH（step 51）。改用 syntax induction 后又先后遇到 K 已被使用（step 53）、Ty_BVar 的 i/n 名称（step 55/65）、IHT1/IHt 不存在（step 57），补显式 pattern 后还留下 Ty_All 的 lia side condition（step 59-63）；最终 `intros K T; revert K; induction T as [...]` 再 inversion Hlc 并按 case 给 IH，step 67 编译越过三条 identity 引理。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        62,
+        68,
+        77,
+        83,
+        86,
+        92,
+        98,
+        101
+      ],
+      "qualification": "失败集中在 tactic 组织与 induction pattern，不是 depth 递增本身不成立；step 69 的编译同时验证 identity 组并暴露下一组 lc opening 引理的错误。"
+    },
+    {
+      "title": "lc_ty_open_ty/lc_tm_open_tm/lc_tm_open_ty 及其 inverse：Ty_All 分支 eauto/lia 残留子目标与未实例化 U",
+      "intervals": [
+        {
+          "after": 69,
+          "through": 77
+        }
+      ],
+      "outcome": "lc_ty_open_ty 的 Ty_All 分支 `eapply IHT1; eauto. apply lc_ty_mono...` 在 eauto 已解决目标后继续执行，step 69 报 No such goal（该编译同时验证了 identity 组）；改为显式 bullet 后，step 73 在 lc_ty_open_ty_inv 的 Ty_All 分支报 No such assumption——调试显示 goal 中仍是未实例化的 U 而 hypothesis 用具体 U（step 75），改用 eassumption 后 forward/inverse 与 substitution lc 引理全部通过，step 77 编译仅停在 never_stuck。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        101,
+        107,
+        110,
+        113
+      ],
+      "qualification": "本区间只覆盖 forward/inverse local closure 与 substitution lc 引理；不涉及 identity 组的 f_equal。"
+    },
+    {
+      "title": "opening 下 free-type atoms 的 incl/subset 引理组（fv_ty_open_ty、ftv_tm_open_tm_ty、q_ftv_open_pred、rty_ftv_open_rty）：空 list、append target 与 induction 命名/depth",
+      "intervals": [
+        {
+          "after": 187,
+          "through": 235
+        }
+      ],
+      "outcome": "一次加入的 incl 引理反复失败：Ty_BVar 空 list 分支的 incl_refl/incl_nil_l 选择；Ty_Arrow 的 `incl_app` 要求两个 source 包含于同一 target，stdlib 没有 incl_trans，需自补 atom_incl_trans/atom_incl_app_app 与 solve_incl_atom；自动化仍留下子目标，需按 in_app_iff 分支显式保留 `fv_ty U` 备选（step 207）；ftv_tm_open_tm_ty_subset 的 tm_fvar case 把 `ftv_tm (fvar y)=[]` 误用 incl_cons，应改用 incl_nil_l（step 211/213）；tm_tabs 的 type opening 深度变为 S k；qualifier/rty induction 的默认命名（t1、IHR vs IHR1）与 R_Poly 的 depth 也不匹配。step 235 编译越过这组引理。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        277,
+        286,
+        296,
+        299,
+        305,
+        308,
+        314,
+        323,
+        329,
+        332,
+        338,
+        344,
+        347
+      ],
+      "qualification": "这些 incl 引理本身成立；失败集中在空 list/append target、自动化残留子目标、tm_fvar 的空自由原子与 induction 命名/depth；step 235 之后的 wf_* invariant 属下一项。"
+    },
+    {
+      "title": "step_det：application（AppAbs/App1/App2）与 type application 的 rule 交叉，以及 div 的 integer value 冲突",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 163
+        }
+      ],
+      "outcome": "`inversion H1; inversion H2; subst; try reflexivity; try (exfalso; eauto using value_no_step); f_equal; eauto` 在 application case 留下多个 Wrong bullet；step 108 打出 7 个 app goals，既有 reduct equality 也有 value 与 step 冲突。加 `Hint Constructors value`/`Hint Resolve value_no_step` 仍不够（step 106），改用 `try solve [...]` 与等式的 injection 清理，逐步缩到 3 个（step 145）；最后引入 `solve_contr` 显式匹配 value/step 冲突，application 关闭（step 155），div 的 `step (tm_int n)` 冲突再补一条模式后 step_det 通过；step 163 编译已推进到 multi_value_eq。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        155,
+        158,
+        161,
+        164,
+        167,
+        170,
+        173,
+        179,
+        182,
+        240
+      ],
+      "qualification": "这是 step relation 的 determinism，不是目标 theorem 的直接失败；Arith 分支没有单独失败，由同一 solve_contr 处理。"
+    },
+    {
+      "title": "multi_value_eq 陈述不成立；step_multi_value/multi_det_value/multi_from_value 与 step_lc_back 的 IH/pattern 失败",
+      "intervals": [
+        {
+          "after": 163,
+          "through": 185
+        }
+      ],
+      "outcome": "编译报 `multi_refl t` 类型不匹配（step 163），step 164 重新检查后确认原 `multi_value_eq` 命题为假：`multi t u`、`multi t v`、`value v` 推不出 u = v（t=(λx.x) 0、u=t、v=0 即反例）。改为 `multi_from_value` 与 `step_multi_value`，并在 multi_det_value 中改用一步分解；后续的 `IH`/`u` 不存在实际定位到 step_lc_back（step 173）：默认 induction 没有 `IH` 名称，改成显式 step constructor pattern，且递归前提后的 IH 顺序需按 `Hst IHst Hlc2` 排列（step 183/185）。step 185 编译越过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        240,
+        243,
+        249,
+        255,
+        270,
+        273
+      ],
+      "qualification": "改的是 auxiliary lemma 陈述（真值问题）；目标 never_stuck 的陈述未被修改。IH 报错另有 tactic/命名原因，与陈述修正合并计。"
+    },
+    {
+      "title": "wf_ty_fv_subset/wf_ty_lc/wf_rty_wf_erase/has_type_inv/predicate_wf_ftv_subset/has_rtype_ftv_subset 的 free-type-atom invariants：fresh 变量、erasure/opening rewrite 与参数实例化",
+      "intervals": [
+        {
+          "after": 239,
+          "through": 273
+        }
+      ],
+      "outcome": "WF_All 需要 fresh 变量同时避开 L0 与待证 atom a（equality 证明还要去掉多余 symmetry）；erase/open 的 rewrite 需要先 assert equality（`open_rty_tm` wrapper 不匹配）；`wf_ty_lc`/`wf_rty_lc_erase` 的 Delta/RGamma 参数需显式；has_type_inv 的 T_Abs 需要选择 fresh x、T_TAbs 同样用 fresh X，并借 opening incl 排除新增 context binding；predicate_wf_ftv_subset 的 PWF_Not case 有多余 `exact H1`（step 267 定位，并非 predicate_closed 引理）；RT_App 的 rty 部分可直接把 `rty_ftv (R_Func …)` 的 Ha 交给 `rty_ftv (R_Exists …)`。step 186 规划时已发现无条件的 subtype free-atom invariant 因 S_Refl 不成立，最终 RT_Sub 改用其 wf_rty premise；step 273 编译越过这组 invariants。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        354,
+        360,
+        363,
+        372,
+        375,
+        381,
+        388,
+        397,
+        403
+      ],
+      "qualification": "把多个共享 fresh-atom/opening 工具的 invariant 合为一项；没有把 predicate_closed 子问题另计时。"
+    },
+    {
+      "title": "semVf 的 fuel 设计与 semVf_irrel_aux：function case 的产品结构、le_refl、witness 引入顺序与 opened sub-rty 的 size 对齐",
+      "intervals": [
+        {
+          "after": 280,
+          "through": 312
+        }
+      ],
+      "outcome": "step 278 的设计比较已否决 mutual semVf/semTf（`semTf s1` 只能拿到 `semVf (s1-1)`，R_Poly canonical 对齐失败），改为单一 semVf Fixpoint 并把 multi-to-value 内联。此区间实现 semVf_irrel_aux 时依次遇到 function case `No product`（intros 结构）、未限定的 `le_refl`（改用 Nat.le_refl）、`intros u Hu Hfu [w ...]` 与 `repeat split; auto` 留下的 abstraction existential（需显式提供 T0/body witnesses），以及 per-witness `Io` 必须在 destruct w/U 之后引入；step 312 编译越过 fuel irrelevance。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        413,
+        416,
+        422,
+        431,
+        443,
+        458,
+        461
+      ],
+      "qualification": "此时的 semVf 还没有发现 R_Func codomain 未 opening；step 438 后 fuel 证明也需再改。"
+    },
+    {
+      "title": "semV_Func/semV_Exists/semV_Poly/semV_value 与 semTf_iff_semT：从 fuel 语义转换到 canonical semV",
+      "intervals": [
+        {
+          "after": 320,
+          "through": 336
+        }
+      ],
+      "outcome": "semTf_iff_semT 的 `split; ...; [exact Hm |]` 分支数不对；semV_Func 的反向 proof 误把 `semVf_irrel` 的结果当 semT 用，已 destruct semT 后应直接用 semVf_irrel 转 fuel；semV_Exists 的 `rty_size (open_rty_tm …)` rewrite 需先 unfold wrapper；semV_Poly 把 semVf_irrel 的两个 inequality 传反；semV_value/semV_ftv 的 `apply semV_Refine in H; tauto` 依赖 apply-in 的 iff 方向/实例化，改为 destruct R 的分支命名 + `proj1` 显式取 conjunction。step 336 编译越过 canonical lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        473,
+        479,
+        485,
+        488,
+        491,
+        494,
+        497
+      ],
+      "qualification": "本区间的 canonical lemmas 在 step 438 修改 semVf 后需要重新验证。"
+    },
+    {
+      "title": "env_ok_bind 与 tsubst/qsubst/rty_subst_env agreement：context extension 需要 x 避开整个 context 的 rty_fv，lookup 需化简",
+      "intervals": [
+        {
+          "after": 341,
+          "through": 377
+        }
+      ],
+      "outcome": "env_ok_bind 的原陈述只要求 x 避开新 binding 的 rty_fv，rho' 与 rho 在其他 binding 的 qualifier free atoms 上不等；加入 `rcontext_fv`/`rty_fv_in_context` 与 `~ In x (rcontext_fv RGamma)` premise，并补 tsubst/qsubst/rty_subst_env 的 agreement helpers。期间修了 `~ In x (l++m)` 不能直接 in_app_iff（自补 not_in_app_iff 并前移）、lookup 的 eqb 化简、`inversion Hlook; subst` 清掉 R0、agreement lemma 的 X/参数推断，以及替换 theorem statement 时残留旧 continuation 的 syntax error。step 377 编译越过 agreement 组。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        504,
+        507,
+        519,
+        525,
+        531,
+        534,
+        540,
+        546,
+        552,
+        558
+      ],
+      "qualification": "step 341 的草稿曾在 env_ok_bind 中临时使用 admit/Admitted（step 342 自查发现），step 343 已改为完整证明；本区间从 step 341 之后开始记录完整证明的调试。"
+    },
+    {
+      "title": "value_subst_all/closed_ty_ty_subst_atoms/wf_ty_closed_sigma：lc_ty_ty_subst_atoms 的 premise 顺序、image depth 与 v_tabs 的 lc_tm_tabs",
+      "intervals": [
+        {
+          "after": 378,
+          "through": 397
+        }
+      ],
+      "outcome": "`lc_ty_ty_subst_atoms` 先要求原 type lc、再要求 images lc，`[|exact Hlc]` 把两者对调；`assumption` 被当成 term；`lc_tm_tsubst` 的 images 固定要求 0/0，不能提升到 body depth（直接使用 Hs1）；v_tabs 需先 `lc_tm_tabs` 再对 body 用 tsubst；step 397 编译越过这组 aux lemmas。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        561,
+        564,
+        567,
+        570,
+        573,
+        576,
+        579,
+        582,
+        585,
+        588
+      ],
+      "qualification": "value_subst_all 与 wf_ty_closed_sigma 的失败同属 premise 顺序/depth，合为一项。"
+    },
+    {
+      "title": "entails_sound：AndIntro/NotElim 对 predicate_holds 的展开，以及 Entails_Context 中 qualifier opening 与 env binding 的对齐",
+      "intervals": [
+        {
+          "after": 397,
+          "through": 422
+        }
+      ],
+      "outcome": "AndIntro 把 premise predicate 误当 conjunction；NotElim 没有 recursive premise 却引用 IH1；NotElim 的 tauto 未展开 predicate_holds；Entails_Context 先在 semV_Refine 的 T0 与 `ty_subst_atoms sg T0` 之间用错，再难把 `q_ty_subst_atoms sg (qsubst rho (open p0 x))` 与 env 的 `open (qsubst rho (q_ty_subst_atoms sg p0)) (rho x)` 对齐，最后用 `open_qualifier_subst_all` + `qsubst_q_ty_subst_atoms` + proj2^3 解决；step 422 编译越过 entails_sound。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        592,
+        595,
+        598,
+        601,
+        606,
+        612,
+        618,
+        624,
+        625
+      ],
+      "qualification": "这是 entailment soundness，不是 subtype soundness；step 423-425 的 mutual scheme 语法实验不属于本项。"
+    },
+    {
+      "title": "subst_all_open_rty_tm_fvar/subst_all_open_body_fvar/rty_subst_all_open_rty_ty_fvar/subst_all_open_body_ty_fvar：fresh-variable opening 与 substitution 的等式",
+      "intervals": [
+        {
+          "after": 431,
+          "through": 437
+        }
+      ],
+      "outcome": "`simpl` 不对变量 x 化简 `Nat.eqb x x`，需显式 `rewrite Nat.eqb_refl`；rty helper 的 `intros` 多引入了一个 HU（statement 只有 6 个 premises），导致 No product；修正后 step 437 编译越过这四条 helper 并打印 has_rtype_mut。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        638,
+        641,
+        644,
+        647
+      ],
+      "qualification": "这些 helper 是为 RT_Abs/RT_TAbs 准备的；它们通过不代表目标 proof 完成。"
+    },
+    {
+      "title": "semVf 的 R_Func clause 未对 codomain 做 argument opening（应为 open_rty_tm R2 u），修复后 semV_Func 未编译通过",
+      "intervals": [
+        {
+          "after": 437,
+          "through": 443
+        }
+      ],
+      "outcome": "RT_App 推导中发现 `semVf` 的 function clause 仍用未 opening 的 R2 作为 body result 的 rty，而 RT_Abs 的 premise/RT_App 的 existential 需要 `open_rty_tm R2 u`；step 440 修改 semVf 与 fuel proof，step 442 重写 semV_Func；step 443 编译报 Hg2 中 `rty_size (open_rty_tm_rec …)` 找不到 subterm（需先 unfold open_rty_tm），trace 到此结束，没有记录这次修改的执行或后续编译。",
+      "resolution": "unresolved",
+      "category": "lr",
+      "evidence_lines": [
+        648,
+        650,
+        651,
+        653,
+        654,
+        655
+      ],
+      "qualification": "不能据此断定只差这一处：修 semVf 后 fuel irrelevance、semV_Func、semV_Exists/Poly 都可能要重验；never_stuck 仍是空 Proof/Qed，超时前没有成功编译。"
+    }
+  ],
+  "trace_sha256": "5fcdf2954d9457b88d2502b70b636c290f61ba9d0e341d9a2ea955049e926011",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 4,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "5fcdf2954d9457b88d2502b70b636c290f61ba9d0e341d9a2ea955049e926011",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r04.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r04_20261027_211905_272389"
+  }
+}

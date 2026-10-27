@@ -1,0 +1,329 @@
+{
+  "summary": "本次 3601s 运行中，`Task.v` 的 `never_stuck` 始终没有补完；其间有一次约 577s 的 API stream idle timeout，期间没有任何证明活动。时间主要花在多次长时间 LR 方案推演，以及把 `Sem` 的 well-founded 定义从 `Program Fixpoint` 迁到 `Equations`（最终得到 `Sem_equation_1..5`）。后半程在 /tmp scratch 中搭起 substitution/opening、local closure 与 core typing 基础设施，关键修正是给 commutation 引理补上 substitution codomain 的 local-closure 前提；最后停在 `ts_ty_open_ty_upd` 的 Arrow branch 编译错误，`wf_ty_ts` 仍是 `Admitted`。",
+  "phases": [
+    {
+      "title": "读取 Task.v 与 workspace；随后 API stream idle timeout（约 577s 无输出）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "重连后检查 memory、workspace 与旧 transcript，确认没有可续的既有证明，并初步比较 safety 路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 17
+        }
+      ]
+    },
+    {
+      "title": "第一轮 LR 设计：比较 syntactic progress/preservation 与 semantic logical relation",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 18
+        }
+      ]
+    },
+    {
+      "title": "scratch 中试验 Sem 的 well-founded 定义与六个 measure obligations",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 44
+        }
+      ]
+    },
+    {
+      "title": "超长 LR 语义推演（type substitution、context interpretation、canonicalization），触发 output token limit",
+      "intervals": [
+        {
+          "after": 44,
+          "through": 46
+        }
+      ]
+    },
+    {
+      "title": "完成 Sem 的 measure obligations 并解决 unfold equation，迁移到 Equations",
+      "intervals": [
+        {
+          "after": 46,
+          "through": 96
+        }
+      ]
+    },
+    {
+      "title": "Equations 之后继续细化 closing substitution/type environment，并本地搜索参考（未找到）",
+      "intervals": [
+        {
+          "after": 96,
+          "through": 103
+        }
+      ]
+    },
+    {
+      "title": "确认 mutual induction scheme，制定 ctm/crty/sem_rctx 与 syntactic chunks 计划",
+      "intervals": [
+        {
+          "after": 103,
+          "through": 106
+        }
+      ]
+    },
+    {
+      "title": "编写 scratch chunk 1–2b：parallel type/term substitution、free-variable collectors、commutation helpers",
+      "intervals": [
+        {
+          "after": 106,
+          "through": 199
+        }
+      ]
+    },
+    {
+      "title": "编写 chunk 3–4：opening inversion、wf_ty/lc、core typing weakening 与 free-variable lemmas",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 293
+        }
+      ]
+    },
+    {
+      "title": "尝试 tsupd 与 wf_ty_ts，时限前 scratch 仍未编译通过",
+      "intervals": [
+        {
+          "after": 293,
+          "through": 296
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`Program Fixpoint` 定义 `Sem`：`Program.Wf` 导入与六个 measure termination obligations",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 44
+        },
+        {
+          "after": 46,
+          "through": 54
+        }
+      ],
+      "outcome": "写入 `Program Fixpoint Sem` 后先报 `program.wf.mr not registered`；补 `Program.Wf` 后余下六个 measure obligation，先用 `Show`/`Admitted` 逐个查看（`SM_val R < SM_term R`、`SM_val R1 < SM_val (R_Func R1 R2)`、`open_rty_tm/ty` 的 measure 不等式等）。48–54 步加入 `rty_size_open_rty_tm/ty` wrapper 引理和六段 `Next Obligation`，编译推进到唯一的 `The module TestSem needs to be closed`（六段 obligation proof 本身未报错）；该 Program Fixpoint 路线随后因缺少 equation lemma 被放弃。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        32,
+        35,
+        38,
+        41,
+        44,
+        47,
+        53,
+        65,
+        70,
+        73,
+        76,
+        79
+      ],
+      "qualification": "两个区间之间是 step 45 的 LR 设计（约 795s）与 output token limit，不计入本问题。六段 obligation proof 已被编译器接受，但该 scratch 只到 module 未关闭，未完成整文件编译；最终可用的 `Sem` 与 equation 由后面的 Equations 版本提供。"
+    },
+    {
+      "title": "`Sem` 没有可 rewrite 的 unfold equation：`Program Fixpoint` 不生成 `Sem_equation`，改用 `Equations` 后得到 `Sem_equation_1..5`",
+      "intervals": [
+        {
+          "after": 57,
+          "through": 96
+        }
+      ],
+      "outcome": "关闭 module 后 `Check Sem_equation` 报不存在；`Sem_func` 只有 sigma-packed signature，`Sem_func_equation` 也不存在，`Print Module` 只列出 `Sem_func`、`Sem` 和 obligation 常量。试 `Function` 又报 `Decreasing argument must be specified in measure clause`；转用 `Equations` 时把顶层 clause 用 `|` 分隔，连续得到 `Cannot interpret Sem as a constructor`，对照本地 examples 改为 `Equations.Prop` 与 `;` 后最小例子通过 parsing。实际 `Sem` 定义随后通过 parsing、解决六个 obligation，并 `Check` 到 `Sem_equation_1` 至 `Sem_equation_5`（`Sem_ind` 仍不存在）。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        85,
+        88,
+        91,
+        97,
+        103,
+        106,
+        109,
+        118,
+        124,
+        127,
+        130,
+        133,
+        136,
+        139,
+        142
+      ],
+      "qualification": "得到的是 scratch 中的 Equations 版本 equation lemmas，不是 `Task.v` 内的最终 `never_stuck` 证明；`Sem_ind` 未生成。步骤 55–57 的 module 收尾不计入本条目。"
+    },
+    {
+      "title": "chunk 2b 的 identity/free-variable 引理：`f_equal`/bullet 计数错误与遗漏 `fv_*`/`ftv_*` collector",
+      "intervals": [
+        {
+          "after": 109,
+          "through": 142
+        }
+      ],
+      "outcome": "`lc_tm_open_id` 先在 `f_equal` 处报 `Incorrect number of goals`，改成显式 bullets 后 `tm_tapp` 多出的 `reflexivity` 报 `No more goals`；随后 `fv_qual`、`ftv_qual`、`fv_rty`、`ftv_rty` 尚未定义，`fv_tm_nil_subst` 用 `destruct H` 处理 `[a] = []` 不生效、改用 `discriminate H`，`Pred_Not`、`R_Poly` 等 branch 还需补 `f_equal`。这些 identity/collector 引理最终被编译接受，错误推进到 commutation 部分。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        160,
+        163,
+        166,
+        172,
+        184,
+        187,
+        190,
+        196,
+        202,
+        205,
+        208
+      ],
+      "qualification": "本条目只覆盖 chunk 2b 的 identity/free-variable 引理；同一步出现的 `IHT1` 报错属于下一组 commutation 证明。"
+    },
+    {
+      "title": "type/term substitution 与 opening 的 commutation 引理：statement 缺少 local-closure 前提，并含 `lc_ty_at` arity、induction pattern 与 depth 错误",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 198
+        }
+      ],
+      "outcome": "显式重写 branches 后，`ts_ty_open_ty_rec` 的 FVar case 暴露 `rho a` 与 `open_ty_rec k (ts_ty rho U) (rho a)` 不等，说明 commutation 对任意 `rho` 不成立；于是加入 `Hrho : forall X, lc_ty_at 0 (rho X)`、`lc_ty_open_id` 和 local-closure monotonicity。期间把 `lc_ty_at` 误写成接受两个 nat（实际只有一个 index），又遇到 `apply IHbody. lia.` 只解第一个 goal、induction pattern 的 `IH1` 实际是 ty 参数、`tm_abs`/`tm_tabs` 下 opening depth（含 `S k`）、`Hlc` 的 0 与 k 不匹配、以及 `subst_tenv_open_tm_ty_rec` 需要 E lookup 的 local closure（新增 `lc_tm_at_open_ty_id` 与 `K <= k'`）。修正后 `dev.v` 在 198 步返回 `EXIT:0`。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        214,
+        215,
+        217,
+        224,
+        229,
+        241,
+        250,
+        253,
+        262,
+        269,
+        277,
+        280,
+        289,
+        292
+      ],
+      "qualification": "statement 加前提是主要修正；arity、bullet/IH 命名和 depth 问题是同一轮修改中的具体障碍，未再拆成更细条目。"
+    },
+    {
+      "title": "opening inversion 引理 `lc_ty_open_ty_inv`/`lc_tm_open_tm_inv`/`lc_tm_open_ty_inv` 与 `wf_ty_lc`：BVar true branch 与显式 opening 参数",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 224
+        }
+      ],
+      "outcome": "三组 inversion 引理先在 `lc_ty_open_ty_inv` 的 BVar true branch 因 `inversion H` 后未收尾报 bullet 错误；一度误判该 branch 不可能，后确认 goal 是 `lc_ty_at (S k) (BVar k)`，改用 constructor 加 `lia`。`lc_tm_open_tm_inv` 的 BVar 同样处理；多处 IH/annotation 调用因 conclusion 不含 opening argument 而无法推断 `U`/`u`，需显式给出 `(U := U)`/`(u := u)` 并在 `tm_tabs` 下把 type depth 提到 `S K`。`wf_ty_lc` 用 `fresh L` 实例化 cofinite IH 后补齐，224 步 `EXIT:0`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        295,
+        301,
+        304,
+        307,
+        310,
+        316,
+        322,
+        325,
+        331
+      ],
+      "qualification": "步骤 199 的混合规划留在 phases，不计入本条目。"
+    },
+    {
+      "title": "core typing/context 引理：`lookup_context_in` 的 `T` 推断、`wf_ty_weaken` 的 context 顺序、`has_type_weaken_ctx` 的泛化与 `update` 展开",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 272
+        }
+      ],
+      "outcome": "`lookup_context_in` 的递归 branch 无法推断 `T`，改为显式 `IH T`；`wf_ty_fv` 的 Arrow branch 误把普通 membership goal 当作 appended-list membership，`WF_All` 还需用 fresh atom 排除新增 head；`wf_ty_weaken` 暴露 `X :: Y :: Delta` 与 `Y :: X :: Delta` 的顺序问题，改为证明更一般的 `wf_ty_mono_ctx` 并 `revert Delta' Hsub` 以泛化 target context；`has_type_weaken_ctx` 同样需先 `revert Gamma'` 和 lookup inclusion。之后 `update` 未展开导致 lookup lemma 不匹配，`has_type_lc` 又需显式 `Delta`；272 步编译越过这些引理、进入 `has_type_fv`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        334,
+        340,
+        349,
+        352,
+        358,
+        364,
+        370,
+        382,
+        385,
+        391,
+        394,
+        400,
+        403
+      ],
+      "qualification": "本条目结束时 `has_type_lc` 已被编译接受，新的 `has_type_fv` 失败转入下一条目。"
+    },
+    {
+      "title": "`has_type_fv`/`has_type_ftv`：freshness support、membership 拆分与 equality orientation",
+      "intervals": [
+        {
+          "after": 272,
+          "through": 292
+        }
+      ],
+      "outcome": "abstraction case 的 fresh atom 必须同时避开 L、被查询的 fvar 和 body 的 free vars；`In x (y :: l)` 拆出的等式方向是 `y = x`，多次 `symmetry`/`assumption` 报 `No such assumption`，后改为 `exact Heq` 并删除多余的 `symmetry`。还需区分 `has_type_fv` 的 T_TAbs 不扩展 core context、`has_type_ftv` 的 T_TAbs 扩展 type context，删除不适用的 head-elimination 和 `in_or_app`。292 步 `EXIT:0`，这批 inclusion/lookup/weakening/lc/fv 引理全部通过编译。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        406,
+        409,
+        412,
+        415,
+        418,
+        421,
+        424,
+        427,
+        430,
+        433
+      ],
+      "qualification": "freshness 与 membership 细节是主要耗时，lemma statement 本身未作原则性修改。"
+    },
+    {
+      "title": "`ts_ty_open_ty_upd`/`wf_ty_ts` 未完成：`tsupd` 的 BVar case 与否定 membership premise",
+      "intervals": [
+        {
+          "after": 293,
+          "through": 296
+        }
+      ],
+      "outcome": "加入 `tsupd`、update/opening commutation 和 `wf_ty_ts` 草稿后，`ts_ty_open_ty_upd` 的 BVar true branch 无法把 `U` 与 `ts_ty (tsupd X U rho) (Ty_FVar X)` 统一；补 `ts_ty_fvar_upd` 后越过该 branch，又在其 Arrow branch 把 `in_app_iff` 用到 `~ In X (fv_ty (T1 -> T2))` 上而失败，trace 在此结束。`wf_ty_ts` 仍是 `Admitted` 草稿，`Task.v` 的 `never_stuck` 没有补完。",
+      "resolution": "unresolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        436,
+        437,
+        439
+      ],
+      "qualification": "这只是运行末尾约 9s 的 scratch 失败，不能据此断言主定理不成立；它说明 LR 所需的 `wf_ty_ts`/`tsupd` 基础设施在结束时仍未完成。"
+    }
+  ],
+  "trace_sha256": "515a1db4f49e3f423ae8ea85a099d96cd19f8b8ba42f07d2aa7c49998eaec684",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 7,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "515a1db4f49e3f423ae8ea85a099d96cd19f8b8ba42f07d2aa7c49998eaec684",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r07.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r07_20261027_211841_775756"
+  }
+}

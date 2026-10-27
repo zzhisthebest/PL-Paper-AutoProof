@@ -1,0 +1,430 @@
+{
+  "summary": "总时长约 1088 秒：前约 457 秒用于阅读 Task.v、确认 Rocq 9.1.0 并做首次 LR/CBV 语义推演（其中在拟写 subst_open 时发现它对任意 substitution 不成立，遂把 lc_at 加入 LR 并改用带 fresh/lc 条件的 subst_open_fvar；这段设计与纠错混合，无法单独分时，整体保留在 phases），随后约 266 秒搭建 substitution/local-closure 基础设施、约 134 秒形式化 R/Vclause、约 155 秒实现 application 核心引理、约 45 秒完成 fundamental theorem、约 31 秒做最终验证。最纠缠的是 R_app_aux 的 ST_App1/ST_App2 分支归属（约 95 秒）、从 Nat 引理缺失到 eqb/neq 方向修正的一段（约 68 秒）以及 lc_open/lc_open_fvar_inv 的归纳泛化（约 57 秒）；所有定位到的困难均已解决，最终 Task.v 编译通过且 Print Assumptions 为 closed。",
+  "phases": [
+    {
+      "title": "阅读 Task.v、确认 Rocq 9.1.0 并完成首次 LR 与 CBV 语义推演（设计探索，含发现 subst_open 对任意 substitution 不成立并把 lc_at 加入 LR）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "编写 substitution、freshness、opening/local-closure 基础设施并连续调试至整体编译（step 112 首次通过）",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 112
+        }
+      ]
+    },
+    {
+      "title": "设计并实现 LR 本体：lc_typing、R、Vclause、R_iff、R_step/R_multi/R_abs",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 137
+        }
+      ]
+    },
+    {
+      "title": "实现 application 分解与 CBV 核心引理 multi_first_step/step_app_inv/R_app_value/R_app_aux/R_app",
+      "intervals": [
+        {
+          "after": 137,
+          "through": 174
+        }
+      ]
+    },
+    {
+      "title": "证明 fundamental theorem 并完成 normalization 目标",
+      "intervals": [
+        {
+          "after": 174,
+          "through": 189
+        }
+      ]
+    },
+    {
+      "title": "最终验证与交付检查：forbidden-construct scan、clean compile、Print Assumptions、theorem statement 对照",
+      "intervals": [
+        {
+          "after": 189,
+          "through": 205
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "subst_agree 中 rewrite IH 无法确定 sigma'",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 18
+        }
+      ],
+      "outcome": "改为 intros t 后对 t 归纳，用 (IH1 sigma sigma')、(IH2 sigma sigma') 显式传入两个 substitution environment 与各子项的 fv 前提，并用 in_or_app 拆分 application 的 membership；再次编译时 subst_agree 已不再报错（错误推进到 fv_open_rec）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        19,
+        21,
+        22,
+        25
+      ],
+      "qualification": "约 15 秒的局部 tactic 修正。"
+    },
+    {
+      "title": "fv_open_rec 的 fvar/abs 分支错误使用 left/right 与 IH",
+      "intervals": [
+        {
+          "after": 18,
+          "through": 28
+        }
+      ],
+      "outcome": "改为 intros t 后归纳并显式传 x、k、y；fvar 分支改用 right 保留原 membership，app 分支用 in_app_iff 拆两个 subterm，abs 分支先 destruct IH 返回的 disjunction 再选 left/right；step 28 的编译越过该 lemma（错误推进到 lc_open）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        25,
+        34,
+        37,
+        40
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lt_of_lt_succ_neq 依赖的 Nat 引理名缺失，apply Nat.lt_succ_r/lt_eq_cases 与 Nat.eqb_neq 的 iff 方向不符合预期，且 lc_open 中 Eneq 的方向相反",
+      "intervals": [
+        {
+          "after": 28,
+          "through": 62
+        }
+      ],
+      "outcome": "Search/probe 找到 Nat.lt_eq_cases 并新增 lt_of_lt_succ_neq，改用 proj1 (Nat.lt_succ_r i k)/proj1 (Nat.lt_eq_cases i k) 显式取方向；lc_open 的 eqb 分支改用 proj1 (Nat.eqb_neq k i)，去掉 equality 分支多余的 symmetry，再用 Nat.neq_sym 把 k <> i 转成 i <> k；step 62 的编译越过该 bvar 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        40,
+        43,
+        70,
+        76,
+        88,
+        90,
+        91
+      ],
+      "qualification": "多次 Search/probe 才确认 apply <iff> in H 的实例化与预期不一致；该段还夹着 lt_of_lt_succ_neq 的 symmetry 方向错误与最后一步 Nat.neq_sym 修正（step 61–62）。"
+    },
+    {
+      "title": "lc_open 与 lc_open_fvar_inv 的归纳未 generalize k；abstraction 分支缺 lc_at (S k) u，lc_open_fvar_inv 的 bvar 分支误用 lt_of_lt_succ_neq 并重复 apply lc_bvar",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 82
+        }
+      ],
+      "outcome": "归纳前 revert k，并新增 lc_at_S 把 lc_at k u 提升到 lc_at (S k) u；lc_open_fvar_inv 的 bvar 分支改为从 i < k 直接推出 i < S k 并删掉重复的 apply lc_bvar，application/abstraction 分支显式传 IH 的 k（abstraction 用 S k）与 x，true/false 分支补 lc_true/lc_false。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        91,
+        97,
+        109,
+        115,
+        118,
+        121
+      ],
+      "qualification": "同一对 lemmas 上连续出现多个 branch 错误，合并为一项；约 57 秒。"
+    },
+    {
+      "title": "lc_subst 的 fvar 分支缺 lc_at 单调性，lc_at_le 的 abstraction 分支又遇到 Nat.succ_le_mono 是 iff",
+      "intervals": [
+        {
+          "after": 82,
+          "through": 90
+        }
+      ],
+      "outcome": "新增 lc_at_le : k <= k' -> lc_at k t -> lc_at k' t，用它把 lc_at 0 (sigma x) 提升到任意 k；在 lc_at_le 的 abstraction 分支用 proj1 (Nat.succ_le_mono k0 k') Hle 显式构造 S k0 <= S k'。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        121,
+        124,
+        130,
+        132
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "lc_open_rec_id 只对 lc_at 0 陈述，abstraction body 需要 lc_at 1，必须 generalize",
+      "intervals": [
+        {
+          "after": 90,
+          "through": 94
+        }
+      ],
+      "outcome": "改为 lc_at k t -> forall k' u, k <= k' -> open_rec k' u t = t，并配套新增 lc_bvar_inv/lc_app_inv/lc_abs_inv 三个 inversion helper；step 94 的编译越过该 lemma（错误推进到 subst_open_fvar）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        133,
+        137,
+        138,
+        139
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "subst_open_fvar 的 bvar 分支需要显式 Nat.eqb_refl，fvar 分支的 Nat.eqb_neq 需用 proj2",
+      "intervals": [
+        {
+          "after": 94,
+          "through": 104
+        }
+      ],
+      "outcome": "bvar 分支先 destruct (Nat.eqb k i) 再 rewrite Nat.eqb_refl；fvar 分支用 proj2 (Nat.eqb_neq x y) 得到 (x =? y) = false，并调用 generalized lc_open_rec_id；app/abs 分支显式拆 in_or_app 与传 S k。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        139,
+        148,
+        151,
+        154
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "value_lc 的 true/false 分支无法 assumption，step_lc 的 induction pattern 重复使用 Hlc 名称",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 112
+        }
+      ],
+      "outcome": "value_lc 的 v_abs 分支直接用 Hlc、true/false 用 lc_true/lc_false；step_lc 把输入 hypothesis 改名 Hlcin，并用 lc_app_inv/lc_abs_inv 重写三个 step 分支；此后整个基础设施首次整体编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        154,
+        160,
+        166
+      ],
+      "qualification": "约 16 秒，属基础设施收尾。"
+    },
+    {
+      "title": "R_iff 的 arrow 分支在 split; intros 之后的分号 tactic 分配错误",
+      "intervals": [
+        {
+          "after": 115,
+          "through": 119
+        }
+      ],
+      "outcome": "把 arrow 分支改为先 split，再对两个方向分别 intros [H1 [H2 H3]] 并重复内层 split; [exact H1 | split; [exact H2 | exact H3]]，避免分号链对多个 goals 的错误分配。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        170,
+        175,
+        176
+      ],
+      "qualification": "数秒级修正。"
+    },
+    {
+      "title": "R_step 的 value clause 无法推断 Hvc 的 Tbody，且 multi_step 需显式传 relation",
+      "intervals": [
+        {
+          "after": 119,
+          "through": 127
+        }
+      ],
+      "outcome": "改为 apply (Hvc v (multi_step step t t' v Hstep Hm) Hval Tbody body Heq w HRw)，显式给出 annotation、body、equality 与 multistep 前提（multi_step 的首个显式 argument 是 relation step）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        176,
+        182,
+        187
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_abs 的 value clause 中 subst v 消耗了 Heq 而不是 Hv",
+      "intervals": [
+        {
+          "after": 127,
+          "through": 137
+        }
+      ],
+      "outcome": "不再 subst v；先用 Hv 和 Heq 建立 tm_abs Tbody body = tm_abs Tbody' body'，再 injection 得到 body 相等。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        188,
+        200,
+        203
+      ],
+      "qualification": "通过临时插入 exact I 打印 proof state 才确认 subst 选用了哪条 equality。"
+    },
+    {
+      "title": "R_app_value 中 Hclos 的 forall Tbody body 无法由 goal 推断（annotation 不出现在 conclusion）",
+      "intervals": [
+        {
+          "after": 142,
+          "through": 144
+        }
+      ],
+      "outcome": "两处改为完整显式应用 exact (Hclos (tm_abs Tbody body) (multi_refl step (tm_abs Tbody body)) Hvabs Tbody body eq_refl u0 HRu)，显式给出 annotation、body、equality 与 argument。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        210,
+        211,
+        213
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "R_app_value 的 reachable-value refl case 中 subst v 选了 Heqv，Hvalv 的类型与 app_not_value 所需不符",
+      "intervals": [
+        {
+          "after": 144,
+          "through": 148
+        }
+      ],
+      "outcome": "不再 subst v，改用 exfalso; apply (app_not_value t u0); rewrite Heq; exact Hvalv，用 multi_first_step 给出的 t u0 = v 把 value goal 转成 value v；R_app_value 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        213,
+        216,
+        217,
+        219
+      ],
+      "qualification": "step 144 的错误输出被 head 截断，step 145–146 重新取完整 context 后才确认。"
+    },
+    {
+      "title": "R_app_aux 的 value clause 把 ST_App1 与 ST_App2 的义务写反：对一般 function term 用 value_no_step，又把 argument reduction 交给 function 的 IH",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 174
+        }
+      ],
+      "outcome": "确认 t0 不一定是 value；ST_App1 分支改用 function 的 SN 归纳假设 IH 并以 multi_step 合成新的 Hclos，ST_App2 分支改用 R_app_value；修正后 R_app_aux 与 R_app 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        222,
+        240,
+        249,
+        252,
+        255,
+        258
+      ],
+      "qualification": "本次最长的连续调试（约 95 秒）；前半段曾误判为 nested/flat destruct pattern 与名称冲突，实际根因是分支归属。"
+    },
+    {
+      "title": "fundamental theorem 的 T_Abs 分支两处 R_lc 引用本 branch 不存在的类型名 A（实为 T1）",
+      "intervals": [
+        {
+          "after": 177,
+          "through": 181
+        }
+      ],
+      "outcome": "把两处 R_lc A u HRu 改为 R_lc T1 u HRu；step 181 的编译越过该处（错误推进到 Hctx' 的 rewrite Nat.eqb_refl）。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        262,
+        264,
+        267
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "T_Abs 的 Hctx' equality 分支中 rewrite Nat.eqb_refl 多余（simpl 已用 E 化掉 eqb）",
+      "intervals": [
+        {
+          "after": 181,
+          "through": 185
+        }
+      ],
+      "outcome": "插入临时 exact I 取出 proof state，确认 goal 已化为 R T1 u，于是删掉 rewrite Nat.eqb_refl，保留 simpl; exact HRu。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        268,
+        271,
+        274
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "rewrite subst_open_fvar 在 HRbody 中找不到 subterm：open t1 (fvar x) 与 open_rec 0 的表示不一致",
+      "intervals": [
+        {
+          "after": 185,
+          "through": 187
+        }
+      ],
+      "outcome": "先用 change 把 HRbody 明确改写成 subst (fun y => if Nat.eqb x y then u else sigma y) (open_rec 0 (tm_fvar x) t1)，再 rewrite subst_open_fvar；T_Abs branch 通过，错误推进到 T_True。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        274,
+        275,
+        277
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "T_True/T_False 中对 simpl 后已是 Bool 两项 conjunction 的 goal 仍 apply R_iff，iff 形状不匹配",
+      "intervals": [
+        {
+          "after": 187,
+          "through": 189
+        }
+      ],
+      "outcome": "改为 simpl; split，分别用 lc_true/lc_false 与 value_sn (v_true/v_false)；完整 Task.v 首次编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        277,
+        279,
+        280
+      ],
+      "qualification": "数秒级收尾。"
+    },
+    {
+      "title": "Print Assumptions STLCNormalizationNoneHardTask.normalization 的验证脚本 load path 错误",
+      "intervals": [
+        {
+          "after": 194,
+          "through": 196
+        }
+      ],
+      "outcome": "把 From Task Require Import Task 改为 Require Import Task 并用 coqc -Q /workspace 指定 load path，随后 Print Assumptions 返回 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        287,
+        290
+      ],
+      "qualification": "目标证明在前一步 clean compile 时已完成；此项只影响 assumptions 验证。"
+    }
+  ],
+  "trace_sha256": "ef4c932296f79e92a848515cca229d8df578afd3f7ed4cbda6590dc55f989154",
+  "case": "001__stlc__strong-normalization__none__hard",
+  "repeat": 8,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "ef4c932296f79e92a848515cca229d8df578afd3f7ed4cbda6590dc55f989154",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/r08.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/001__stlc__strong-normalization__none__hard/review_r08_20261027_211738_554545"
+  }
+}

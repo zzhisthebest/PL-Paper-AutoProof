@@ -1,0 +1,490 @@
+{
+  "summary": "本次运行 2542 秒：前约 975 秒（steps 4–11）用于 impredicative ∀ 的 LR 方案推演（含 step 11 约 630 秒的集中 thinking），最终选定 skeleton erasure + structural LR 路线；其余时间分阶段实现 skeleton calculus、candidate LR、类型/环境引理、natrec 与 fundamental theorem。可定位的具体卡点集中在 skeleton erasure 与基础引理、bcons 的插入/点更新语义混淆、type local closure 与 R_open_ty、substitution opening 参数以及 fundamental 的 T_Abs/T_TAbs 环境转换，均在后继编译中验证解决。最终 Task.v 以 COMPILE_OK 编译通过，Print Assumptions normalization 返回 Closed under the global context，未使用 Admitted 或额外 axiom，任务以 success 结束。",
+  "phases": [
+    {
+      "title": "读取 Task.v 与编译环境（Rocq 9.1）",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "读取 card.md/任务约束、检索本地资料并开始 impredicative ∀ 的 LR 方案推演",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "检索本地库并确定 skeleton erasure + structural LR 路线（含 step 11 约 630 秒集中 thinking）",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "实现 skeleton calculus 与 typed-step 投影（sktm/sk/open/sstep/SN_sk、sk_step/SN_sk_to_SN）",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 56
+        }
+      ]
+    },
+    {
+      "title": "定义 cand/R，补齐 skeleton 基础引理（value/numeric no-step、SN_sk_succ_inv、lc_sk_at_weaken、lc_open_sk、lc_sk_step）",
+      "intervals": [
+        {
+          "after": 56,
+          "through": 135
+        }
+      ]
+    },
+    {
+      "title": "证明 R_is_cand 与 SN_app/SN_tapp helper（Arrow/All/Nat 的 lc/SN/red/sat）",
+      "intervals": [
+        {
+          "after": 135,
+          "through": 186
+        }
+      ]
+    },
+    {
+      "title": "加入透明 R_cand 与 R_env/R_rhob/R_atom agreement、ty_bound，并修正 bcons 插入语义",
+      "intervals": [
+        {
+          "after": 186,
+          "through": 232
+        }
+      ]
+    },
+    {
+      "title": "补齐 type local closure/freshness、has_type_lc_ty 与 R_open_ty",
+      "intervals": [
+        {
+          "after": 232,
+          "through": 282
+        }
+      ]
+    },
+    {
+      "title": "实现 stuck_R/R_fvar、free_sk/open_sk_rec_lc_any 与 sksubst_open_sk_gen",
+      "intervals": [
+        {
+          "after": 282,
+          "through": 299
+        }
+      ]
+    },
+    {
+      "title": "实现 natrec_sat_T/natrec_numeric_R/natrec_R（primitive recursion 的 LR）",
+      "intervals": [
+        {
+          "after": 299,
+          "through": 336
+        }
+      ]
+    },
+    {
+      "title": "设计 fundamental theorem 并实现 R_abs_app/R_tapp_tabs、free-list 与 lookup/eupd 辅助",
+      "intervals": [
+        {
+          "after": 336,
+          "through": 371
+        }
+      ]
+    },
+    {
+      "title": "证明 fundamental theorem（T_Abs/T_App/T_Rec/T_TAbs/T_TApp/T_Succ 等 case）",
+      "intervals": [
+        {
+          "after": 371,
+          "through": 422
+        }
+      ]
+    },
+    {
+      "title": "完成最终 normalization、Print Assumptions 检查并交付 Task.v（含一次 import 检查修正）",
+      "intervals": [
+        {
+          "after": 422,
+          "through": 440
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "skeleton erasure 与 typed-step 投影的首轮实现：sk_value 未闭合、sk_numeric 顺序、RecSucc notation、sk/open 重写与 sk_lc_tm depth 参数",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 56
+        }
+      ],
+      "outcome": "首轮实现 skeleton calculus 时，sk_value 的证明留有未完成 goal，且直接把 sk_lc_tm 用于 abstraction 的 local closure 时 evar 推断失败；改为显式 value constructor、先在 hypothesis 中应用 sk_lc_tm，并把 sk_numeric 前置。随后依次修正 RecSucc 误用原 calculus 的 --> notation（应为 -->s）、sk_step 的 AppAbs 用 change/sk_open_tm 把 sk (open_tm t v) 化为 open_sk、TAppTabs 用 sk_open_tm_ty 消去 type opening、sk_lc_tm 的 K/k 显式参数，以及 TAppTabs 的 lc 应作用于 tm_tabs t。step 56 编译越过 skeleton 段，仅在尚未完成的 normalization 停止。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        27,
+        33,
+        39,
+        45,
+        51,
+        63,
+        72,
+        78,
+        84
+      ],
+      "qualification": "首轮实现含未完成 proof、helper 依赖顺序、notation 与显式参数等多类原因；后续 skeleton 基础引理的失败另列，不在此重复。"
+    },
+    {
+      "title": "skeleton 基础引理（value/numeric no-step、SN_sk_succ_inv、lc_sk_at_weaken、lc_open_sk、lc_sk_step）：induction 泛化、rewrite 方向与 inversion/IH 命名失败",
+      "intervals": [
+        {
+          "after": 60,
+          "through": 135
+        }
+      ],
+      "outcome": "value_sk_no_step 先因 induction 使 Hv 消失而报错；拆出 numeric_sk_no_step 并把 reduct t' 泛化，subst 清掉 t' 后改用 inversion 提供的 reduction premise 与 eapply/eassumption，inversion pattern 要求 11 branches 时改用 inversion;subst;eapply。随后 SN_sk_succ_inv 的 remember equality 方向由 rewrite <- E 改为 rewrite E；lc_open_sk 需要新增 lc_sk_at_weaken（并把 k' 泛化），再修正 bvar 的 Nat.lt_succ 与 H2；lc_sk_step 用 lc_sk_abs/app/tabs/tapp/succ/natrec_inv 取代脆弱的 H3 等名称，用 Show 得到 IHsstep，RecSucc 用 lc_sk_succ_inv 处理 succ 的 lc。step 135 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        91,
+        97,
+        110,
+        115,
+        121,
+        127,
+        136,
+        142,
+        148,
+        154,
+        160,
+        169,
+        175,
+        181,
+        190,
+        196,
+        202
+      ],
+      "qualification": "本项把同一批 skeleton 基础引理的连续失败视为一个阶段：含 proof-structure（IH 未泛化）、rewrite 方向、缺失 lc 引理与 inversion/IH 命名；未改动 skeleton 定义或 sstep。一次全局 IHstep→IHsstep 替换误伤 typed sk_step，已按行号局部恢复。"
+    },
+    {
+      "title": "R_is_cand（含 SN_app_of_R_steps/SN_tapp_of_R_steps）：inversion 名称、candidate evar、bullet 结构、type 名称与 s_TApp 显式参数",
+      "intervals": [
+        {
+          "after": 145,
+          "through": 186
+        }
+      ],
+      "outcome": "SN_app_of_R_steps/SN_tapp_of_R_steps 先用 match goal 取 inversion 产生的 reduction premise，避免依赖 H；SN_tapp 的 candidate evar 用 rhob 0 实例化。R_is_cand 的 Arrow/All saturation 先补 non-value helpers（把不存在的 H1 改为对 numeric_sk 做 inversion），再修 bullet 结构；随后把 B 改为 Show 显示的 T2、A 改为 T，并补 s_TApp t t' Hstep 的显式参数。step 186 编译仅剩 normalization，R_is_cand 的 lc/SN/red/sat 四个字段通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        218,
+        233,
+        239,
+        248,
+        260,
+        266,
+        272,
+        278
+      ],
+      "qualification": "candidate/saturation 的语义设计在 phase 的 planning 中已完成；本项只计实现期的 inversion 名称、candidate evar、bullet、type 名称与显式参数，未改动 R 或 is_cand 的定义。"
+    },
+    {
+      "title": "R_cand 的载体转换：proof 定义的 R_cand 不能归约为 R，改用透明 mk_cand 直接构造",
+      "intervals": [
+        {
+          "after": 190,
+          "through": 193
+        }
+      ],
+      "outcome": "首次用 destruct (R_is_cand ...) 的 proof 定义 R_cand，R_cand_carrier 的 reflexivity 报无法统一 R T rho rhob t 与 R_cand T rho rhob t；改为 mk_cand (R T rho rhob) 加四个 is_cand field projection 的透明定义后，cpred (R_cand ...) 直接归约为 R，R_cand_carrier 通过；step 193 编译推进到 agreement lemma 的 binder 类型推断错误。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        285,
+        286,
+        288
+      ],
+      "qualification": "本项只计 R_cand 的载体归约问题，不含随后 agreement 的 binder/IH 问题；修正后的透明 R_cand 之后被 R_open_ty 的 BVar 分支与 fundamental 的 T_TApp 使用。"
+    },
+    {
+      "title": "R_env_agree/R_rhob_agree/R_atom_agree：binder 类型推断、IH 名称、lc_ty_bound 多余 bullet 与 ty_bound 的 Arrow/All 分派",
+      "intervals": [
+        {
+          "after": 193,
+          "through": 224
+        }
+      ],
+      "outcome": "给 R_env_agree/R_rhob_agree/R_rhob_irrel/R_atom_agree 的 binder 显式标注 env/benv；用 Show 确认 All 的 IH 是 IHT、Arrow 才有 IHT1/IHT2，撤回错误的 induction pattern；删除 lc_ty_bound 中被 try lia 关闭后的多余 bullet；在 Arrow/All 的 bound agreement 上用 ty_bound 与 lt_pred_S 把 max bound 限制到子类型，并显式构造 Hj。step 225 编译越过 agreement 的 bound 分支（错误转为 bcons 不匹配），bcons 修正后三个 agreement lemma 于 step 232 全部通过。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        288,
+        295,
+        297,
+        300,
+        303,
+        310,
+        315,
+        318,
+        321,
+        324,
+        330,
+        333,
+        336
+      ],
+      "qualification": "本项只含 agreement 自身的 binder 注解、IH 名称与 ty_bound/lc_ty_bound 算术；紧随其后的 bcons 定义错误另列。最终通过发生在 bcons 修正后的 step 232，故 outcome 引用该验证。"
+    },
+    {
+      "title": "bcons 的 de Bruijn candidate 环境语义：误用点更新 upd_b 0 代替 index 0 插入（并清理 R_atom_agree 的 T1 残错）",
+      "intervals": [
+        {
+          "after": 225,
+          "through": 232
+        }
+      ],
+      "outcome": "step 189 把 bcons 定义为 upd_b 0；step 225 的 All case 显示 bcons C rhob (S j) 不能化为 rhob j。step 226 判定 bcons 必须在 index 0 插入并右移旧 indices，而 upd_b 是点更新；step 228 恢复 fun i => match i with 0 => C | S j => rhob j end，并保留 upd_b 供 R_open_ty 使用。恢复后 R_atom_agree 的 All case 仍引用 T1，改为 T 后 step 232 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        281,
+        336,
+        337,
+        340,
+        344,
+        346
+      ],
+      "qualification": "这是定义级语义错误而非 tactic 摩擦；step 189 的改动当时编译通过，直到 All case 的 bound 证明才暴露。bcons 与 upd_b 的区分随后用于 R_open_ty 与 fundamental 的 T_TAbs/T_TApp。"
+    },
+    {
+      "title": "type local closure/freshness 辅助：max_list_spec 的算术证明与 wf_ty_lc 的 IH 名称",
+      "intervals": [
+        {
+          "after": 234,
+          "through": 243
+        }
+      ],
+      "outcome": "加入 lc_ty_at_weaken、lc_ty_open、lc_ty_open_inv、max_list/fresh_atom 与 wf_ty_lc；max_list_spec 的 lia 失败改为 Nat.le_max_l/le_max_r 的显式不等式链，wf_ty_lc 的 IHHwf 不存在改为 Show 得到的 H0。step 243 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        350,
+        356,
+        359,
+        362
+      ],
+      "qualification": "本项只含 type local closure/freshness 前置引理；has_type_lc_ty 与 R_open_ty 另列。"
+    },
+    {
+      "title": "has_type_lc_ty：wf_ty_lc 的 Delta 参数推断、typing premise 与 IH 名称混用（含全局替换误伤 wf_ty_lc）",
+      "intervals": [
+        {
+          "after": 244,
+          "through": 267
+        }
+      ],
+      "outcome": "has_type_lc_ty 首先无法为 wf_ty_lc 推断 Delta，改为显式 wf_ty_lc Delta T；T_Var/T_Abs/T_TAbs/T_TApp 中依次把 typing premise 与 IH 混淆（H0/H1/IHhas_type1/IHhas_type），用 Show 逐个确认名称后修正；T_App 的 IHhas_type1/2 用 Show 确认为 IHhas_type1/2，T_TApp 确认为单一 IHhas_type。一次把 H0 全局替换为 IHhas_type1 误伤前面的 wf_ty_lc，随后局部恢复。step 267 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        365,
+        371,
+        374,
+        377,
+        380,
+        383,
+        386,
+        389,
+        392,
+        395,
+        398
+      ],
+      "qualification": "本项只含 has_type_lc_ty 的实现；lc_ty_open*/wf_ty_lc 已在前一项完成。全局替换误伤 wf_ty_lc 后已恢复，最终没有遗留错误名称。"
+    },
+    {
+      "title": "R_open_ty：opening depth 重名、BVar/All 的 iff 方向、upd_b/eupd 展开与 R_env_agree 投影顺序",
+      "intervals": [
+        {
+          "after": 269,
+          "through": 282
+        }
+      ],
+      "outcome": "R_open_ty 的 induction binder n 与 opening depth 冲突，改为 k；BVar case 的 iff 方向用 iff_sym/展开 upd_b 后处理；All case 的 EqEnv 需要同时展开 upd_b/eupd 才能暴露 eqb 分支，tauto 作为 proof term 不合法改为 iff_refl；最后交换 R_env_agree 两个方向的 proj1/proj2。step 282 编译仅剩 normalization，R_open_ty 通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        402,
+        405,
+        408,
+        414,
+        417,
+        420
+      ],
+      "qualification": "前置的 type local closure 与 has_type_lc_ty 已在前两项完成；本项只计 R_open_ty 的 binder 重名、iff 方向与 upd_b/eupd 展开。"
+    },
+    {
+      "title": "free_sk/open_sk_rec_lc_any/sksubst_open_sk_gen：含 Admitted 的未完成草稿与 open_sk_rec 参数顺序",
+      "intervals": [
+        {
+          "after": 286,
+          "through": 299
+        }
+      ],
+      "outcome": "step 287 插入含 Admitted 和占位文本的草稿，编译先在 H1 处失败；两次替换因 anchor 不匹配失败后，step 296-297 按现有 Admitted 的结束位置重写，完整证明 open_sk_rec_lc_any 与 sksubst_open_sk_gen 并移除 Admitted。随后 open_sk_rec 的参数顺序写反，把定理右侧改为 open_sk_rec k u (sksubst sigma t)；step 299 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        426,
+        428,
+        430,
+        436,
+        439,
+        442,
+        445
+      ],
+      "qualification": "草稿曾含 Admitted；交付前的 forbidden-token 搜索与最终 Task.v 检查均未发现 Admitted/admit 或额外 axiom。tm_fvars/ty_fvars 的 iff 与 eupd/lookup 辅助不在本项，它们在 step 339 的 fundamental helper 阶段。"
+    },
+    {
+      "title": "natrec_sat_T/natrec_numeric_R/natrec_R：nested SN induction 的 b/s0/n0 冲突、subst 清除、Arrow 投影层级与显式参数",
+      "intervals": [
+        {
+          "after": 301,
+          "through": 336
+        }
+      ],
+      "outcome": "按 step 300 的设计实现 natrec_sat_T（numeric_sk 归纳 + 对 SN b/s 的嵌套归纳 + saturation）、natrec_numeric_R（zero/succ，succ 用 IHnum、SN_sk_succ_inv 与两层 application）和 natrec_R（任意 SN n 的 saturation）。实现期修正 b/s0/Hb0 名称冲突、injection Heq 后只 subst n1 以保留 n0、Arrow 场的 proj2(proj2 ...) 层级、lc_sk_succ_inv 0 n0 Hlcn、SN_sk_succ_inv n0 Hsn 与 lc_sk_step n m Hst Hlc 的显式参数，并用 Show 定位 RecArg 的实际失败。step 336 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        449,
+        455,
+        461,
+        467,
+        473,
+        482,
+        494,
+        500
+      ],
+      "qualification": "natrec 的证明结构在 step 300 的长 thinking 中设计，设计时间留在 phase；本区间只计实现期的名称冲突、subst 清除、projection 层级与显式参数。"
+    },
+    {
+      "title": "R_abs_app/R_tapp_tabs 与 tm_fvars/ty_fvars/eupd/lookup 辅助：名称冲突、match goal/metavariable 作用域、显式参数与 firstorder congruence",
+      "intervals": [
+        {
+          "after": 338,
+          "through": 371
+        }
+      ],
+      "outcome": "加入 lc_open_sk_inv、SN_sk_value、SN_sk_succ、R_abs_app、R_tapp_tabs 及 tm_fvars/ty_fvars/eupd/lookup_update_*。R_abs_app 的 SN u 归纳先把内层 u 改名 u0；R_tapp_tabs 通过 R_is_cand 的 sat 字段。随后修正 match goal 缺 |- _ 的语法、把 R_red 调用移入 match 分支以避免 u' 越界、补 v_sk_abs/v_sk_tabs 的 term 参数；free-list 的 iff 用 firstorder congruence 处理 equality 反向，并调整 in_app 的 rewrite 顺序与 lookup_update_neq 的多余 symmetry。step 371 编译仅剩 normalization。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        504,
+        507,
+        516,
+        525,
+        528,
+        534,
+        537,
+        543,
+        546,
+        549,
+        552
+      ],
+      "qualification": "R_abs_app/R_tapp_tabs 的语义路线在 phase 的 planning 中已确定；本项只计实现期的名称冲突、match goal/metavariable 作用域、显式参数与 free-list 证明。"
+    },
+    {
+      "title": "T_Abs：sksubst_open_sk_gen 需要 lc_sk u 而非 R 前提，以及 sigma_u/open_sk 的 change 重写",
+      "intervals": [
+        {
+          "after": 373,
+          "through": 378
+        }
+      ],
+      "outcome": "T_Abs 中 sksubst_open_sk_gen 要求 lc_sk u，实际传入的是 Hu : R T1 rho rhob u；先从 R_is_cand 的 lc 字段取出 lc_sk u。随后 rewrite 仍匹配不到 lemma 的左侧，于是展开 sigma_u 并对 Hres 做 change，把 sksubst sigma_u (open_sk_rec ...) 化为 lemma 的显式形式再 rewrite。step 378 编译越过 T_Abs，推进到 T_App 的 IHhas_type1 名称问题。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        556,
+        559,
+        562
+      ],
+      "qualification": "本项只计 T_Abs 的 substitution premise 与 change/rewrite 形式，不含 LR 语义变更；T_App/T_Rec 的 IH 名称问题另列。"
+    },
+    {
+      "title": "fundamental 其余 case 的 induction hypothesis 命名：T_App/T_Rec 的 IHhas_type1/2 与 T_TApp/T_Succ 的 IHhas_type，及 lc_sk_tabs 显式参数",
+      "intervals": [
+        {
+          "after": 378,
+          "through": 382
+        },
+        {
+          "after": 410,
+          "through": 422
+        }
+      ],
+      "outcome": "T_App/T_Rec 先引用 IHhas_type1/2/3，Show 显示实际为 IHHty1/2/3，改名后 step 382 编译越过这两个 case。T_TAbs 之后，T_TApp 又引用不存在的 IHhas_type，Show 显示 typing premise 为 Hty、wf_ty premise 为 H、IH 为 IHHty；T_Succ 同样改用 IHHty，并在 R_tapp_tabs 调用中补 lc_sk_tabs 0 b Hlcb。step 422 编译仅剩 normalization，fundamental 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        562,
+        565,
+        568,
+        613,
+        616,
+        619,
+        622,
+        625,
+        628
+      ],
+      "qualification": "T_App/T_Rec 与 T_TApp/T_Succ 的 IH 名称假设属于同一类错误，分两个区间记录；T_TAbs 的环境转换在此期间穿插，另列。"
+    },
+    {
+      "title": "T_TAbs：fresh type variable 的 L/ty_fvars/ctx_fvars 选择、++ 结合与 freshness 证明、R_atom_agree/R_env_agree/R_rhob_agree/eupd 的环境转换",
+      "intervals": [
+        {
+          "after": 382,
+          "through": 410
+        }
+      ],
+      "outcome": "T_TAbs 选 X := fresh_atom (L ++ ty_fvars T ++ ctx_fvars Gamma)，并显式证明 HXL/HXfreeT/HXctx；先按 ++ 的右结合修正三段 freshness 证明，再把 has_type_lc_ty 的实参从 IH（H0 X HXL）改为 typing premise（H X HXL）。在 Hall 中令 rho' := eupd rho X C，展开 eupd 暴露 eqb；按 iff 方向依次取 R_atom_agree/R_env_agree/R_rhob_agree 的 proj，最后把 R_atom_agree 用在 bcons C rhob 而非原 rhob 上。step 410 编译越过 T_TAbs 的 Hall，推进到 R_tapp_tabs 的显式参数错误。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        568,
+        571,
+        574,
+        580,
+        589,
+        595,
+        598,
+        601,
+        607,
+        610
+      ],
+      "qualification": "本项只计 T_TAbs 的 fresh variable、freshness 与 LR 环境转换；其后的 T_TApp/T_Succ 名称问题回到上一项。step 410 的编译确认 T_TAbs/Hall 已通过。"
+    }
+  ],
+  "trace_sha256": "52edfe5c8b40ce1663299f17af2d834e0fc0dde49919b21374677967f553c8a2",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 14,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "52edfe5c8b40ce1663299f17af2d834e0fc0dde49919b21374677967f553c8a2",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r14.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r14_20261027_211844_798702"
+  }
+}

@@ -1,0 +1,694 @@
+{
+  "summary": "本次运行约 48 分钟：约前 20 分钟（step 4→11）用于 CBV System F 的 LR 方案设计与整体推演，其间一次临时 inductive LR 测试被 positivity 检查拒绝，随后改为按 type 做 structural recursion 的 Fixpoint `R`，该事件只保留在 summary。其余时间在 `Task.v` 中逐步实现并调试 syntactic/lc infrastructure、type erasure、`IsCand`/`R` 与 semantic opening、`natrec` semantics 和 fundamental theorem，并发现、修复了一次误删目标 `theorem normalization` 的编辑事故。最终 `normalization` 经 clean rebuild、`Print Assumptions`（Closed under the global context）和 `coqchk`（Modules were successfully checked）验证通过，无额外 axiom。",
+  "phases": [
+    {
+      "title": "读题与初始环境确认",
+      "intervals": [
+        {
+          "after": 2,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "设计探索：CBV System F 的 LR、candidate、erasure 与 natrec 语义",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 11
+        }
+      ]
+    },
+    {
+      "title": "Syntactic infrastructure：freshness、subst_all、lc/open helpers 编写与调试",
+      "intervals": [
+        {
+          "after": 11,
+          "through": 186
+        }
+      ]
+    },
+    {
+      "title": "Type erasure：erase_tm、step_lift、erase_sn 编写与调试",
+      "intervals": [
+        {
+          "after": 186,
+          "through": 245
+        }
+      ]
+    },
+    {
+      "title": "LR 核心：cand/IsCand/R、R_env_agree、semantic opening、IsCand_R",
+      "intervals": [
+        {
+          "after": 245,
+          "through": 304
+        }
+      ]
+    },
+    {
+      "title": "R_fvar 与 R_app_abs 编写与调试",
+      "intervals": [
+        {
+          "after": 304,
+          "through": 330
+        }
+      ]
+    },
+    {
+      "title": "natrec semantics：R_natrec_zero/succ/num/gen 编写与调试",
+      "intervals": [
+        {
+          "after": 330,
+          "through": 351
+        }
+      ]
+    },
+    {
+      "title": "fundamental theorem 编写与调试",
+      "intervals": [
+        {
+          "after": 351,
+          "through": 400
+        }
+      ]
+    },
+    {
+      "title": "恢复 normalization theorem 并完成编译",
+      "intervals": [
+        {
+          "after": 400,
+          "through": 407
+        }
+      ]
+    },
+    {
+      "title": "最终验证：clean rebuild、Print Assumptions、coqchk",
+      "intervals": [
+        {
+          "after": 407,
+          "through": 424
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`subst_all_update_irrel` 的 FVar/natrec case：`update_sigma` 未展开与 `fvars_tm` append 结合结构不匹配",
+      "intervals": [
+        {
+          "after": 14,
+          "through": 24
+        }
+      ],
+      "outcome": "FVar case 报 `Unable to unify \"sigma a\" with \"update_sigma sigma x u a\"`，加 `unfold update_sigma; rewrite E` 后通过；natrec case 的 `Hnin` 是右结合 `++`，`in_or_app`/`not_in_app_l` 无法与其统一，改用 `in_app_iff` 后通过，编译推进到 `lc_ty_at_mono`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        20,
+        22,
+        26,
+        34,
+        38
+      ],
+      "qualification": "同一 helper 的连续两次编译失败合并为一个区间；step 26 的下一处错误用于确认前两个 case 已通过。"
+    },
+    {
+      "title": "type-level lc 引理（`lc_ty_at_mono`/`lc_ty_open_rec`/`lc_ty_open_back`）的自动 IH 名与 `auto`/`lia` 顺序",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 46
+        }
+      ],
+      "outcome": "`lc_ty_at_mono` 报 `IHH` 不存在，为 `lc_ty_at_mono`/`lc_ty_open_rec`/`lc_ty_open_back` 显式写出 induction pattern；`lc_ty_open_rec` 又因 `auto` 已关闭 goal、后续 `lia` 报 `No such goal`，改为显式使用 `HU` 与 `lia` 分步处理后通过，编译推进到 `lc_ty_open_back` 的 `X` 冲突。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        38,
+        44,
+        50,
+        56,
+        62,
+        68,
+        71
+      ],
+      "qualification": "`auto`/`lia` 问题是显式 pattern 改写引出的同一 lemma 修复，故合并；line 71 为下一处错误，用于确认本段已通过。"
+    },
+    {
+      "title": "`lc_ty_open_back` 的 atom `X`：induction binder 重名与 All case IH 应用缺显式 `X`",
+      "intervals": [
+        {
+          "after": 48,
+          "through": 62
+        }
+      ],
+      "outcome": "报 `X is already used`，把 FVar constructor 的 atom binder 改名 `X0`；随后 All case 的 `IHT0` application 报 `Unable to find an instance for the variable X`（`X` 只出现在 IH premise），显式传 `(X := X)` 后通过，step 64 编译推进到 `lc_ty_subst`。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        71,
+        77,
+        87,
+        89,
+        92,
+        95
+      ],
+      "qualification": "两处错误都在同一 `lc_ty_open_back` 的显式 atom 处理线程内；line 95 用于确认本段已通过。"
+    },
+    {
+      "title": "`lc_ty_subst` 的 `Nat.eqb` 参数顺序与已被 `subst` 清除的 equation",
+      "intervals": [
+        {
+          "after": 64,
+          "through": 78
+        }
+      ],
+      "outcome": "FVar case 的 goal 含 `if X =? X then U else FVar X`，`HU` 不能直接使用；先 `subst` 后 `rewrite E` 报 `E` 不存在，改用 `Nat.eqb_refl`；又发现 destruct 的是 `a =? X` 而定义用 `X =? a`，改为 destruct `Nat.eqb X a` 并补显式 `IHT1` pattern，编译推进到 `wf_ty_lc`。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        95,
+        101,
+        107,
+        109,
+        113,
+        119
+      ],
+      "qualification": "包括 equation 被 `subst` 清除、`Nat.eqb_refl` 替代与 eqb 参数顺序三次修正；line 119 为下一处错误。"
+    },
+    {
+      "title": "`wf_ty_lc`/`has_type_lc_ty` 的 fresh atom 与 `Delta` 无法从 conclusion 推断",
+      "intervals": [
+        {
+          "after": 80,
+          "through": 90
+        }
+      ],
+      "outcome": "`wf_ty_lc` 调 `lc_ty_open_back` 时因 atom 只出现在 premise 而报 `Unable to find an instance for the variable X`，显式指定 `X := fresh_atom L`；`has_type_lc_ty` 调 `wf_ty_lc` 又无法推断 `Delta`，显式传入 context 后通过，编译推进到 term-level helper。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        119,
+        128,
+        134,
+        137
+      ],
+      "qualification": "同一“隐式参数只出现在 premise”模式在两个相邻 declaration 上出现，合并计时。"
+    },
+    {
+      "title": "term-level lc/open 引理的 IH 命名与 `x`/`X` 隐式参数（`lc_tm_at_K_mono`/`lc_tm_open_rec`/`lc_tm_open_back`/`lc_tm_ty_open_back`）",
+      "intervals": [
+        {
+          "after": 92,
+          "through": 116
+        }
+      ],
+      "outcome": "`lc_tm_at_K_mono` 报 `IHH` 不存在，统一为 term local closure 引理写显式 induction pattern；随后 `lc_tm_open_back` 报 `Unable to find an instance for the variable x`，在 IH application 中显式传入 `x`，`lc_tm_ty_open_back` 同样补 `X`，编译推进到 `subst_all_open_tm` 的 FVar case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        137,
+        143,
+        161,
+        170,
+        173,
+        176
+      ],
+      "qualification": "一次通盘修复 term-level helper：先 IH 命名，再补 `x`/`X`，连续推进，合并；line 176 用于确认本段已通过。"
+    },
+    {
+      "title": "`subst_all_open_tm`/`subst_all_open_tm_ty` 的无条件 commutation 不成立（缺 substitution range 的 local-closure 前提）",
+      "intervals": [
+        {
+          "after": 118,
+          "through": 128
+        }
+      ],
+      "outcome": "FVar case 显示 `sigma` 的 range 可能含 BVar，`subst_all sigma (open_tm_rec k v t) = open_tm_rec k (subst_all sigma v) (subst_all sigma t)` 对任意 `sigma` 为假；改为只证 `open_tm_rec_lc_id`/`open_tm_ty_rec_lc_id`，并把 commutation 重述为带 `forall y, locally_closed_tm (sigma y)` 的 `subst_all_open_tm_fvar_rec` 与 `subst_all_open_tm_ty_lc`；step 186 整段 syntactic infrastructure 编译通过（只剩 `normalization` 占位）。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        176,
+        177,
+        182,
+        190,
+        278
+      ],
+      "qualification": "新 lemma 的证明脚本调试另列在后续 problems，不并入本区间；line 278 为最终编译验证。"
+    },
+    {
+      "title": "opening identity/commutation 中 `f_equal` 已消去 reflexive 参数后多余的 `reflexivity`",
+      "intervals": [
+        {
+          "after": 130,
+          "through": 134
+        },
+        {
+          "after": 154,
+          "through": 156
+        },
+        {
+          "after": 180,
+          "through": 184
+        }
+      ],
+      "outcome": "`open_tm_rec_lc_id` 的 abstraction case 报 `Unable to unify \"t1\" with \"open_tm_rec (S k) v t1\"`，说明 `f_equal` 后剩余的已是 body equality；改为直接 `erewrite` recursive identity lemma。同一模式在 `subst_all_open_tm_fvar_rec` 的 abstraction/type-application case 与 `subst_all_open_tm_ty_lc` 的 abstraction case 再次出现，均删除多余 reflexive branch。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        194,
+        198,
+        200,
+        230,
+        233,
+        269,
+        275,
+        278
+      ],
+      "qualification": "同一 `f_equal` 模式在三个 lemma 中重复出现，用多个区间记录；中间暂停去处理 bvar/abstraction 的其他问题。"
+    },
+    {
+      "title": "fresh-variable commutation 的 bvar case：`update_sigma` 展开后未 `simpl`，`Nat.eqb_refl` 无匹配子项",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 148
+        }
+      ],
+      "outcome": "bvar case 报 `Found no subterm matching \"?M =? ?M\"`；临时文件复现后加 `Show` 看到 `subst_all`/`update_sigma` 尚未化简；确认需先 `unfold update_sigma` 再 `simpl` 才能暴露 equality test，实际 proof 中加 `simpl` 与 `Hupdate` assertion，并去掉多余的 `symmetry`（equation 已是 `a = x`），编译推进到 abstraction case。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        203,
+        212,
+        218,
+        221,
+        230
+      ],
+      "qualification": "包括临时文件最小复现与两次 equality 方向修正；line 230 用于确认本段已通过。"
+    },
+    {
+      "title": "fresh-variable commutation 的 abstraction/application/natrec cases：多余 depth bullet 与 freshness 参数",
+      "intervals": [
+        {
+          "after": 156,
+          "through": 178
+        }
+      ],
+      "outcome": "abstraction case 的 `f_equal` 仍要求 body commutation，删除多余 reflexive branch 后 `+ exact (S k)` 成为多余 bullet（`apply` 已从 goal 推断 depth）；natrec cases 的 depth bullets 同样多余，随后 application case 的 bullet 未完成；逐 case 显式提供 `Hsig` 并按 `fvars_tm` 的 append 结构写 freshness 后，编译推进到 `subst_all_open_tm_ty_lc`。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        239,
+        242,
+        245,
+        248,
+        254,
+        266,
+        269
+      ],
+      "qualification": "这些都在 `subst_all_open_tm_fvar_rec` 的剩余 cases，按同一 lemma 的调试窗口合并；line 269 用于确认本段已通过。"
+    },
+    {
+      "title": "`erase_tm_natrec_inv`/`numeric_value_no_step` 等 erasure/numeric helper 的 incomplete proof 与 IH 命名",
+      "intervals": [
+        {
+          "after": 191,
+          "through": 201
+        }
+      ],
+      "outcome": "`erase_tm_natrec_inv` 报 incomplete proof，显式给出 natrec 的四个 witnesses；`numeric_value_no_step` 的 succ case `eapply IHH` 又报 `IHH` 不存在，为 numeric induction 固定 `[| m Hm IHm]` 并同步 `numeric_value_lc`/`numeric_value_sn`/`numeric_erase`；编译推进到 `lc_tm_step` 的 `IHH` 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        285,
+        291,
+        294,
+        297,
+        300
+      ],
+      "qualification": "`erase_tm_natrec_inv` 与 numeric helpers 相邻且连续修复，合并；line 300 同时是下一问题的首个错误。"
+    },
+    {
+      "title": "`lc_tm_step` 的 `step` induction hypothesis 自动名 `IHH` 与显式 pattern",
+      "intervals": [
+        {
+          "after": 201,
+          "through": 215
+        }
+      ],
+      "outcome": "`lc_tm_step` 报 `IHH` 不存在，先用小例子确认 `step` 的 constructor 参数与 IH 在 pattern 中的顺序，再为 `lc_tm_step` 写显式 induction pattern 并同步 proof body 的 `IH`；编译推进到 `step_lift` 的 opening rewrite。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        300,
+        303,
+        309,
+        315,
+        321
+      ],
+      "qualification": "中间包含 `/tmp` 最小例子的两次失败（`u` 的 type 未标注）与一次通过，均属同一 pattern 调试。"
+    },
+    {
+      "title": "`step_lift`：opening commutation 需先 `unfold open_tm`/`open_tm_ty`，显式 pattern 引发重名、`H`/`Hnum` 与多余 bullet",
+      "intervals": [
+        {
+          "after": 215,
+          "through": 235
+        }
+      ],
+      "outcome": "`rewrite erase_tm_open_tm` 报找不到 `erase_tm (open_tm_rec ...)`，先 `unfold open_tm`/`open_tm_ty`；显式 step pattern 引入的 hypothesis 与局部 assertion 重名（`Hlctabs`、`HlcT`），重命名；`numeric_erase n H` 改用 `Hnum`；修正 RecZero 的多余 bullet，并把 `value_erase`/`numeric_erase` 的 term 与 equality 显式传入；编译推进到 `erase_sn_fwd` 的 equality 方向错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        321,
+        327,
+        333,
+        339,
+        342,
+        348,
+        350,
+        351
+      ],
+      "qualification": "`step_lift` 的 11 个 step constructor 相关修复顺序混杂，但都属同一 lemma 的编译窗口。"
+    },
+    {
+      "title": "`erase_sn_fwd`/`erase_sn` 的 erasure equality 方向、reduct 的 local closure 与 implication intros",
+      "intervals": [
+        {
+          "after": 235,
+          "through": 245
+        }
+      ],
+      "outcome": "`erase_sn_fwd` 报 `He1 : erase_tm u1 = erase_tm u2` 与所需方向相反，改用 `eq_sym He1`；reduct `u2` 的 local closure 需由 `lc_tm_step t2 u2` 推出；`erase_sn` 两方向的 implication 先显式 `intros`，再交换 `He` 与 `eq_sym He` 的使用；step 245 编译只剩 `normalization` 的 incomplete proof。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        354,
+        357,
+        363,
+        366
+      ],
+      "qualification": "interval 从 `erase_sn_fwd` 首次 equality 方向错误到 `erase_sn` 两方向修正；step 245 的编译结果确认 erasure machinery 已通过。"
+    },
+    {
+      "title": "`R_env_agree` 漏 Nat case 与 `R_fvar_open_rec` 缺 `eqb_false_sym`/`simpl`",
+      "intervals": [
+        {
+          "after": 250,
+          "through": 254
+        },
+        {
+          "after": 259,
+          "through": 262
+        }
+      ],
+      "outcome": "`R_env_agree` 报 incomplete proof，`Show` 显示仍有一个可由 `reflexivity` 完成的 Nat case，补上后通过；`R_ty_open_rec`/`R_fvar_open_rec` 编译缺 `eqb_false_sym`，补 helper 后 `rewrite Nat.eqb_refl` 又报无匹配（index 已为 0，需先 `simpl`），补 `simpl` 后编译推进到 `R_fvar_open_rec` All case 的 environment 方向错误。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        373,
+        376,
+        379,
+        386,
+        389,
+        392
+      ],
+      "qualification": "两段都是 LR 基础设施的缺口，中间被 theorem 误删的发现打断，故用两个区间；line 392 为下一处错误。"
+    },
+    {
+      "title": "编辑语义定义时误删目标 `theorem normalization`",
+      "intervals": [
+        {
+          "after": 254,
+          "through": 256
+        }
+      ],
+      "outcome": "step 255-256 怀疑并确认 `normalization` 已随大编辑被删（`tail` 显示文件在 `R_env_agree` 后结束且 `coqc` 成功）；step 257 决定稍后在文件末尾恢复，step 403 重新加入，step 407 `coqc Task.v` 通过，step 420 `coqchk` 成功。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        380,
+        382,
+        383,
+        599,
+        606
+      ],
+      "qualification": "step 257 的 43 秒 thinking 前半确认删除、后半转入后续 semantic opening lemma 的规划，无法再分，按混合探索留在 phase；真正的 re-add 在 step 403-407（与 normalization 实例化同段），未在本问题重复计时。"
+    },
+    {
+      "title": "`R_fvar_open_rec` All case 中 `R_env_agree` 的 iff projection 方向用反",
+      "intervals": [
+        {
+          "after": 263,
+          "through": 265
+        }
+      ],
+      "outcome": "编译报 goal 是 `R rho (cons_env Q (set_env k P env)) T0`，而 `proj1 (R_env_agree ...)` 的 conclusion 是 `R rho (set_env (S k) P (cons_env Q env)) T0`；核对后确认 forward 方向 `IHT0` 用 `proj1`、`R_env_agree` 用 `proj2`，reverse 方向 `R_env_agree` 用 `proj1`、`IHT0` 用 `proj2`，`R_ty_open_rec` 的两方向不变；调整后 semantic opening lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        392,
+        393,
+        395
+      ],
+      "qualification": "约 19 秒用于逐方向核对 iff；改正 forward 的 `R_env_agree` 用 `proj2`（而不是 `proj1`）。"
+    },
+    {
+      "title": "`IsCand_R` 的 Arrow/All expansion：inversion 自动名、bullet 层级与 `v_nat` 留下的 `numeric_value` premise",
+      "intervals": [
+        {
+          "after": 268,
+          "through": 280
+        }
+      ],
+      "outcome": "`destruct (Hred t' Hstep)` 依赖 inversion 自动生成的 `t'`，改为 `match goal` 捕获 `step t ?w0`；随后 Arrow/All expansion 的 `***` bullet 与 `Bexp`/`T0exp` 层级不符；进一步发现 `inversion Hv` 对 `value (tm_app ...)`/`value (tm_tapp ...)` 仍留下 `numeric_value` premise（`v_nat` 是任意 `n` 的 catch-all），补 `numeric_value_*_absurd`/`value_*_absurd` 并用 `exact` 关闭 nonvalue premise；编译推进到 Arrow annotation invariance。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        399,
+        402,
+        405,
+        408,
+        411,
+        414,
+        417
+      ],
+      "qualification": "inversion 名、bullet 层级与 `v_nat` premise 是同一 Arrow/All expansion 段的三层症状，合并为一个区间。"
+    },
+    {
+      "title": "`IsCand_R` annotation invariance 的 local closure 方向（`Hl0` vs `Hl'`）与未生效的文本替换",
+      "intervals": [
+        {
+          "after": 280,
+          "through": 296
+        }
+      ],
+      "outcome": "Arrow ANN 报 `Hl0 : locally_closed_tm t` 与目标 `locally_closed_tm t'` 不匹配，确认 forward 应用 `Hl'`、backward 用 `Hl`；两次按缩进匹配的替换未生效，编译仍在原处，search 确认文件中仍保留 `exact Hl0`，改用不含前导缩进的短 substring 后替换成功，编译推进到 Nat ANN。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        420,
+        423,
+        426,
+        429,
+        438,
+        441
+      ],
+      "qualification": "包括 lc 方向定位、两次替换未匹配与 search 复核；line 441 为下一处错误。"
+    },
+    {
+      "title": "`IsCand_R` Nat annotation invariance 的 `split; intros; split` 与 `[assumption|]` tactic 数量",
+      "intervals": [
+        {
+          "after": 296,
+          "through": 304
+        }
+      ],
+      "outcome": "Nat ANN 报 `Incorrect number of goals (expected 4 tactics)`，因为 `split; intros; split` 同时作用于 iff 两方向产生四个 goals，而 `[assumption |]` 只给两项；改为显式分别处理两方向并使用对应的 lc premise 与 `erase_sn` projection；第一次替换同样因缩进未匹配，按短文本替换后 step 304 `IsCand_R` 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        441,
+        444,
+        447,
+        450,
+        453
+      ],
+      "qualification": "semicolon 组合产生的四个 goal 与替换未生效连续出现，合并为一个区间；step 304 编译成功即验证。"
+    },
+    {
+      "title": "`R_app_abs` 的 `match goal` 分支 `exact` 失败导致 backtracking；改用直接 IH application",
+      "intervals": [
+        {
+          "after": 306,
+          "through": 324
+        }
+      ],
+      "outcome": "`match goal` 报 `No matching clauses`；`Show` 显示 `H3 : u0 --> t2'` 与 goal 都在，最小例子证明 pattern 可用；根因是 branch 内 `exact` 失败触发 Ltac backtracking，`apply T1cr2` 又无法推断 source term，改为 `exact (IH t2' H3 (T1cr2 u0 t2' Hu H3))` 后 `R_fvar`/`R_app_abs` 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        456,
+        462,
+        474,
+        480,
+        483
+      ],
+      "qualification": "“No matching clauses”并非 pattern 不匹配，而是 branch tactic 失败后 backtrack；`Show` 与最小例子用于定位。"
+    },
+    {
+      "title": "`R_app_abs` 改为 goal-based `match` 时 `R` 少写一个 argument",
+      "intervals": [
+        {
+          "after": 325,
+          "through": 330
+        }
+      ],
+      "outcome": "为减少对 inversion 自动名的依赖，把第三个 reduct case 改成同时匹配 step hypothesis 与 goal 的 `match`，仍报 `No matching clauses`；分开测试后确认 goal pattern `R _ _ (tm_app _ ?y)` 少写一个参数（实际为 `R rho env T term`），改为 `R _ _ _ (tm_app _ ?y)` 后编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        486,
+        489,
+        490,
+        492
+      ],
+      "qualification": "这是 `R_app_abs` 已通过后为减少自动名依赖而引入的回归，区间只计入 step 326-330 的实际调试。"
+    },
+    {
+      "title": "`R_natrec_gen` 的 reduct analysis：branch `exact` 用错 `H1`/`H2` 导致 backtracking，`?mm` 复用错误",
+      "intervals": [
+        {
+          "after": 333,
+          "through": 351
+        }
+      ],
+      "outcome": "`R_natrec_gen` 的 `match goal` 报 `No matching clauses`；用 `Show` 定位到 RecBase（而非先前以为的 RecSucc），显示 `H2 : numeric_value n`、`H4 : b --> b'`；用原 definitions 的最小例子确认 pattern 本身可匹配，真正原因是 branch 的 `exact` 失败导致 backtracking——RecBase 把 numeric premise 写成 `H1`（实际 `H2`）；改为在 match 中同时绑定 `Hnum : numeric_value n`；RecSucc 的 goal pattern 中 `mm` 未绑定，改回 `?mm` 后四条 natrec lemmas 编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        496,
+        502,
+        508,
+        515,
+        517,
+        520,
+        523
+      ],
+      "qualification": "标题只涉及 `R_natrec_gen`；`R_natrec_zero`/`R_natrec_succ` 本身未报错，RecSucc 是 `step` 的 constructor case。"
+    },
+    {
+      "title": "`fundamental` 的 induction hypotheses 未对 `rho`/`env`/`sigma` specialize",
+      "intervals": [
+        {
+          "after": 356,
+          "through": 360
+        }
+      ],
+      "outcome": "`destruct IH1` 报无法推断 `rho`/`env`/`sigma`；按行号确认失败在 T_App 而非 T_Var；在 T_App/T_TApp/T_Succ/T_Rec 先 `specialize (IH... rho env sigma Hrho Henv Hsig HGamma)`，编译推进到 T_TAbs 的 context/rho 不匹配。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        530,
+        533,
+        536
+      ],
+      "qualification": "step 354-355 的 `lookup_update_neq` 对称性小错约 2 秒内修复，未单列。"
+    },
+    {
+      "title": "`fundamental` T_TAbs：context 类型自由变量与 `update_rho` 的 freshness（`fvars_context`/`R_rho_agree_X`）",
+      "intervals": [
+        {
+          "after": 360,
+          "through": 370
+        }
+      ],
+      "outcome": "T_TAbs 报 `HGamma` 使用 `R rho env`，而 body IH 需要 `R rho0 env`；确认选择 fresh type atom 时还必须避开 `Gamma` 中类型的自由变量，加入 `fvars_context`、`lookup_in_context_snd`、`fvars_context_spec`、`fvars_context_lookup` 与 `R_rho_agree_X`，并用 `HGamma0`/`HGamma1` 把 environment relation 搬到更新后的 `rho`；编译推进到 `lookup_in_context_snd` 的 recursive case。",
+      "resolution": "resolved",
+      "category": "missing_lemma",
+      "evidence_lines": [
+        536,
+        545,
+        549,
+        551
+      ],
+      "qualification": "context freshness machinery 的缺失与 `rho0`/`rho1` 转换是同一条语义修正线；line 551 为下一处错误。"
+    },
+    {
+      "title": "`fundamental` T_TAbs：`lookup_in_context_snd` recursive case 与 `lc_tm_ty_open_back` 缺 `body`、`U` binder 重名",
+      "intervals": [
+        {
+          "after": 370,
+          "through": 378
+        }
+      ],
+      "outcome": "`lookup_in_context_snd` 的 recursive case 的 goal 仍含 context head，改为 `simpl; right` 并显式传 `y`/`U`，三个 context helper 也改为显式应用；随后 local closure proof 把 atom `X` 当 term 使用，检查发现 `lc_tm_ty_open_back 0 0 X` 缺 `body`，改为 `lc_tm_ty_open_back 0 0 body X`；接着 `U is already used`（All clause 已有 `U`，内部又 `intros y U Hlk`），把内部 binder 改 `U0`；编译推进到 `R_env_agree` application。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        551,
+        554,
+        557,
+        560,
+        563
+      ],
+      "qualification": "三个错误都在 T_TAbs 的同一段 local closure/helper 调用中连续出现，合并计时。"
+    },
+    {
+      "title": "`fundamental` T_TAbs/T_TApp：`R_env_agree`/`Tann`/`R_ty_open_rec` 缺 premises 与未生效的文本替换",
+      "intervals": [
+        {
+          "after": 378,
+          "through": 400
+        }
+      ],
+      "outcome": "`R_env_agree ... HlcT` 仍是等待 agreement proof 和 term 的 function，不能直接交给 `proj1`；按缩进匹配的替换未生效，regex 只替换一处后 agreement 内 `rewrite Nat.eqb_refl` 又无匹配（index 为 0 时 `simpl` 已化简），改 `reflexivity`；`Tann` 缺 erasure equality 与两个 lc premises，用 `ltac:` 显式传入；T_TApp 的 `Hset` 同样简化；最后 `R_ty_open_rec` 缺 candidate equivalence premise 与具体 term，补 reflexive proof 和 `tm_tapp (subst_all sigma t) U`，step 400 `fundamental` 编译通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        563,
+        566,
+        572,
+        575,
+        581,
+        584,
+        590,
+        593,
+        596
+      ],
+      "qualification": "三次“lemma 仍是 function/缺 premise”的接口错误连续出现，按同一 T_TAbs/T_TApp 调试窗口合并；step 400 编译成功即验证。"
+    },
+    {
+      "title": "`normalization` 的 identity substitution/empty context 实例化：`lc_tm_fvar` 参数与 `False_rect`",
+      "intervals": [
+        {
+          "after": 403,
+          "through": 407
+        }
+      ],
+      "outcome": "identity substitution environment 的 local closure proof 中 `lc_tm_fvar y` 的类型是 `forall k x, lc_tm_at y k (fvar x)`，改为 `lc_tm_fvar 0 0 y`；empty context 的 vacuous interpretation 用 `lookup_empty_absurd`，但其结论是 `False` 而当前位置需要 LR proposition，补 `False_rect _ (...)`；step 407 `coqc Task.v` 无报错，包含 `normalization` 的文件编译通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        600,
+        603,
+        606
+      ],
+      "qualification": "目标 theorem 的实例化只在最后约 11 秒内完成，不是主要耗时。"
+    }
+  ],
+  "trace_sha256": "6eba82eaafa4538dc3de080987e9bd3de404bfc0a4920505134d2631ea189abc",
+  "case": "034__system-f__strong-normalization__recursion__hard",
+  "repeat": 19,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "6eba82eaafa4538dc3de080987e9bd3de404bfc0a4920505134d2631ea189abc",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/r19.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/034__system-f__strong-normalization__recursion__hard/review_r19_20261027_211858_499140"
+  }
+}

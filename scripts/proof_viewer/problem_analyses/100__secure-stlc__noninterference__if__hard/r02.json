@@ -1,0 +1,547 @@
+{
+  "summary": "本次运行 2069 秒，以 status=proved 结束：noninterference 在约 2038 秒编译通过，Print Assumptions 返回 Closed under the global context，theorem statement 与 original 逐字一致。读题后约 786 秒用于首轮 LR/observability 设计、本地 reference 搜索（含一次 120 秒超时、最终无结果）与实现规划；随后约 536 秒搭建 locally-nameless/substitution 基础设施，其余约 723 秒完成 RV/R、subtyping、evaluation 分解、fundamental theorem、最终引理与验证。proof 相关障碍均被后续编译关闭；coqtop 探测被放弃并改用 coqc，无遗留 proof obligation。",
+  "phases": [
+    {
+      "title": "阅读 Task.v/card.md、确认 workspace 与 Rocq 环境（其间初步考虑 LR/fundamental 路线）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "首轮 LR/observability 设计长思考：reader 判据不足、转向 indirect_reader（设计与纠错混合，无法再分时）",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 9
+        }
+      ]
+    },
+    {
+      "title": "本地 reference/benchmark 搜索：grep/find 120 秒超时转后台、最终无结果",
+      "intervals": [
+        {
+          "after": 9,
+          "through": 22
+        }
+      ]
+    },
+    {
+      "title": "LR 定稿（按 indirect_reader 决定 RV 为 trivial 或结构条件）、typing rule 推演与分阶段实现计划（含 baseline compile）",
+      "intervals": [
+        {
+          "after": 22,
+          "through": 26
+        }
+      ]
+    },
+    {
+      "title": "辅助引理与 locally-nameless/substitution 基础设施的编写与调试",
+      "intervals": [
+        {
+          "after": 26,
+          "through": 172
+        }
+      ]
+    },
+    {
+      "title": "RV/R 定义、subtyping 单调性与 evaluation 分解引理",
+      "intervals": [
+        {
+          "after": 172,
+          "through": 252
+        }
+      ]
+    },
+    {
+      "title": "environment helpers、fundamental theorem 设计与 13 个 typing rule 的调试",
+      "intervals": [
+        {
+          "after": 252,
+          "through": 302
+        }
+      ]
+    },
+    {
+      "title": "最终 fv_context/subst_all_plug、transparent/erase 引理与 noninterference 证明",
+      "intervals": [
+        {
+          "after": 302,
+          "through": 318
+        }
+      ]
+    },
+    {
+      "title": "无 axiom、statement 对比与 clean build 的最终验证",
+      "intervals": [
+        {
+          "after": 318,
+          "through": 330
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "lc_at_mono：abstraction branch 的 apply IHt 无法推断 k",
+      "intervals": [
+        {
+          "after": 39,
+          "through": 51
+        }
+      ],
+      "outcome": "把 abstraction branch 的 `apply IHt` 改为 `apply (IHt (S k))`（其余 `with (k := ...)` 已在 step 43 改成 positional）；step 51 编译越过 line 512，k 推断错误消失，暴露 tm_case 的 IHt0。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        52,
+        58,
+        64,
+        67,
+        70
+      ],
+      "qualification": "错误初现于 step 39 的 line 52；区间从 step 39 结束计到 step 51。step 51 暴露的 IHt0 是下一类障碍，归入 as-pattern 条目，不在本条声称已修复。"
+    },
+    {
+      "title": "tm 结构归纳的 as-pattern：IH 名须紧跟 recursive argument（lc_at_mono 等）",
+      "intervals": [
+        {
+          "after": 51,
+          "through": 72
+        }
+      ],
+      "outcome": "用 Print foo 的 proof term 确认 IH 紧跟在对应 recursive argument 之后，先改写 3 处完全匹配的 pattern（含 lc_at_mono 的 `t0 IH0 b1 IH1 b2 IH2 l` 等）；step 72 编译越过 IHb:security/IHt0，进入 open_rec_lc 的 bvar 分支。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        70,
+        76,
+        86,
+        95,
+        99
+      ],
+      "qualification": "两次 pattern experiment 未实际使用 IH，不能区分两种顺序，结论来自 step 69 的 Print foo binder 顺序。区间自 IHt0 首次出现（step 51）后计起，step 52-54 为 background 通知（elapsed 为 null）；变量名不同的残留 pattern 归入下一条。"
+    },
+    {
+      "title": "open_rec_lc/lc_open_rec_fvar/subst_all_open_rec：bvar 的 Nat.eqb 分支、残留 as-pattern 与 opening 等式方向",
+      "intervals": [
+        {
+          "after": 72,
+          "through": 86
+        }
+      ],
+      "outcome": "bvar 分支先 `destruct (Nat.eqb k n)`；变量名不同的残留 as-pattern 在 step 82 统一替换；subst_all_open_rec 的 fvar 分支加 `symmetry`；step 86 编译越过这三个引理，进入 subst_all_agree。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        99,
+        108,
+        114,
+        120
+      ],
+      "qualification": "三项是同一批 substitution/lc 基础设施中的相邻错误，未再按每次编译细分；step 86 的编译推进到下一引理即验证。"
+    },
+    {
+      "title": "subst_all_agree：rewrite IH 无法推断 tau、f_equal/bullet 目标数不符、assert 版本缺嵌套 ++ 成员关系",
+      "intervals": [
+        {
+          "after": 86,
+          "through": 104
+        },
+        {
+          "after": 123,
+          "through": 128
+        }
+      ],
+      "outcome": "改为先 assert 每个 component equality 再 rewrite，并用 `rewrite !in_app_iff` 展开多层 `++` 的成员关系；step 128 编译越过 subst_all_agree 与 substitution lemmas，在 value_lc 报下一处错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        120,
+        126,
+        129,
+        135,
+        141,
+        172,
+        176,
+        178
+      ],
+      "qualification": "同一引理的两段尝试：第一次（86→104）以 rewrite/f_equal/bullet 为主，coqtop 调试期间暂停（见 tooling 条目），恢复后（123→128）改用 assert；两段不重叠。第一次尝试的 f_equal 实验在 step 104 未给出可用输出。"
+    },
+    {
+      "title": "coqtop -l 探测挂起 120s 与 pkill 误伤 shell（exit 144）",
+      "intervals": [
+        {
+          "after": 104,
+          "through": 123
+        }
+      ],
+      "outcome": "`coqtop -l` 因等待输入在 120 秒后转后台失败；`pkill -f coqtop` 令同一 shell 以 144 退出且计划中的编辑未落盘；确认文件仍是旧版本后放弃 coqtop，改用 coqc 加 Show/assert，编辑在 step 124 重做。",
+      "resolution": "abandoned",
+      "category": "tooling",
+      "evidence_lines": [
+        150,
+        157,
+        161,
+        163,
+        166,
+        169,
+        170
+      ],
+      "qualification": "这是 tooling detour，不含 proof obligation；区间含 120 秒 coqtop 超时等待及 pkill 后确认编辑未落盘的 5 秒，故 proof 问题在此断开，避免与 subst_all_agree 重复计时。step 106-112/115-117 的 background 通知 elapsed 为 null。"
+    },
+    {
+      "title": "value_lc/value_no_step/evaluates_value_eq：incomplete proof、IH 名与等式方向",
+      "intervals": [
+        {
+          "after": 128,
+          "through": 146
+        }
+      ],
+      "outcome": "value_lc 改为逐 constructor 的显式 proof；value_no_step 改为逐 constructor inversion 并用 `IHHv1/IHHv2/IHHv`；evaluates_value_eq 删除多余的 `symmetry`；step 146 编译越过三个引理、进入 has_type_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        178,
+        181,
+        190,
+        193,
+        202,
+        205
+      ],
+      "qualification": "三个引理顺序相连，均为自动化/命名/等式方向问题，故合并；区间内含 step 136-137 的 Show-as-tactic 小插曲。step 146 的编译推进即三者通过的验证。"
+    },
+    {
+      "title": "has_type_lc：cofinite premise 的 L/fresh 取用与 eauto 未接上 IH，遗漏 T_If",
+      "intervals": [
+        {
+          "after": 146,
+          "through": 172
+        }
+      ],
+      "outcome": "改为 `induction H; simpl` 逐 rule 处理，用 term-level `fresh L` 取 cofinite premise，显式展开 `locally_closed` 并应用 cofinite IH；最后补上遗漏的 `T_If` 分支，step 172 整个文件编译无错误。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        205,
+        208,
+        220,
+        241,
+        244
+      ],
+      "qualification": "区间含 step 147 的约 37 秒策略思考。step 147 曾猜测 bullet 错位，但 step 150/156 的 Show 显示 L 与 IH 都在、真正问题是 match/fresh 取用与 eauto 未接上 IH；step 170 的 Show 才发现遗漏 T_If。未把该猜测写成结论。"
+    },
+    {
+      "title": "RV_subtype/R_subtype：嵌套 conjunction 拆分、Hp1 命名冲突、arrow 的 a1/a2 实例化与 bullet 层级",
+      "intervals": [
+        {
+          "after": 175,
+          "through": 187
+        }
+      ],
+      "outcome": "用 `repeat split; auto` 处理嵌套 conjunction，payload hypothesis 改名 Hpay1/Hpay2，`apply (Hbeh a1 a2)` 显式实例化，并把内部 bullets 改为 `*`；step 187 编译无错误，RV_subtype/R_subtype 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        248,
+        251,
+        257,
+        260,
+        266
+      ],
+      "qualification": "四个错误均在同一 RV_subtype 证明的连续 fix-compile 循环内（目标数、命名冲突、参数推断、bullet 层级），可分别定位但耗时很短，故合并；step 187 编译成功验证。"
+    },
+    {
+      "title": "ev_protect/ev_app/ev_case：induction 自动名与 intros 冲突、假设的 witness 名 v0 不存在",
+      "intervals": [
+        {
+          "after": 190,
+          "through": 198
+        },
+        {
+          "after": 208,
+          "through": 216
+        },
+        {
+          "after": 242,
+          "through": 246
+        }
+      ],
+      "outcome": "ev_protect 的 `intros l t E` 改为 l0/t0 并把失效的 `subst s` 换成 bare `subst`；ev_app 改为 x1/x2/r0 并用 Show 确认 argument witness 是 x2；ev_case 用 Show 确认 inversion payload 是 v。三段编译分别越过 t/s、t1/v0、v0 的报错。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        270,
+        273,
+        276,
+        282,
+        297,
+        303,
+        306,
+        309,
+        348,
+        351,
+        354
+      ],
+      "qualification": "同一类障碍（induction 自动引入名与 intros/remember 假设名冲突）在三个引理处反复出现，按发生时间分三段；每段结束的编译都推进到下一处 IH 错误，作为该段修复的验证。"
+    },
+    {
+      "title": "ev_protect/ev_pair/ev_fst/ev_snd：value 前提与 protected continuation 的构造缺口",
+      "intervals": [
+        {
+          "after": 198,
+          "through": 200
+        },
+        {
+          "after": 220,
+          "through": 226
+        },
+        {
+          "after": 236,
+          "through": 240
+        }
+      ],
+      "outcome": "ev_protect 补上 `value_protect_value` 作为 multi_value_eq 的 value 前提；ev_pair 的 reflexive 分支显式构造两个 evaluates_value 与 pair equality；ev_fst/ev_snd 的 protected continuation 用 `split` 拆出 multi 与 value；三段编译分别越过 `No such assumption` 与 focus error。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        282,
+        285,
+        315,
+        321,
+        324,
+        339,
+        342,
+        345
+      ],
+      "qualification": "这些是 proof script 未显式构造 value/evaluates 的缺口，与 multi 归纳 IH 形状问题不同，故单列；每段只占 1-3 步，不按单次编译再细分。"
+    },
+    {
+      "title": "ev_* 的 multi 归纳 IH 形状：先 endpoint value、再 source 等式，edestruct 反复失败",
+      "intervals": [
+        {
+          "after": 200,
+          "through": 208
+        },
+        {
+          "after": 216,
+          "through": 220
+        },
+        {
+          "after": 226,
+          "through": 236
+        },
+        {
+          "after": 240,
+          "through": 242
+        },
+        {
+          "after": 246,
+          "through": 252
+        }
+      ],
+      "outcome": "用 Show 确认 IHHm 形如 `value endpoint -> forall ... -> source 等式 -> exists ...`，统一改为 `destruct (IHHm Hv ... eq_refl)` 并把返回的 evaluates 拆成 multi/value；ev_app ST_App2 由 H4 改为 H5；step 252 编译无错误，全部 ev_* 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        285,
+        291,
+        294,
+        296,
+        309,
+        312,
+        314,
+        324,
+        333,
+        336,
+        338,
+        345,
+        347,
+        354,
+        360,
+        363
+      ],
+      "qualification": "同一根因（multi 归纳 IH 先要求 endpoint value、再要求 source 形状等式）在不同引理反复出现，按返回到该问题的时间分五段；原分析把命名冲突与自动化缺口也归到该根因，此处已拆出。"
+    },
+    {
+      "title": "multi_abs_eq/multi_unit_eq：直接 induction 丢失 source 形状，需 remember",
+      "intervals": [
+        {
+          "after": 255,
+          "through": 261
+        }
+      ],
+      "outcome": "对两个引理先 `remember` abstraction/unit source 再 induction，并用 bare `subst` 使用形状等式排除 step branch；step 261 编译越过两引理、进入 extend_agree。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        367,
+        373,
+        376
+      ],
+      "qualification": "step 259 的 Show 显示 source 已变任意 t1、goal 为 t3 = t1 且无 source 等式，证实是 induction formulation 问题而非命名问题。"
+    },
+    {
+      "title": "extend_agree：多余的 symmetry 使等式方向与 extend_neq 相反",
+      "intervals": [
+        {
+          "after": 261,
+          "through": 263
+        }
+      ],
+      "outcome": "删除 extend_agree 中多余的 `symmetry`，使目标与 `extend_neq` 的方向一致；step 263 编译无错误，environment helpers 全部通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        376,
+        377,
+        378,
+        379
+      ],
+      "qualification": "这是 step 261 暴露的下一处独立错误（不同引理、不同方向问题），故从 multi_abs_eq 条目拆出单独计；修复仅两步。"
+    },
+    {
+      "title": "fundamental T_Abs：destruct Henv 后需 projections、value_lc 缺 explicit term 参数",
+      "intervals": [
+        {
+          "after": 266,
+          "through": 284
+        }
+      ],
+      "outcome": "为 env_rel 增加 lc1/lc2/R projections 以保留 Henv（env_rel_R 需显式传 x、T 和 lookup 前提），把 `value_lc Hva1` 改为 `value_lc a1 Hva1`，并对 case payload 改用 `proj2 Es1` 的 value component；step 284 编译越过 T_Abs、进入 fst。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        383,
+        389,
+        398,
+        404,
+        408,
+        410
+      ],
+      "qualification": "区间从 fundamental 首次编译（Henv 被 destruct）到 step 284 的验证编译；env_rel_R 的显式参数属于同一次 projection 重构，value_lc 与 proj2 Es1 是同一批修正，故合并为一条。"
+    },
+    {
+      "title": "fundamental T_Fst/T_Snd：value_pair_inv 需用 proj2，High branch 需展开 ty_protect 的 indirect reader",
+      "intervals": [
+        {
+          "after": 284,
+          "through": 288
+        }
+      ],
+      "outcome": "value_pair_inv 改为作用于 `proj2 Ep1/Ep2`；fst/snd 的 High branch 用 `security_of_ty_protect`、`protect_security_ir`、`join_high_r` 计算 indirect reader；step 288 编译越过 fst/snd、进入 case。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        410,
+        413,
+        416
+      ],
+      "qualification": "line 416（step 288）的下一处 T_Case 错误说明 fst/snd 已通过，该验证编译计在本区间内。"
+    },
+    {
+      "title": "fundamental T_Case：sum RV 是两层 disjunction，Hbody endpoints 应为 v1/v2",
+      "intervals": [
+        {
+          "after": 288,
+          "through": 296
+        }
+      ],
+      "outcome": "把 sum RV 展开成两层 disjunction，用 `discriminate Eq` 排除相反 constructor，并把 branch IH 的 endpoints 从 payload u1/u2 改为最终值 v1/v2；step 296 编译越过 T_Case、暴露 T_Protect。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        416,
+        425,
+        428
+      ],
+      "qualification": "step 292 的 grep 确认失败在 inl/inl 分支直接 destruct existential、漏了外层 disjunction；step 296 的下一处 type mismatch 说明 T_Case 已通过，该验证计在本区间内。"
+    },
+    {
+      "title": "fundamental T_Protect：过早 intros 使 goal 从 R 展开为 RV",
+      "intervals": [
+        {
+          "after": 296,
+          "through": 300
+        }
+      ],
+      "outcome": "先 `destruct l` 再决定是否 intros：Low 分支直接对整个 R 应用 `R_protect_low`，High 分支再 intros 并用 `RV_high`；step 300 编译越过 T_Protect、进入 T_If。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        428,
+        431,
+        434
+      ],
+      "qualification": "line 431 的完整 error 显示 goal 已是 RV T0 v1 v2；line 428 是修好 endpoints 后首次暴露该错误。step 300 的编译推进即验证。"
+    },
+    {
+      "title": "fundamental T_If：condition 的 sum RV 遗漏外层 disjunction",
+      "intervals": [
+        {
+          "after": 300,
+          "through": 302
+        }
+      ],
+      "outcome": "按 T_Case 的方式展开 condition 的 sum RV disjunction，inl/inl、inr/inr 用 discriminate 关闭相反 constructor；step 302 编译无错误，fundamental 整体通过。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        434,
+        437
+      ],
+      "qualification": "step 302 的成功编译即 fundamental 的整体验证边界。"
+    },
+    {
+      "title": "transparent_all_ir_low/RV_erase：IH 名未命名与 IH 多传 ambient kappa",
+      "intervals": [
+        {
+          "after": 305,
+          "through": 313
+        }
+      ],
+      "outcome": "transparent_all_ir_low 也改用显式 `T1 IH1 T2 IH2 k` as-pattern；RV_erase 的 IH 调用删除多余的 ambient kappa 参数；step 313 编译无错误，context/erasure helpers 全部通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        441,
+        447,
+        450,
+        453
+      ],
+      "qualification": "line 447 的 grep 纠正了最初把 IHT1 归于 RV_erase 的误判；修复顺序不影响区间。"
+    },
+    {
+      "title": "noninterference：destruct 已化简 if 后 rewrite Nat.eqb_refl 无目标",
+      "intervals": [
+        {
+          "after": 316,
+          "through": 318
+        }
+      ],
+      "outcome": "删除多余的 `rewrite Nat.eqb_refl, Nat.eqb_refl`，直接 `apply R_weak`；step 318 编译无错误，noninterference 通过。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        457,
+        458,
+        460
+      ],
+      "qualification": "仅影响 singleton environment 的 true 分支；step 318 编译通过即 theorem 的 proof 完成，随后 step 325/328 的 assumptions、statement 与 clean-build 检查见 phase 9。"
+    }
+  ],
+  "trace_sha256": "1278e7f508e7499c941afac713c6438bb9d2965cf44cb47e72ca4daa1c3c7a49",
+  "case": "100__secure-stlc__noninterference__if__hard",
+  "repeat": 2,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "1278e7f508e7499c941afac713c6438bb9d2965cf44cb47e72ca4daa1c3c7a49",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/r02.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/100__secure-stlc__noninterference__if__hard/review_r02_20261027_212101_457305"
+  }
+}

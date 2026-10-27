@@ -1,0 +1,312 @@
+{
+  "summary": "本次运行先以长时间比较多种 LR 方案，最终采用包含 local closure、SN 与所有满足 LR 的 argument 的 application 条件的解释，并用 LR_neutral、accessibility induction 与 substitution environment 证明 fundamental theorem。随后写入完整 Task.v，围绕 local closure inversion、step_app_inv 的 evar、subst_open_rec、LR_if 分支和 T_Abs 的 substitution 重写逐个消除编译错误，最后以 identity substitution 得到 normalization。clean compile、Print Assumptions（Closed under the global context）与 theorem statement 比较均通过。",
+  "phases": [
+    {
+      "title": "读取任务、核对定义与环境",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 5
+        }
+      ]
+    },
+    {
+      "title": "设计 LR、neutral closure 与 fundamental theorem 的证明路线",
+      "intervals": [
+        {
+          "after": 5,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "编写完整 proof development 并首次编译",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "补 Lia import，调试 local closure 与 step inversion 辅助 lemmas",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 99
+        }
+      ]
+    },
+    {
+      "title": "调试 substitution、opening 与 freshness lemmas",
+      "intervals": [
+        {
+          "after": 99,
+          "through": 117
+        }
+      ]
+    },
+    {
+      "title": "调试 LR_step、LR_neutral、LR_if 与 LR_abs_intro",
+      "intervals": [
+        {
+          "after": 117,
+          "through": 153
+        }
+      ]
+    },
+    {
+      "title": "完成 fundamental 的 abstraction case 与 substitution 对接",
+      "intervals": [
+        {
+          "after": 153,
+          "through": 170
+        }
+      ]
+    },
+    {
+      "title": "检查 assumptions、修改范围与 clean compile，整理最终结果",
+      "intervals": [
+        {
+          "after": 170,
+          "through": 186
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "`inversion ... as` 的 pattern 未覆盖 lc_at 的 7 个 constructors，最初又误判为 term induction 的写法问题",
+      "intervals": [
+        {
+          "after": 17,
+          "through": 49
+        }
+      ],
+      "outcome": "先按报错行号反复核查 `induction t as [...]`，并在 scratch file 中确认 7 个 constructor 的 naming 可用；随后定位到第 297 行的 `inversion Ht as [k' i' Hlt]`，它必须为 lc_at 的全部 7 个 constructors 给出分支。新增 `lc_at_bvar_inv`、`lc_at_app_inv`、`lc_at_abs_inv`、`lc_at_if_inv`，改写 open_rec_lc、lc_open_close、subst_lc、step_preserves_lc 与 fundamental 中的 inversion 写法，并把 step_app_inv／step_if_inv 改成 plain `inversion H; subst`。再编译时第 297 行的报错消失，编译停在 open_rec_lc 内另一处 `; auto. lia.` 的 No such goal。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        24,
+        34,
+        46,
+        47,
+        49,
+        52,
+        64,
+        71
+      ],
+      "qualification": "区间也包含针对 inversion 是否需列全 constructors 的 scratch 实验；其中一度把 incomplete proof 归因于 impossible branches 未关闭，后被打印结果（只剩 3 个 goals）推翻。最后的 No such goal 是同一 lemma 的后续 tactic sequence 问题，未在本条计入处理时间。"
+    },
+    {
+      "title": "`lc_open_close` 的 induction hypotheses 无法从 goal 推断 fresh atom x",
+      "intervals": [
+        {
+          "after": 53,
+          "through": 61
+        }
+      ],
+      "outcome": "先误把第 342 行当成 fvar case；按行号查看后确认失败的是 application case 的 `apply IH1`。归纳假设的 conclusion 不含 x，于是 application、if 以及随后暴露的 abstraction case 都改为 `apply IHn with (x := x)`。编译推进到 step_preserves_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        77,
+        83,
+        84,
+        86,
+        87,
+        88,
+        89
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "step_app_inv 的 existential witnesses／evar goals 无法被 eauto、assumption 关闭",
+      "intervals": [
+        {
+          "after": 65,
+          "through": 99
+        }
+      ],
+      "outcome": "报错先是 bullet 未完成；反复打印 beta case 的 goals、检查 context，再用最小 relation example 复现 `assumption` 在 witness 仍是 evar 时报 No such assumption。最终在 step_app_inv、step_if_inv 中显式给出 witnesses 与 conjunction，分解 equality，并对需要实例化 evar 的 premise 使用 `eassumption`。编译推进到 subst_lc。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        95,
+        101,
+        107,
+        119,
+        128,
+        137,
+        140,
+        143,
+        145,
+        146
+      ],
+      "qualification": "多次 scratch proofs 以 Abort 结束，仅用于诊断。trace 中关于 `repeat`／`;` 解析的猜测未获独立验证；可确认的是显式构造 + eassumption 的版本通过了后续编译。"
+    },
+    {
+      "title": "`subst_open_rec` 的 fvar equality 方向相反，recursive IH 的 rewrite 与 abstraction opening depth 也不匹配",
+      "intervals": [
+        {
+          "after": 101,
+          "through": 113
+        }
+      ],
+      "outcome": "fvar case 先加 `symmetry` 以套用 `open_rec_closed`；recursive cases 的直接 `rewrite IH1` 报 Cannot find a relation to rewrite，改为显式 `rewrite (IH1 k v sigma Hsig)` 等；随后按报错行确认 abstraction 内的 opening depth 是 `S k`，改用 `IH1 (S k) v sigma Hsig`。编译推进到 subst_fresh。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        149,
+        151,
+        152,
+        160,
+        161,
+        164,
+        165,
+        166,
+        167
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "LR_lc／LR_app／has_type_lc 的隐式 type 参数无法从 goal 推断",
+      "intervals": [
+        {
+          "after": 117,
+          "through": 131
+        },
+        {
+          "after": 149,
+          "through": 153
+        },
+        {
+          "after": 155,
+          "through": 159
+        }
+      ],
+      "outcome": "LR_step 与 LR_neutral 的 `apply LR_lc` 无法推断 T，改为 `exact (LR_lc A u HLRu)`；LR_neutral 中 `apply LR_sn in (Hred t' Hstep)` 语法不合法，改成直接 proof-term application；LR_neutral 与 LR_if 的 `LR_app` 补 `(A := A)`；LR_abs_intro 再用 `LR_lc T1 u HLRu`；最后在 fundamental 的 T_Abs case 用 `exact (has_type_lc Gamma (tm_abs T1 t1) (Ty_Arrow T1 T2) (T_Abs ...))` 显式实例化。每处修改后的编译都推进到下一个错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        173,
+        176,
+        177,
+        179,
+        181,
+        182,
+        186,
+        193,
+        194,
+        221,
+        225,
+        226,
+        227,
+        230,
+        233,
+        235,
+        236
+      ],
+      "qualification": "三段之间分别转去处理 LR_if 的其他 branch 与 subst_open_single 的前提，故用多个区间；没有改动这些 lemmas 的数学陈述。"
+    },
+    {
+      "title": "LR_if 的 recursive conditional case 只证了 LR_app 的第一个 premise，漏掉 `LR A u`",
+      "intervals": [
+        {
+          "after": 131,
+          "through": 133
+        }
+      ],
+      "outcome": "报错为 `[Focus] Wrong bullet --: Expecting **`。查看后确认 `LR_app with (A := A) (u := u)` 生成两个 premises，原脚本只对第一个应用 induction hypothesis，使 `LR A u` 留在同一个 bullet 下。把 IH 产生的三个 subgoals 用 braces 关闭，再补 `** assumption` 证 `LR A u`；编译推进到 App2 branch 的 No applicable tactic。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        194,
+        195,
+        196,
+        197
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "LR_if 的 App2 branch 把 argument 的 reduction 当成 if function 的 step，`value_no_step` 无法应用",
+      "intervals": [
+        {
+          "after": 133,
+          "through": 149
+        }
+      ],
+      "outcome": "先尝试把 contradiction 改成显式 `value_no_step` 应用；两次文本替换（缩进不匹配未命中、按行替换误改 value_SN）使修改没有按预期生效，并在恢复 value_SN 后才看到完整 error context：Hvalu : value (if t1 then t2 else t3) 而 Hstep2 : u --> u'，两者不能统一。随后改为 `inversion Hvalu` 直接排除该 case，编译推进到 LR_abs_intro。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        197,
+        201,
+        205,
+        209,
+        212,
+        215,
+        218,
+        219,
+        220,
+        221
+      ],
+      "qualification": "文本替换绕路（未命中与误改 value_SN）是同一 branch 调试中的编辑问题，未另立条目。"
+    },
+    {
+      "title": "`subst_open_single` 对 extended substitution environment 缺少 `locally_closed u` 前提",
+      "intervals": [
+        {
+          "after": 153,
+          "through": 155
+        }
+      ],
+      "outcome": "编译报 `Hsig` 无法证明 `forall y, locally_closed (if x =? y then u else sigma y)`。为 subst_open_single 增加 `locally_closed u` 前提，逐 atom 证明 extended environment 的 local closure 并重写 proof，同时把 fundamental 的调用改为传 `value_lc u Hval`。编译推进到 has_type_lc。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        227,
+        228,
+        229,
+        230
+      ],
+      "qualification": ""
+    },
+    {
+      "title": "`subst_open_single` 无法重写 HbodyLR 中的 substitution 表达式，改用 `subst_ext` 泛化 environment",
+      "intervals": [
+        {
+          "after": 159,
+          "through": 170
+        }
+      ],
+      "outcome": "先调整 rewrite 顺序，并用 `idtac`／`match type of` 打印 HbodyLR；打印显示 lambda binder 一侧是 nat、另一侧是 atom，但该差异未被验证。随后新增 `subst_ext`（fvars 上取值一致则 subst 相等），把 `subst_open_single` 泛化为任意 `phi`，要求 `forall y, locally_closed (phi y)`、`phi x = u` 及在 `fvars t` 上与 sigma 一致；fundamental 对 sigma' 证明这些条件后直接重写。修正 subst_ext 的 abstraction case（先 assert IH 等式再 rewrite）后，完整 Task.v 编译通过。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        236,
+        239,
+        242,
+        243,
+        246,
+        250,
+        252,
+        268,
+        272
+      ],
+      "qualification": "把 rewrite 失配归因于 nat／atom binder 显示差异只是未验证的猜测；可确认的是泛化 environment 后不再需要该 rewrite。"
+    }
+  ],
+  "trace_sha256": "82219acc673a124062500a98a9313049f1b5db9fc5a03c7396ec702573a53dd7",
+  "case": "004__stlc__strong-normalization__if__hard",
+  "repeat": 7,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "82219acc673a124062500a98a9313049f1b5db9fc5a03c7396ec702573a53dd7",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/r07.json",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/004__stlc__strong-normalization__if__hard/review_r07_20261027_211737_906462"
+  }
+}

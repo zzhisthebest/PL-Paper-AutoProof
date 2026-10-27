@@ -1,0 +1,622 @@
+{
+  "summary": "本次 3601s 始终没有完成 `never_stuck`：前半段主要从零设计 System F refinement 的 LR（两次被 output token limit 截断），在 Program Fixpoint/Function 原型失败后转向 fuel+erasure 语义，随后实现 erasure/substitution/lc/step_erase infrastructure 并反复修复。后半段集中处理 `step_erase_inv` 与 predicate interpretation；step 195 判断 erased-predicate 语义不足以支撑 `RT_RefineValue` 而整体放弃，改向保留 annotation 的 type-substitution (ν) 语义。最后修完 `ty_subst_env_open_ty_rec` 的 induction pattern 后，该 lemma 的 `Ty_FVar` case 报 `open_ty_rec k (ty_subst_env nu U) (nu X)` 与 `nu X` 无法 unify，运行在 3601s 超时，`never_stuck` 仍为空 proof。",
+  "phases": [
+    {
+      "title": "读取 Task.v 并首轮设计 LR/证明路线（ST_App1 的 local closure、CBV value 参数、R_Exists、subtype/entailment）",
+      "intervals": [
+        {
+          "after": 0,
+          "through": 4
+        }
+      ]
+    },
+    {
+      "title": "output token limit 后续接，重建 LR 设计（syntactic progress+preservation 与 semantic LR 的取舍、System F type substitution 路线）",
+      "intervals": [
+        {
+          "after": 4,
+          "through": 6
+        }
+      ]
+    },
+    {
+      "title": "第二次 output token limit 后续接；撤回“function rty 的 term 必为 syntactically abstraction”的判断（S_Bind 可把 application 的 existential result subsume 为 function rty）",
+      "intervals": [
+        {
+          "after": 6,
+          "through": 8
+        }
+      ]
+    },
+    {
+      "title": "Workspace/环境勘察：确认无现成 solution、Rocq 9.1.0、card.md 要求 LR + fundamental theorem",
+      "intervals": [
+        {
+          "after": 8,
+          "through": 13
+        }
+      ]
+    },
+    {
+      "title": "确定 LR 路线并编译原始 Task.v（确认 never_stuck 为 open goal）",
+      "intervals": [
+        {
+          "after": 13,
+          "through": 15
+        }
+      ]
+    },
+    {
+      "title": "设计 erased-term LR、context interpretation 与 fundamental theorem 的证明计划（按 rty size 递归）",
+      "intervals": [
+        {
+          "after": 15,
+          "through": 16
+        }
+      ]
+    },
+    {
+      "title": "用 /tmp/proto 原型化 well-founded semantics（Program Fixpoint/Function/Recdef/Fix_sub），最终选定 fuel+stability 并规划 infrastructure",
+      "intervals": [
+        {
+          "after": 16,
+          "through": 62
+        }
+      ]
+    },
+    {
+      "title": "在 Task.v 实现 erasure/substitution/free-variable/lc/commutation/step_erase infrastructure，反复修复编译",
+      "intervals": [
+        {
+          "after": 62,
+          "through": 156
+        }
+      ]
+    },
+    {
+      "title": "实现 step_erase_inv 的 11 个 step rules 反向 erasure lifting（新增 erasure/lc inversion helpers）",
+      "intervals": [
+        {
+          "after": 156,
+          "through": 184
+        }
+      ]
+    },
+    {
+      "title": "调试 predicate_holds_erase 与 predicate_multistep，并在 Pred_Not 判断 erased-predicate 语义不足以支撑 RT_RefineValue",
+      "intervals": [
+        {
+          "after": 184,
+          "through": 195
+        }
+      ]
+    },
+    {
+      "title": "放弃 erased-predicate LR，改向保留 type annotation 的 type-substitution (ν) semantics；插入 rty_ty_subst_env infrastructure 后在 ty_subst_env_open_ty_rec 的 Ty_FVar case 报错超时",
+      "intervals": [
+        {
+          "after": 195,
+          "through": 201
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "title": "Program Fixpoint 的 recursive-call obligations 数量/顺序与预期不符（R1 两次、R2 一次），vsem 迟迟未生成",
+      "intervals": [
+        {
+          "after": 21,
+          "through": 49
+        }
+      ],
+      "outcome": "step 21 先用 size_comm2 解首个 obligation，unification 报 R2 与 R1 不符；22-41 反复用 Solve All Obligations/Show/Print All 定位，确认 obligations 并非按预期顺序；45-47 逐个 Show 出前两个为 `rty_size R1 < rty_size (R_F R1 R2)`、第三个为 R2 的同类不等式，补完后 `Next Obligation` 报 No obligations remaining；step 49 `Print vsem` 成功显示 `vsem = vsem_func (existT ...)`，`Print Assumptions` 为 Closed under the global context。",
+      "resolution": "resolved",
+      "category": "lr",
+      "evidence_lines": [
+        28,
+        37,
+        40,
+        43,
+        67,
+        70
+      ],
+      "qualification": "obligations 未解完前 `Print vsem`/`Check vsem` 报 not found，是同一依赖关系，不另计。"
+    },
+    {
+      "title": "vsem 已生成但没有 vsem_equation，Fix_sub 展开需要 fix_sub_eq 的 extensionality，well-founded LR 无法展开",
+      "intervals": [
+        {
+          "after": 49,
+          "through": 50
+        },
+        {
+          "after": 60,
+          "through": 61
+        }
+      ],
+      "outcome": "step 49 `Check vsem_equation` 报 reference not found（coqc 在该行停止，vsem_ind 未检查）；step 50 因此比较 fuel/structural recursion/binder environment，认为 Program Fixpoint 的 equation 不可得。Function 尝试失败后，step 61 打印 `vsem_func` 的 `Fix_sub` 定义并找到 `fix_sub_eq`，其前提要求 body 对 recursive function 的 extensionality，`fix_sub_equation` 仍不存在；step 62 决定改用 fuel-based `vsemF` + stability。",
+      "resolution": "abandoned",
+      "category": "lr",
+      "evidence_lines": [
+        71,
+        88
+      ],
+      "qualification": "Function 尝试（51-60）是另一问题；step 62 的 fuel 设计属后续 LR 设计，不把该步设计时间计入本问题。"
+    },
+    {
+      "title": "Function/Recdef 定义 vsem 失败：measure 语法被解析成 application、缺 Recdef、拒绝 under-binder recursive call",
+      "intervals": [
+        {
+          "after": 51,
+          "through": 60
+        }
+      ],
+      "outcome": "step 51 `Function` 报 illegal begin of vernac；step 53 加 FunInd 后报 Decreasing argument must be specified；step 55 写成 `{measure (rty_size R) R}` 被解析成 illegal application；step 57 改用 `fun R => rty_size R` 后报 Module Recdef not loaded；step 59 补 Recdef 后报 `fun w => vsem R1 w` cannot contain a recursive call。step 60 判定 Function 不适合当前 clauses，回到 Program Fixpoint/Fix_sub。",
+      "resolution": "abandoned",
+      "category": "tooling",
+      "evidence_lines": [
+        73,
+        76,
+        79,
+        82,
+        85
+      ],
+      "qualification": "首次 Function 错误在 after 端点 step 51 内，区间从该步结束起算；所有尝试均在 /tmp/proto。"
+    },
+    {
+      "title": "首次插入的 infrastructure 草稿遗留 `Admitted psem_subst_id`（引用未定义 `fv_tm_qual`）与 `multi_*_1` 的 t2 遮蔽/`t2%list`",
+      "intervals": [
+        {
+          "after": 64,
+          "through": 66
+        }
+      ],
+      "outcome": "step 64 的大 Edit 引入 `psem_subst_id`（引用未定义 `fv_tm_qual` 且以 Admitted 结束）以及 `multi_app_1`/`multi_div_1`/`multi_arith_1` 中因 induction 变量 t2 遮蔽外层参数而写出的 `tm_app t2 t2%list` 等；step 65 发现后 step 66 删除 Admitted lemma、把三个 congruence lemma 的参数改名为 a 并修正 witness；编译前进到 `subst_env_open_tm_rec` 的 `IHt` 不存在。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        92,
+        93,
+        95
+      ],
+      "qualification": "Admitted 若保留会违反 card.md 约束；该批草稿缺陷在 step 66 先行清理。"
+    },
+    {
+      "title": "自动生成的 induction hypothesis 名称（IHt/IHt0）在多个 commutation/erasure proofs 中不存在",
+      "intervals": [
+        {
+          "after": 66,
+          "through": 70
+        },
+        {
+          "after": 86,
+          "through": 102
+        },
+        {
+          "after": 124,
+          "through": 126
+        }
+      ],
+      "outcome": "step 66 `subst_env_open_tm_rec` 报 `IHt` 不存在；step 70 改用 `f_equal; auto` 绕过命名，但 Qed 留下未完成 goals（转入 statement 问题）。step 86 `erase_open_tm_ty_rec` 再次报 `IHt`；step 89-90 盲改 `IHt0` 反而在 `erase_open_tm_rec` 报 `IHt0` 不存在；step 94 用 focused `Show` 确认 abstraction body 名为 t0、IH 实际名为 IHt；step 102 把整个 commutation 区域改写为显式 `induction ... as` patterns，编译越过名称错误。step 124 `fv_tm_erase` 仍用自动名称并报 `IHt`，step 126 改成显式 patterns 后编译推进到 lc 区域。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        96,
+        100,
+        131,
+        137,
+        148,
+        183,
+        185
+      ],
+      "qualification": "同一根因在三个不连续时段出现，故用多个区间；step 102 的 as-pattern 槽位顺序错误另列。"
+    },
+    {
+      "title": "substitution/opening commutation 的无条件 statement 不成立：fvar case 需 sigma images locally closed，type-opening 的 exact equality 也需改为 erased 版本",
+      "intervals": [
+        {
+          "after": 70,
+          "through": 84
+        }
+      ],
+      "outcome": "step 70 `Qed` 报 remaining open goals；71-77 的 scratch `Show` 尝试未显示目标，step 78 终于显示 7 个 goals，其中 fvar case 为 `sigma a = open_tm_rec k (subst_env sigma u) (sigma a)`，说明对任意 sigma 的 commutation 为假。step 79 同时发现 `subst_env_open_tm_ty_rec` 的 exact equality 对 fvar 也不成立（type opening 会改 sigma x 的 annotations），且 `erase_subst_env` 需要 sigma images erased。step 80 改为带 `lc_tm_at 0 0 (sigma x)` 前提的 term commutation、新增 `open_tm_rec_closed`，并对 type opening/erase-subst 使用 erased statements；step 82 bvar case 改为 destruct `Nat.eqb`，step 84 fvar case 加 `symmetry` 后编译推进到 `erase_open_tm_rec` 未定义的声明顺序错误。",
+      "resolution": "resolved",
+      "category": "statement",
+      "evidence_lines": [
+        101,
+        107,
+        113,
+        114,
+        115,
+        119
+      ],
+      "qualification": "step 71-77 的 `Show`/`match goal` 调试属于同一 statement 问题的定位过程；声明顺序错误另列。"
+    },
+    {
+      "title": "erasure commutation lemmas 的声明顺序：`erase_open_tm_rec` 在被引用之后才定义",
+      "intervals": [
+        {
+          "after": 84,
+          "through": 86
+        }
+      ],
+      "outcome": "step 84 编译报 `The variable erase_open_tm_rec was not found`；step 85 计划把 erasure commutation block 移到 substitution/opening block 之前；step 86 移动后编译推进到 `erase_open_tm_ty_rec` 的 `IHt` 不存在。",
+      "resolution": "resolved",
+      "category": "localization",
+      "evidence_lines": [
+        122,
+        125
+      ],
+      "qualification": "验证以编译越过该未定义引用为准。"
+    },
+    {
+      "title": "open_tm_erase_id 的 induction hypothesis 固定在 k，abs/tabs 下的 S k 无法使用",
+      "intervals": [
+        {
+          "after": 102,
+          "through": 106
+        }
+      ],
+      "outcome": "step 102 编译在 `open_tm_erase_id` 的 `Qed` 报 remaining open goals；step 103 判断 `simpl; auto` 未解完 recursive cases；step 104 展开 cases 后明确 IH 只对当前 k，goal 需要 `open_tm_ty_rec (S k) ...`；step 105 决定 induction 前 `revert k`；step 106 加上 `revert k` 并在每个 case `intros k`，编译推进到 `erase_tm_subst_env_erase` 的 bullet 错位。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        149,
+        152,
+        153,
+        155
+      ],
+      "qualification": "修复由后续编译推进验证；bullets 错位是下一问题。"
+    },
+    {
+      "title": "前置 auto 已关闭部分 cases，手写 bullets 与实际剩余 goals 错位（erase_tm_subst_env_erase、fv_tm_subst_env_nil）",
+      "intervals": [
+        {
+          "after": 106,
+          "through": 112
+        }
+      ],
+      "outcome": "step 106 `erase_tm_subst_env_erase` 中 `apply He` 落在 abstraction equality 上；step 107 判断 `simpl; auto` 已用 He 解掉 fvar case，删除多余 bullet；step 108 `fv_tm_subst_env_nil` 又出现同类 `apply H` 错位；step 109-111 决定显式写出全部 tm cases、不用前置 auto；step 112 重写两个 free-variable proofs 后编译推进到 as-pattern 槽位错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        155,
+        156,
+        158,
+        162,
+        164
+      ],
+      "qualification": "两次错位同因，合并为一个 bullet 对齐问题。"
+    },
+    {
+      "title": "induction ... as 的槽位顺序错误（recursive arg 与 IH 交错）：IHa/IHb 指向 term 而非 equality；arith branch 以 ] 结尾漏改",
+      "intervals": [
+        {
+          "after": 112,
+          "through": 124
+        }
+      ],
+      "outcome": "step 112 `rewrite IHa, IHb` 报 Cannot find a relation to rewrite；step 115 怀疑 as-pattern 把第二个 term 与第一个 IH 交换；step 116-118 用最小 inductive 与 coqtop 验证 `a b IHa IHb` 得到 a,IHa:T、b,IHb:True，正确写法是 `a IHa b IHb`。step 119 批量修正 app/tapp/div/arith 的 patterns；step 120 仍在 arithmetic case 报错，step 122 发现该 branch 仍是 `op a b IHa IHb`，step 123 指出文本替换只覆盖以 `|` 结尾的 branch、漏掉以 `]` 结尾的 arithmetic branch；step 124 修正最后一个 pattern，编译推进到 `fv_tm_erase` 的 IHt 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        164,
+        167,
+        173,
+        175,
+        179,
+        182
+      ],
+      "qualification": "pattern 顺序确认来自 /tmp/proto 的 coqtop 输出，不是猜测。"
+    },
+    {
+      "title": "lc_ty_at_mono/lc_ty_at_erase_any/lc_tm_at_mono/lc_tm_erase 的 eauto 报 Cannot find witness；lc_tm_at_erase_any 遗留 0<=K、0<=k side goals",
+      "intervals": [
+        {
+          "after": 126,
+          "through": 136
+        }
+      ],
+      "outcome": "step 126 编译在 local closure 区域报 `Cannot find witness`；step 128 读取四个 lc lemmas，step 129 判断 eauto 不能自动应用需要 S K/S k 的 IH 与 monotonicity 前提；step 130 改为逐 constructor 的显式 cases，仍在 `lc_ty_at_erase_any` 报 Cannot find witness；step 132-133 决定直接由 `lc_ty_at_mono` 推出 `lc_ty_at_erase_any`；step 134 `lc_tm_at_erase_any` 的 Qed 留下 `0 <= K`、`0 <= k`；step 135 补 `lia`；step 136 编译推进到 `lc_tm_subst_env` 的 annotation 变量 T 不存在。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        185,
+        188,
+        191,
+        194,
+        197,
+        200
+      ],
+      "qualification": "该段是自动化不适用与 side goals，不是 lemma 不成立；`lc_ty_at_erase_any` 最终由 monotonicity 直接得到。"
+    },
+    {
+      "title": "lc_tm_subst_env 与 lc_open_tm_rec_inv 的 abstraction annotation 变量 T 不在 scope（自动 induction 命名与 as-pattern 不一致）",
+      "intervals": [
+        {
+          "after": 136,
+          "through": 140
+        }
+      ],
+      "outcome": "step 136 `lc_tm_subst_env` 报 `T was not found`；step 137-138 用显式 `induction ... as [..|T b IH|..]` patterns 固定 abstraction annotation 名 T 与 body 名，重写后编译推进到 `lc_open_tm_rec_inv` 的同一 T 错误；step 139 给 `lc_open_tm_rec_inv` 显式 constructor arguments 并 generalize K k j；step 140 重写后编译越过 lc lemmas，停在 line 1404 的 Wrong bullet（value_erase_reflect，下一问题）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        200,
+        203,
+        206
+      ],
+      "qualification": "line 1404 的 Wrong bullet 不属于本问题，已并入下一项。"
+    },
+    {
+      "title": "value_erase_reflect 的 try (inversion Hv; fail) 已关闭 inversion 可解的 cases，显式 9 个 constructor bullets 错位",
+      "intervals": [
+        {
+          "after": 140,
+          "through": 150
+        }
+      ],
+      "outcome": "step 140 报 line 1404 Wrong bullet；141-144 用 `nl` 与重跑编译确认错误在 `value_erase_reflect` 的第二条 bullet，而非 opening inversion。step 146-148 的 scratch `Show` 显示首个 goal 是 `value (tm_bvar n)`，`inversion Hv` 能关闭它并留下 8 个 unfocused goals。判断 `try (inversion Hv; fail)` 对 `inversion` 无子目标的 impossible cases 会成功关闭目标（`fail` 不执行），因此 9 个显式 bullets 与实际剩余 goals 错位；step 149 决定移除 try，step 150 移除后保留 9 个显式 cases，编译推进到 `step_erase` 的 ST_AppAbs。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        212,
+        215,
+        218,
+        220
+      ],
+      "qualification": "step 149 的 thinking 曾认为 try 永不生效；若如此移除 try 不会改变 bullet 对齐，实际 step 150 的编译通过表明 try 已关闭部分 cases，此处按编译行为纠正。"
+    },
+    {
+      "title": "step_erase 的 ST_AppAbs/ST_TAppTabs reduct 与 erase_tm (open_tm ...) 不对齐；反向 rewrite 误改 source",
+      "intervals": [
+        {
+          "after": 150,
+          "through": 156
+        }
+      ],
+      "outcome": "step 150 `ST_AppAbs` 的 target 为 `erase_tm (open_tm t v)`，无法与 opened reduct unify；step 152 在 `ST_AppAbs` 前加 `rewrite erase_open_tm`，编译推进到 `ST_TAppTabs` 找不到 `open_tm_ty_rec ... (erase_tm ...)` subterm；step 154 反向使用 `open_tm_erase_id` 同时改写了 source 中的 erased body；step 155 决定先单独证 target equality；step 156 用局部 `assert Heq : erase_tm (open_tm_ty t T) = open_tm_ty (erase_tm t) Ty_Int` 再 rewrite，编译推进到 `step_erase_inv` 的 variable a 不存在。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        221,
+        224,
+        227,
+        230
+      ],
+      "qualification": "验证以编译越过 step_erase 为准；step_erase_inv 的问题另列。"
+    },
+    {
+      "title": "step_erase_inv 直接 destruct source 依赖自动变量名（a 不存在），改用 erasure inversion lemmas 重建 source 结构",
+      "intervals": [
+        {
+          "after": 156,
+          "through": 160
+        }
+      ],
+      "outcome": "step 156 `step_erase_inv` 报 line 1469 `The variable a was not found`；step 157-158 查看 proof，确认 `destruct t0` 后引用 a/b 等未显式固定的名字；step 159 决定新增 `erase_tm_app_inv`/`erase_tm_abs_inv`/`erase_tm_tabs_inv`/`erase_tm_tapp_inv`/`erase_tm_int_inv`/`erase_tm_div_inv`/`erase_tm_arith_inv` 并按 step rule 重写 lifting；step 160 写入这些 lemmas 与新 proof，编译推进到 equation E 的方向错误（下一问题）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        230,
+        232,
+        234,
+        236
+      ],
+      "qualification": "该步同时把整段 proof 从 destruct 改为 inversion-lemma 风格，后续错误均在新 proof 上出现。"
+    },
+    {
+      "title": "erasure inversion lemma 的 equation E 方向与前提相反，需 symmetry in E",
+      "intervals": [
+        {
+          "after": 160,
+          "through": 162
+        }
+      ],
+      "outcome": "step 160 报 `erase_tm_app_inv` 的前提与 E 的方向相反；step 161 计划在各 case 使用 inversion 前先对 E 做 symmetry；step 162 在 app/tapp/div/arith 的 inversion 前加 `symmetry in E`，编译推进到 `ST_AppAbs` 的 `No such hypothesis: H3`（下一问题）。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        236,
+        239
+      ],
+      "qualification": "E 方向是首次应用 erase_tm_*_inv 时的独立错误，故与 lc 前提问题分开。"
+    },
+    {
+      "title": "ST_AppAbs 的 locally closed 前提被 lc_tm_abs_inv 消耗（H3/No such assumption）",
+      "intervals": [
+        {
+          "after": 162,
+          "through": 168
+        }
+      ],
+      "outcome": "step 162 报 `No such hypothesis: H3`；step 164 加入 `lc_tm_app_inv`/`lc_tm_abs_inv` 等 local closure inversion helpers 后，编译改报 `apply ST_AppAbs; assumption` 的 `No such assumption`；step 166 用行号确认错误在该处、前面的 value reflection assertion 已通过；step 167 发现 `apply lc_tm_abs_inv in Hlca` 把原 lc abstraction 前提消耗掉，而 `ST_AppAbs` 仍需要它；step 168 用 `pose proof Hlca as Hlca_abs` 保留副本，编译推进到 `ST_App2` 的 value reflection（下一问题）。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        239,
+        242,
+        245,
+        246,
+        248
+      ],
+      "qualification": "H3 自动名与 Hlca 被消耗是同一 lc 前提问题的前后表现，合并。"
+    },
+    {
+      "title": "ST_App2/Div2/Arith2 的 value reflection 需 rewrite <- E1，先把 value (erase_tm a0) 转为 value a0",
+      "intervals": [
+        {
+          "after": 168,
+          "through": 170
+        }
+      ],
+      "outcome": "step 168 `ST_App2` 的 `value v1` 无法直接给 `value (erase_tm a0)`；step 169 计划在 application/division/arithmetic 的 value reflection cases 使用 `rewrite <- E1`；step 170 修改后编译推进到 `ST_TAppTabs` 找不到 `open_tm_erase_id` 的匹配 subterm（下一问题）。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        248,
+        250
+      ],
+      "qualification": "value reflection 的 rewrite 与下一项 open_tm_erase_id 的匹配问题分开。"
+    },
+    {
+      "title": "ST_TAppTabs lifting 的 open_tm_erase_id rewrite 匹配不到 subterm（open_tm_ty 未展开），改用 apply",
+      "intervals": [
+        {
+          "after": 170,
+          "through": 178
+        }
+      ],
+      "outcome": "step 170 报 `Found no subterm matching open_tm_ty_rec ...`；step 171 用 `open_tm_erase_id 0 Ty_Int body` 显式实例化仍不匹配；step 174 `Show` 显示 goal 为 `open_tm_ty (erase_tm body) Ty_Int = erase_tm body`；step 176 第一个 rewrite 成功，第二个针对 `open_tm_ty_rec` 的 rewrite 仍找不到 subterm；step 177-178 改用 `apply open_tm_erase_id` 让 unification 展开定义，编译推进到 `ST_DivInt` 的 witness（下一问题）。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        251,
+        254,
+        257,
+        260,
+        263
+      ],
+      "qualification": "开放 equality 的 rewrite 匹配问题；改用 apply 由 step 178 编译越过验证。"
+    },
+    {
+      "title": "ST_DivInt/ST_ArithInt 的 existential witness 选成 source，未取 integer reduct",
+      "intervals": [
+        {
+          "after": 178,
+          "through": 180
+        }
+      ],
+      "outcome": "step 178 `ST_DivInt` lifting 中 witness 选成 `tm_div (tm_int n) (tm_int m)`，erasure 无法与 `tm_int (n / m)` unify；step 179 判断 witness 应是原 step 后的 reduct；step 180 把 division/arithmetic witnesses 改为 `tm_int (Z.div n m)` 与 `tm_int (eval_integer_operator op n m)`，编译推进到 `ST_ArithInt` 的 `op0` equality 错误（下一问题）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        263,
+        266
+      ],
+      "qualification": "witness 问题由 step 180 编译越过 ST_DivInt 验证；operator 名称问题另列。"
+    },
+    {
+      "title": "ST_ArithInt 的 operator equality 已被 subst op 消耗，witness 需用保留下来的 op0",
+      "intervals": [
+        {
+          "after": 180,
+          "through": 184
+        }
+      ],
+      "outcome": "step 180 报 `Cannot find any non-recursive equality over op0`；step 181 判断先前的 `subst op` 已消耗 operator equality；step 182 删除重复 `subst op0` 后编译报 `The variable op was not found`；step 183 决定把 witness 中的 op 改为 op0；step 184 改完后编译越过 `step_erase_inv` 与 multi congruence proofs，停在 `predicate_holds_erase` 的 Wrong bullet。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        266,
+        269,
+        272
+      ],
+      "qualification": "step 184 编译越过 step_erase_inv，作为该 lifting 完成的验证。"
+    },
+    {
+      "title": "predicate_holds_erase 的 atom cases 用 multi，但 operational_atoms 使用 predicate_multistep",
+      "intervals": [
+        {
+          "after": 184,
+          "through": 190
+        }
+      ],
+      "outcome": "step 184 编译停在 `predicate_holds_erase` 的 Wrong bullet；step 186 查看代码；step 187-188 用 scratch `Show` 显示 atom goal 使用 `predicate_multistep`，而之前的 helper lemmas 用 `multi`；step 189 设计两个方向的转换；step 190 加入 `predicate_multistep_multi`、`multi_predicate_multistep` 与 `predicate_multistep_erase`，重写 Eq/Lt/Le 的 witnesses，编译推进到 compound predicate cases 的 Wrong bullet。",
+      "resolution": "resolved",
+      "category": "rewrite",
+      "evidence_lines": [
+        275,
+        278,
+        280,
+        281
+      ],
+      "qualification": "该 atom relation mismatch 本身通过；Pred_And/Pred_Or 展开问题另列，整体 lemma 后在 step 199 被删除。"
+    },
+    {
+      "title": "predicate_holds_erase 的 Pred_And/Pred_Or 未展开 predicate_holds，Wrong bullet 停在 Pred_Or",
+      "intervals": [
+        {
+          "after": 190,
+          "through": 194
+        }
+      ],
+      "outcome": "step 190 的 Wrong bullet 在 line 1766；step 191-192 行号定位到 `Pred_Or` bullet 开始处，说明前一个 `Pred_And` proof 未关闭；step 193 判断 `simpl in *` 可能没有 unfold `predicate_holds`；step 194 在 `Pred_And`/`Pred_Or`/`Pred_Not` cases 加入 `unfold predicate_holds in *; simpl in *`，编译推进到 `Pred_Not` 的方向错误（下一问题）。",
+      "resolution": "resolved",
+      "category": "proof_structure",
+      "evidence_lines": [
+        281,
+        284,
+        285,
+        287
+      ],
+      "qualification": "Pred_And/Pred_Or 的 bullet 错误已消除；同一 lemma 随即在 Pred_Not 暴露语义不足。"
+    },
+    {
+      "title": "predicate_holds_erase 的 Pred_Not 需要反向 atom implication；annotation 不同的 abstraction values 可被 erase 合并，判断 erased-predicate 语义不足",
+      "intervals": [
+        {
+          "after": 194,
+          "through": 195
+        }
+      ],
+      "outcome": "step 194 `Pred_Not` 的 IH 只有 `predicate_holds p -> predicate_holds (erase p)` 的正向，goal 需要从 erased predicate 成立反推原 predicate；step 195 判断 Not case 需要反向 atom implication `Eq (erase t1) (erase t2) -> Eq t1 t2`，并用 `t1 = abs T b`、`t2 = abs T' b'` 且 erasure 相同但 t1 <> t2 的例子说明反向不成立，`predicate_closed` 只约束 fvars、不排除不同 annotation；模型据此在长时间 thinking 后放弃无条件 `predicate_holds_erase` 与 erased-predicate LR，转向保留 annotation 的 type-substitution (ν) 语义。",
+      "resolution": "abandoned",
+      "category": "lr",
+      "evidence_lines": [
+        287,
+        288
+      ],
+      "qualification": "反例只在 thinking 中论证，未在 Rocq 中形式化；这是模型 abandon 该 LR 的判断，不是已证明的数学定理。"
+    },
+    {
+      "title": "新增 type-substitution infrastructure 草稿含 Admitted qual_ty_subst_env_nil（引用未定义 qual_terms）与 placeholder rty_ty_subst_env_subst?",
+      "intervals": [
+        {
+          "after": 197,
+          "through": 199
+        }
+      ],
+      "outcome": "step 197 在 never_stuck 前插入 `ty_subst_env`/`tm_ty_subst_env`/`qual_ty_subst_env`/`rty_ty_subst_env` 及 commutation 草稿；其中 `qual_ty_subst_env_nil` 引用未定义 `qual_terms` 并以 `Admitted` 结束，另有 `rty_ty_subst_env_subst? : True` placeholder；因旧 `predicate_holds_erase` 仍先报错，新代码尚未被编译检查。step 198 决定删除旧 lemma 与 placeholders；step 199 用 `pred_ftv_nil`/`pred_fv_nil`、`predicate_closed_ftv/fv`、`qual_ty_subst_env_nil`、`qual_subst_env_nil` 替换，删除旧 `predicate_holds_erase`，编译推进到 `ty_subst_env_open_ty_rec` 的 5-branch pattern 错误。",
+      "resolution": "resolved",
+      "category": "tooling",
+      "evidence_lines": [
+        290,
+        292,
+        294
+      ],
+      "qualification": "清理在 step 199 执行；编译确认只是越过旧 `predicate_holds_erase` 错误，新 infrastructure 的 statement 缺陷随即暴露。"
+    },
+    {
+      "title": "ty_subst_env_open_ty_rec 的 induction as-pattern 多写一个空 branch（ty 只有 5 个 constructors）",
+      "intervals": [
+        {
+          "after": 199,
+          "through": 201
+        }
+      ],
+      "outcome": "step 199 报 `Expects a disjunctive pattern with 5 branches`；step 200 确认 ty 只有 Ty_BVar/Ty_FVar/Ty_Arrow/Ty_All/Ty_Int 五个 constructors，Ty_Arrow 的 recursive slots 为 `[T1 IH1 T2 IH2]`，原 pattern 末尾多了一个空 branch；step 201 删除空 branch，编译推进到 `Ty_FVar` case 的 equality 错误。",
+      "resolution": "resolved",
+      "category": "tactic",
+      "evidence_lines": [
+        294,
+        295,
+        297
+      ],
+      "qualification": "编译越过 pattern 错误即验证修复；随后 Ty_FVar 的 equality 没有进一步处理步骤，未单列为问题。"
+    }
+  ],
+  "trace_sha256": "74ebfc4f50d89b5718d82b6a69ac34990b6f4850533a417c14fcda361a8ef281",
+  "case": "073__system-f-refinement__type-safety__none__hard",
+  "repeat": 17,
+  "model": "deepseek-flash[1m]",
+  "effort": "high",
+  "review": {
+    "model": "deepseek-flash[1m]",
+    "effort": "high",
+    "trace_sha256": "74ebfc4f50d89b5718d82b6a69ac34990b6f4850533a417c14fcda361a8ef281",
+    "source": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/r17_20261027_202428_754876/attempt_2.jsonl",
+    "log": "/data0/zzh/PL-Paper-AutoProof/scripts/proof_viewer/problem_analyses/073__system-f-refinement__type-safety__none__hard/review_r17_20261027_211841_823771"
+  }
+}
