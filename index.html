@@ -221,7 +221,7 @@ function showProblemTimes(r){
  if(panel.dataset.run===key)return;
  panel.dataset.run=key;
  if(!r.problemTimes){panel.innerHTML='';return}
- panel.open=true;
+ panel.open=false;
  const p=r.problemTimes,seconds=p.problems.reduce((n,x)=>n+x.seconds,0),pct=s=>(100*s/r.seconds).toFixed(1)+'%',time=s=>stepDuration({durationSeconds:s});
  panel.innerHTML=`<summary>${runName(r)} · 具体问题与耗时 <span class="meta">已标注问题 ${time(seconds)} / 全程 ${time(r.seconds)}</span></summary><p class="problem-intro">横条和百分比均相对于整次运行。点击问题跳到处理起点；这是处理时间，不等于可节省时间。</p>`+
  p.problems.map((x,i)=>`<button class="problem-row" data-problem="${i}" data-range="0"><span class="problem-title">${esc(x.title)}</span><span class="problem-value">${time(x.seconds)} · ${pct(x.seconds)}</span><span class="problem-track"><span class="problem-fill" style="width:${100*x.seconds/r.seconds}%"></span></span></button><details class="problem-evidence"><summary>处理结果与步骤</summary><p>${esc(x.outcome)}</p>${x.qualification?`<p>${esc(x.qualification)}</p>`:''}${x.ranges.map((v,j)=>`<button data-problem="${i}" data-range="${j}">#${v.after} 结束 → #${v.through} 结束 · ${time(v.end-v.start)}</button>`).join('')}</details>`).join('')+
@@ -362,6 +362,8 @@ $('help-button').onclick=()=>{$('help').hidden=!$('help').hidden;$('help-button'
 function caseTitle(name){const words={'stlc':'STLC','system-f':'System F','system-f-refinement':'System F + Refinement Types','secure-stlc':'Secure STLC','strong-normalization':'Strong normalization','polymorphic-identity':'Polymorphic identity','type-safety':'Type safety','noninterference':'Noninterference','none':'None','if':'If','recursion':'Recursion','nondeterminism':'Nondeterminism','hard':'Hard','supplied-lr':'给 LR（r03）'};const parts=name.split('__');if(parts.includes('supplied-lr'))parts.splice(parts.indexOf('hard'),1);return parts.map(x=>words[x]||x).join(' · ')}
 $('case-select').innerHTML=CASES.map((c,i)=>`<option value="${i}">${esc(caseTitle(c.case))}</option>`).join('');
 async function loadCase(index){
+ const history=$('history-tab').classList.contains('active');
+ if($('problem-times'))$('problem-times').open=false;
  $('case-select').disabled=true;$('compare-tab').disabled=true;$('history-tab').disabled=true;
  $('subtitle').textContent='正在加载题目…';$('compare-view').hidden=true;$('history-view').hidden=true;
  try{
@@ -378,7 +380,7 @@ async function loadCase(index){
   $('normalize-alpha').checked=DATA.alpha;$('diff-mode').checked=false;
   $('event-filter').value='all';$('event-search').value='';$('line-jump').value='';
   $('event').innerHTML='';$('steps').innerHTML='';
-  initializeCase();switchView(false);
+  initializeCase();switchView(history);
  }catch(e){$('subtitle').textContent='加载失败：'+e.message;console.error(e)}
  finally{$('case-select').disabled=false;$('compare-tab').disabled=!DATA;$('history-tab').disabled=!DATA}
 }
