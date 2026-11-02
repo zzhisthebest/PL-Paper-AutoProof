@@ -1,0 +1,37 @@
+[
+  {
+    "case": "001__stlc__strong-normalization__none__hard",
+    "runs": 20,
+    "long_thoughts": 1
+  },
+  {
+    "case": "004__stlc__strong-normalization__if__hard",
+    "runs": 20,
+    "long_thoughts": 4
+  },
+  {
+    "case": "034__system-f__strong-normalization__recursion__hard",
+    "runs": 20,
+    "long_thoughts": 40
+  },
+  {
+    "case": "055__system-f__polymorphic-identity__nondeterminism__hard",
+    "runs": 20,
+    "long_thoughts": 29
+  },
+  {
+    "case": "073__system-f-refinement__type-safety__none__hard",
+    "runs": 20,
+    "long_thoughts": 43
+  },
+  {
+    "case": "100__secure-stlc__noninterference__if__hard",
+    "runs": 20,
+    "long_thoughts": 24
+  },
+  {
+    "case": "055__system-f__polymorphic-identity__nondeterminism__hard__supplied-lr",
+    "runs": 20,
+    "long_thoughts": 0
+  }
+]
