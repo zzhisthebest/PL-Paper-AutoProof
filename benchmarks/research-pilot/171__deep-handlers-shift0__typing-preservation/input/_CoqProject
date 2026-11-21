@@ -1,0 +1,18 @@
+-R . Top
+Binding/Core.v
+Binding/Inc.v
+Binding/Lib.v
+Binding/Set.v
+Lang/DeepHandle/Syntax.v
+Lang/DeepHandle/Reduction.v
+Lang/DeepHandle/Types.v
+Env.v
+Lang/DeepHandle/TypeSystem.v
+Lang/DeepHandle.v
+Lang/Shift0/Syntax.v
+Lang/Shift0/Reduction.v
+Lang/Shift0/Types.v
+Lang/Shift0/TypeSystem.v
+Lang/Shift0.v
+Trans/DeepHandle_to_Shift0.v
+Task.v

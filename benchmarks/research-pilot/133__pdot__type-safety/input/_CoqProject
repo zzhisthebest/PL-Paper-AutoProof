@@ -1,0 +1,12 @@
+-R . ""
+Sequences.v
+Definitions.v
+Binding.v
+Lookup.v
+Reduction.v
+RecordAndInertTypes.v
+Replacement.v
+PreciseFlow.v
+PreciseTyping.v
+TightTyping.v
+Task.v

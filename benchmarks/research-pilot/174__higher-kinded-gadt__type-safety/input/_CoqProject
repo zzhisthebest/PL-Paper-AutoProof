@@ -1,0 +1,16 @@
+-R . Top
+Binding/Core.v
+Binding/Inc.v
+Binding/Properties.v
+Binding/TermSimpl.v
+Binding/Lib.v
+Binding/Intrinsic.v
+Binding/Auto.v
+Lang/FOmegaEq/Types.v
+Lang/FOmegaEq/Kinds.v
+Binding/Set.v
+Lang/FOmegaEq/Syntax.v
+Lang/FOmegaEq/OpSemantics.v
+Binding/Env.v
+Lang/FOmegaEq/Typing.v
+Task.v

@@ -1,0 +1,6 @@
+-R theories cgraphs
+theories/cgraphs/util.v
+theories/locks/lambdalock/langtools.v
+theories/locks/lambdalock/langdef.v
+theories/locks/lambdalock/definitions.v
+Task.v

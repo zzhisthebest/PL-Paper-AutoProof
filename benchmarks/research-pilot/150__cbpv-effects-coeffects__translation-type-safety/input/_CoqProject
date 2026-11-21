@@ -1,0 +1,18 @@
+-R . cbpv
+autosubst2/axioms.v
+autosubst2/fintype.v
+common/fin_util.v
+common/effects.v
+common/coeffects.v
+full/CBPV/syntax.v
+common/resource_axioms.v
+full/CBPV/typing.v
+common/coeffect_renaming.v
+full/CBPV/renaming.v
+full/CBN/syntax.v
+full/CBN/typing.v
+full/CBN/translation.v
+full/CBV/syntax.v
+full/CBV/typing.v
+full/CBV/translation.v
+Task.v

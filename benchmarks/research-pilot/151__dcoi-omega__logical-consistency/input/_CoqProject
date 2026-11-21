@@ -1,0 +1,11 @@
+-R theories DCOIOmega
+theories/Lattice/All.v
+theories/Autosubst2/axioms.v
+theories/Autosubst2/unscoped.v
+theories/Autosubst2/syntax.v
+theories/imports.v
+theories/par.v
+theories/geq.v
+theories/conv.v
+theories/typing.v
+Task.v

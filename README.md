@@ -61,9 +61,11 @@ latexmk -xelatex main.tex
 
 `N` = Strong Normalization，`P` = Polymorphic Identity 自由定理，`RS` = Refinement Type Safety，`NI` = Noninterference。表格中的编号链接到对应题目，空白表示未提供。
 
-题目名称统一为 `编号__语言__目标性质__features__难度`，例如 `001__stlc__strong-normalization__none__hard`。编号按任务类别、feature 组合、Hard / Medium / Easy 分配；编号不代表难度排名，新增题目从 109 起追加，不重新编号。
+原有 108 个变体的名称格式为 `编号__语言__目标性质__features__难度`，例如 `001__stlc__strong-normalization__none__hard`。编号按任务类别、feature 组合、Hard / Medium / Easy 分配，不代表难度排名。
 
 编号范围：001–024 STLC normalization；025–048 System F normalization；049–072 System F polymorphic identity；073–096 System F refinement type safety；097–108 Secure STLC noninterference。新旧名称对照保存在 [case-names.json](benchmarks/case-names.json)。运行时支持编号、完整名称和旧名称，例如 `python scripts/test.py --benchmark 001 --tag my_run`。
+
+正式研究题集包含 [100 道论文抽取题](benchmarks/research-pilot/)，连续编号 109–208，与原有 001–108 分开。
 
 | 难度 | 提供的内容 | 需要完成 |
 |---|---|---|

@@ -1,0 +1,18 @@
+-R src RFJ
+src/Lists/snoc.v
+src/Lists/Nth_error.v
+src/Lists/Forall2.v
+src/Lists/In.v
+src/Lists/replace.v
+src/Lists/ZipWith.v
+src/Lists.v
+src/Utils/Referable.v
+src/Utils.v
+src/RFJ/Definitions/Syntax.v
+src/RFJ/Definitions/Names.v
+src/RFJ/Definitions/Semantics.v
+src/RFJ/Definitions/SubDenotation.v
+src/RFJ/Definitions/FJTyping.v
+src/RFJ/Definitions/Typing.v
+src/RFJ/Definitions/CTSanity.v
+Task.v

@@ -1,0 +1,10 @@
+-R . cbpv
+common/effects.v
+autosubst2/axioms.v
+autosubst2/fintype.v
+common/coeffects.v
+full/CBPV/syntax.v
+common/resource_axioms.v
+full/CBPV/typing.v
+full/CBPV/semantics.v
+Task.v

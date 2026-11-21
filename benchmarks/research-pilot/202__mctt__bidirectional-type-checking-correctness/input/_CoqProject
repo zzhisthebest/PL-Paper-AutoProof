@@ -1,0 +1,20 @@
+-R theories Mctt
+theories/Core/Base.v
+theories/Core/Syntactic/Syntax.v
+theories/Core/Semantic/Domain.v
+theories/Core/Semantic/Evaluation/Definitions.v
+theories/Core/Semantic/Evaluation.v
+theories/Core/Semantic/Readback/Definitions.v
+theories/Core/Semantic/Readback.v
+theories/Core/Syntactic/System/Definitions.v
+theories/Core/Syntactic/System.v
+theories/Core/Semantic/NbE.v
+theories/Core/Syntactic/CtxSub.v
+theories/Core/Syntactic/CtxEq.v
+theories/Core/Syntactic/CoreInversions.v
+theories/Core/Syntactic/Presup.v
+theories/Core/Syntactic/SystemOpt.v
+theories/Algorithmic/Subtyping/Definitions.v
+theories/Algorithmic/Typing/Definitions.v
+theories/Frontend/Elaborator.v
+Task.v
