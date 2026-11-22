@@ -1,6 +1,0 @@
--R . ""
-Definitions.v
-Binding.v
-OperationalSemantics.v
-RecordAndInertTypes.v
-Task.v

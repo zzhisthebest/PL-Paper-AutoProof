@@ -1,7 +1,0 @@
--R . ""
-Syntax_ott.v
-Row_inf.v
-Fii_inf.v
-Infrastructure.v
-Disjoint.v
-Task.v

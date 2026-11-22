@@ -52,15 +52,7 @@ Definition repl_composition_qp G := star (typed_repl_comp_qp G).
 
 Notation "G '⊢' T '⟿' U" := (repl_composition_qp G U T) (at level 40, T at level 59).
 
-Inductive typed_path_repl_comp_qp: ctx -> path -> path -> Prop :=
-| tpr_path: forall G p q U bs,
-    G ⊢! p: {{ q }} ⪼ {{ q }} ->
-    G ⊢!! q : U ->
-    typed_path_repl_comp_qp G (q •• bs) (p •• bs).
-
-Definition repl_composition_qp_p G := star (typed_path_repl_comp_qp G).
-
-Notation "G '⊢' p '⟿'' q" := (repl_composition_qp_p G q p) (at level 40, p at level 59).
+Notation "G '⊢' p '⟿'' q" := (G ⊢ {{ p }}⟿ {{ q }}) (at level 40, p at level 59).
 
 Notation "G '⊩' T '⟿' U '⬳' V" := (G ⊢ T ⟿ U /\ G ⊢ V ⟿ U) (at level 40, T at level 59).
 

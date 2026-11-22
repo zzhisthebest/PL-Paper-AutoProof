@@ -1,0 +1,5 @@
+Original authors: Baber Rehman, Xuejing Huang, Ningning Xie, and Bruno C. d. S. Oliveira.
+Source: https://github.com/baberrehman/disjoint-switches/tree/16c280334ad6413033c176dbc2ff2f06cb48e7cf/code/section4
+The artifact is licensed under CC BY 4.0, as specified in section 5 of https://doi.org/10.4230/DARTS.8.2.17.
+License text: https://creativecommons.org/licenses/by/4.0/legalcode
+Adaptation: extracted definitions and theorem statements, removed proofs and unused imports, and added a standalone build file.

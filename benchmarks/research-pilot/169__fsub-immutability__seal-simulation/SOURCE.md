@@ -1,0 +1,3 @@
+Source: Edward Lee and Ondřej Lhoták, *Simple Reference Immutability for System F-sub*, OOPSLA 2023. [Authors' artifact revision `709bb05`](https://github.com/e45lee/simple-fsub-mutability-proofs/tree/709bb054f0eb4a891c9c54065a255dff0a360800); [MIT X11](https://github.com/e45lee/simple-fsub-mutability-proofs/blob/709bb054f0eb4a891c9c54065a255dff0a360800/LICENSE). The artifact builds on the System F<: mechanization by Aydemir et al.
+
+Extracted the language definitions from `Fm_Definitions.v` and removed the proofs from the two target statements. The store allocator uses the original definition's computed witness directly, rather than the reducible projection of its dependent pair.

@@ -1,0 +1,11 @@
+Source: Alain Delaet, Sandrine Blazy, and Denis Merigoux,
+Artifact for "Abstract Machines and Small-step Semantics: a Winning Ticket
+for Proof Automation?", version 1, https://doi.org/10.5281/zenodo.15583348.
+
+The source archive is licensed under Creative Commons Attribution 4.0
+International: https://creativecommons.org/licenses/by/4.0/legalcode.
+Archive MD5: 720d05edf344086be4b373a1c7ee7eb9.
+
+Changes: excerpted definitions and the original target; removed proofs and
+unrelated declarations; adjusted imports and file layout. Computational
+substitution instances use the original Autosubst derivation.

@@ -1,9 +1,0 @@
--R . ""
-Nbe/Syntax/Def.v
-Nbe/Syntax/System.v
-Nbe/Domain/Def.v
-Nbe/Domain/Eval.v
-Nbe/Domain/Rb.v
-Nbe/Domain/Nbe.v
-Nbe/Utils/Notations.v
-Task.v

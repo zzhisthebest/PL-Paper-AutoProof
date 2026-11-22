@@ -23,8 +23,8 @@ Inductive sub : Env -> Typ -> Polar -> Typ -> Env -> Prop :=
     lookupExTy Δ x A ->
     sub Δ A Neg (TVar x) Δ
 | s_arr : forall Δ Ω Ψ p A B C D,
-    sub Ω C (neg p) A Ψ ->
-    sub Δ B p D Ω ->
+    sub Δ C (neg p) A Ω ->
+    sub Ω B p D Ψ ->
     sub Δ (Arr A B) p (Arr C D) Ψ
 | s_all : forall Δ Ψ p A B,
     sub (TyCons Δ) A p B (TyCons Ψ) ->
@@ -110,16 +110,16 @@ sub_ctx : Env -> Typ -> Context -> Env -> Typ -> Prop :=
     sub Δ A Pos B Ψ ->
     sub_ctx Δ A (CtxTyp B) Ψ B
 | s_trm_c : forall Δ A B Σ Ψ e A' A'' D,
-    close Ψ A ->
-    grd_typ Ψ A A' ->
-    ty (rm_sep Ψ) (CtxTyp A') e A'' ->
+    close Δ A ->
+    grd_typ Δ A A' ->
+    ty (rm_sep Δ) (CtxTyp A') e A'' ->
     sub_ctx Δ B Σ Ψ D ->
     sub_ctx Δ (Arr A B) (CtxTrm e Σ) Ψ (Arr A' D)
 | s_trm_o : forall Δ A B e Σ Ψ C D Ω,
-    open Ω A ->
-    ty (rm_sep Ω) CtxEmpty e C ->
-    sub Ω C Neg A Ψ ->
-    sub_ctx Δ B Σ Ω D ->
+    open Δ A ->
+    ty (rm_sep Δ) CtxEmpty e C ->
+    sub Δ C Neg A Ω ->
+    sub_ctx Ω B Σ Ψ D ->
     sub_ctx Δ (Arr A B) (CtxTrm e Σ) Ψ (Arr C D)
 | s_alll : forall Δ A e Σ Ψ B C D,
     sub_ctx (ExCons Δ) A (CtxTrm (ty_shift_tm e 0) (ty_shift_ctx Σ 0)) (ExTyCons Ψ B) (Arr (ty_shift C 0) (ty_shift D 0)) ->

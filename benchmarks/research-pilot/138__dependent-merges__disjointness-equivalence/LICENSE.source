@@ -1,0 +1,5 @@
+Original authors: Jinhao Tan and Bruno C. d. S. Oliveira.
+Source: https://github.com/tjhao/ecoop2023/tree/b04cad4c17daf4feb91a7067c42095efc51fe8d5/artifact/calculus
+The artifact is licensed under CC BY 4.0, as specified in section 5 of https://doi.org/10.4230/DARTS.9.2.2.
+License text: https://creativecommons.org/licenses/by/4.0/legalcode
+Adaptation: extracted definitions and theorem statements, removed proofs and unused imports, and added a standalone build file.

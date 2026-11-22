@@ -1,8 +1,0 @@
--R . ""
-SystemF.v
-Language.v
-Infrastructure.v
-Subtyping.v
-Disjointness.v
-Typing.v
-Task.v

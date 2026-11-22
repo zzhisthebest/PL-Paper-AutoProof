@@ -1,0 +1,4 @@
+-R theories diris
+theories/lambdabar/langtools.v
+theories/lambdabar/langdef.v
+Task.v

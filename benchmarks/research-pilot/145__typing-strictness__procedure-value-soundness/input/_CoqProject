@@ -1,0 +1,10 @@
+-R . strictness
+autosubst2/axioms.v
+autosubst2/fintype.v
+common/fin_util.v
+common/attributes.v
+cbpv/syntax.v
+cbpv/typing.v
+cbpv/semantics.v
+cbpv/semtyping.v
+Task.v

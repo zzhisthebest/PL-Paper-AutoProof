@@ -1,0 +1,1 @@
+Require Export SyntaxClassDefs SyntaxClassProperties SyntaxClassLemmas SyntaxClassSubstLemmas SyntaxClassSubstVarsLemmas SyntaxClassSubstPvarsLemmas ListSyntaxClasses SyntaxClassDepth.

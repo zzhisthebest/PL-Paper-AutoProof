@@ -1,0 +1,7 @@
+-R theories logrel_ifc
+theories/prelude/base.v
+theories/lambda_sec/lang.v
+theories/lambda_sec/lattice.v
+theories/lambda_sec/types.v
+theories/lambda_sec/typing.v
+Task.v

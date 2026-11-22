@@ -1,0 +1,6 @@
+-R proofs Fsub
+proofs/EffectExclusion/Tactics.v
+proofs/EffectExclusion/Fsub_LetSum_Definitions.v
+proofs/EffectExclusion/Fsub_LetSum_Infrastructure.v
+proofs/EffectExclusion/Fsub_LetSum_Lemmas.v
+Task.v

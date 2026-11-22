@@ -1,0 +1,15 @@
+-R . dislog
+utils/more_stdpp.v
+utils/graph.v
+lang/syntax.v
+lang/syntax_instances.v
+lang/substitution.v
+lang/head_semantics.v
+lang/semantics_cycle.v
+lang/disentangled.v
+lang/semantics.v
+types/substmap.v
+types/typing.v
+types/syntactical.v
+lang/reducible.v
+Task.v
