@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="499" viewBox="0 0 1260 499" role="img" aria-labelledby="baseline-title baseline-desc">
+<title id="baseline-title">100 道研究级题：5 小时内的累计通过曲线</title>
+<desc id="baseline-desc">按单题用时统计。5 小时预算下，DeepSeek Flash 加 Claude Code 通过 59 道，GPT‑6.2 Sol high 加 Codex 通过 92 道。</desc>
+<rect width="1260" height="499" fill="white"/>
+<g fill="#526570" font-family="Segoe UI, Noto Sans CJK SC, Microsoft YaHei, sans-serif" font-size="20">
+<text x="106" y="38" fill="#183142" font-weight="600">累计通过题数</text>
+<path d="M459 32h34" stroke="#af591e" stroke-width="4" stroke-dasharray="9 5"/><text x="503" y="38">DeepSeek Flash + Claude Code</text>
+<path d="M843 32h34" stroke="#117e79" stroke-width="4"/><text x="887" y="38">GPT‑6.2 Sol（high）+ Codex</text>
+<path d="M106 418.00H1163" stroke="#dce6e7"/><text x="93" y="418.00" text-anchor="end" dominant-baseline="middle">0</text>
+<path d="M106 346.80H1163" stroke="#dce6e7"/><text x="93" y="346.80" text-anchor="end" dominant-baseline="middle">20</text>
+<path d="M106 275.60H1163" stroke="#dce6e7"/><text x="93" y="275.60" text-anchor="end" dominant-baseline="middle">40</text>
+<path d="M106 204.40H1163" stroke="#dce6e7"/><text x="93" y="204.40" text-anchor="end" dominant-baseline="middle">60</text>
+<path d="M106 133.20H1163" stroke="#dce6e7"/><text x="93" y="133.20" text-anchor="end" dominant-baseline="middle">80</text>
+<path d="M106 62.00H1163" stroke="#dce6e7"/><text x="93" y="62.00" text-anchor="end" dominant-baseline="middle">100</text>
+<path d="M106.00 418v7" stroke="#8ba2a8"/><text x="106.00" y="452" text-anchor="middle">0</text>
+<path d="M317.40 418v7" stroke="#8ba2a8"/><text x="317.40" y="452" text-anchor="middle">1</text>
+<path d="M528.80 418v7" stroke="#8ba2a8"/><text x="528.80" y="452" text-anchor="middle">2</text>
+<path d="M740.20 418v7" stroke="#8ba2a8"/><text x="740.20" y="452" text-anchor="middle">3</text>
+<path d="M951.60 418v7" stroke="#8ba2a8"/><text x="951.60" y="452" text-anchor="middle">4</text>
+<path d="M1163.00 418v7" stroke="#8ba2a8"/><text x="1163.00" y="452" text-anchor="middle">5</text>
+<path d="M106 62V418H1163" fill="none" stroke="#8ba2a8" stroke-width="1.4"/>
+<path d="M106 418H121.09V414.44H123.91V410.88H125.85V407.32H127.55V403.76H128.14V400.20H132.66V396.64H144.46V393.08H149.16V389.52H152.39V385.96H153.10V382.40H156.15V378.84H158.91V375.28H161.61V371.72H184.63V368.16H192.97V364.60H195.96V361.04H196.37V357.48H197.37V353.92H202.07V350.36H202.42V346.80H209.64V343.24H216.57V339.68H218.98V336.12H227.61V332.56H232.02V329.00H275.35V325.44H292.80V321.88H295.03V318.32H301.19V314.76H322.39V311.20H341.30V307.64H342.53V304.08H348.93V300.52H371.95V296.96H381.41V293.40H427.03V289.84H445.83V286.28H452.28V282.72H469.73V279.16H486.99V275.60H503.61V272.04H504.49V268.48H523.05V264.92H528.27V261.36H551.94V257.80H602.26V254.24H676.13V250.68H676.78V247.12H681.89V243.56H689.58V240.00H737.38V236.44H805.62V232.88H808.20V229.32H877.79V225.76H880.90V222.20H938.09V218.64H943.09V215.08H1010.73V211.52H1025.71V207.96H1163" fill="none" stroke="#af591e" stroke-width="3.7" stroke-dasharray="9 5"/><circle cx="1163" cy="207.96" r="5" fill="#af591e"/><text x="1179" y="207.96" fill="#af591e" font-weight="700" font-size="26" dominant-baseline="middle">59</text>
+<path d="M106 418H109.70V414.44H109.99V410.88H111.58V407.32H112.99V403.76H113.75V400.20H114.63V396.64H114.75V393.08H114.98V389.52H117.33V385.96H117.45V382.40H117.51V378.84H117.98V375.28H118.04V371.72H118.39V368.16H121.15V364.60H123.38V361.04H123.97V357.48H125.08V353.92H125.32V350.36H126.20V346.80H129.20V343.24H129.43V339.68H130.55V336.12H131.43V332.56H131.84V329.00H133.19V325.44H134.25V321.88H134.83V318.32H136.77V314.76H138.94V311.20H139.24V307.64H140.24V304.08H142.11V300.52H143.05V296.96H143.64V293.40H144.46V289.84H144.82V286.28H145.11V282.72H146.69V279.16H148.87V275.60H152.92V272.04H154.33V268.48H155.80V264.92H155.91V261.36H157.44V257.80H157.56V254.24H160.73V250.68H161.67V247.12H162.26V243.56H166.07V240.00H166.37V236.44H181.05V232.88H181.11V229.32H181.22V225.76H189.80V222.20H193.26V218.64H193.55V215.08H206.88V211.52H212.87V207.96H213.64V204.40H214.28V200.84H217.75V197.28H221.68V193.72H222.50V190.16H226.20V186.60H228.67V183.04H233.43V179.48H233.54V175.92H237.30V172.36H243.23V168.80H263.26V165.24H265.78V161.68H269.78V158.12H270.83V154.56H272.18V151.00H287.28V147.44H290.56V143.88H299.20V140.32H303.13V136.76H342.83V133.20H348.76V129.64H356.86V126.08H371.60V122.52H400.96V118.96H404.72V115.40H466.50V111.84H536.61V108.28H559.81V104.72H703.38V101.16H747.72V97.60H809.37V94.04H861.34V90.48H1163" fill="none" stroke="#117e79" stroke-width="3.7"/><circle cx="1163" cy="90.48" r="5" fill="#117e79"/><text x="1179" y="90.48" fill="#117e79" font-weight="700" font-size="26" dominant-baseline="middle">92</text>
+<text x="634.5" y="487" text-anchor="middle" fill="#183142">每题时间预算（小时）</text>
+</g>
+</svg>
